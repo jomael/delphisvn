@@ -18,7 +18,7 @@
 {                                                                                                                      }
 {**********************************************************************************************************************}
 {                                                                                                                      }
-{ This unit contains import definitions for libapr.dll, Apache Portable Runtime 0.9.7 DLL.                             }
+{ This unit contains import declarations for libapr.dll, Apache Portable Runtime 0.9.7 DLL.                            }
 {                                                                                                                      }
 {**********************************************************************************************************************}
 
