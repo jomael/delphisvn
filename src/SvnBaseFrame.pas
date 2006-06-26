@@ -1,0 +1,142 @@
+{**********************************************************************************************************************}
+{                                                                                                                      }
+{ delphisvn: Subversion plugin for Borland Delphi                                                                      }
+{                                                                                                                      }
+{ The contents of this file are subject to the Mozilla Public License Version 1.1 (the "License"); you may not use     }
+{ this file except in compliance with the License. You may obtain a copy of the License at http://www.mozilla.org/MPL/ }
+{                                                                                                                      }
+{ Software distributed under the License is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, either      }
+{ express or implied. See the License for the specific language governing rights and limitations under the License.    }
+{                                                                                                                      }
+{ The Original Code is SvnBaseFrame.pas.                                                                               }
+{                                                                                                                      }
+{ The Initial Developer of the Original Code is Ondrej Kelle.                                                          }
+{ Portions created by Ondrej Kelle are Copyright Ondrej Kelle. All rights reserved.                                    }
+{                                                                                                                      }
+{ Contributors:                                                                                                        }
+{   Ondrej Kelle (tondrej)                                                                                             }
+{                                                                                                                      }
+{**********************************************************************************************************************}
+{                                                                                                                      }
+{ This unit contains a base frame class for descendants which provide visual feedback from Subversion calls running in }
+{ secondary threads.                                                                                                   }
+{                                                                                                                      }
+{**********************************************************************************************************************}
+
+unit SvnBaseFrame;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms, Dialogs, ActnList;
+
+const
+  AM_UPDATE = WM_USER + $100;
+
+type
+  TFrameSvnBase = class(TFrame)
+  private
+    FCancelled: Boolean;
+    FRunning: Boolean;
+  public
+    constructor Create(AOwner: TComponent); override;
+
+    procedure Cancel;
+    procedure Finished;
+    procedure HandleOpenExecute(Action: TAction); virtual;
+    procedure HandleOpenUpdate(Action: TAction); virtual;
+    procedure HandleShowDiffExecute(Action: TAction); virtual;
+    procedure HandleShowDiffUpdate(Action: TAction); virtual;
+    function IsRunning: Boolean;
+    procedure Starting;
+
+    property Cancelled: Boolean read FCancelled;
+    property Running: Boolean read FRunning;
+  end;
+
+implementation
+
+{$R *.dfm}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+{ TFrameSvnBase public }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+constructor TFrameSvnBase.Create(AOwner: TComponent);
+
+begin
+  inherited Create(AOwner);
+  FCancelled := False;
+  FRunning := False;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFrameSvnBase.Cancel;
+
+begin
+  FCancelled := True;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFrameSvnBase.Finished;
+
+begin
+  FRunning := False;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFrameSvnBase.HandleOpenExecute(Action: TAction);
+
+begin
+
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFrameSvnBase.HandleOpenUpdate(Action: TAction);
+
+begin
+
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFrameSvnBase.HandleShowDiffExecute(Action: TAction);
+
+begin
+
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFrameSvnBase.HandleShowDiffUpdate(Action: TAction);
+
+begin
+
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TFrameSvnBase.IsRunning: Boolean;
+
+begin
+  Result := not FRunning;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFrameSvnBase.Starting;
+
+begin
+  FCancelled := False;
+  FRunning := True;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+end.

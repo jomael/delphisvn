@@ -1,0 +1,8 @@
+TORTOISEADDED           ICON          ..\res\TortoiseAdded.ico
+TORTOISECONFLICT        ICON          ..\res\TortoiseConflict.ico
+TORTOISEDELETED         ICON          ..\res\TortoiseDeleted.ico
+TORTOISEINSUBVERSION    ICON          ..\res\TortoiseInSubVersion.ico
+TORTOISELOCKED          ICON          ..\res\TortoiseLocked.ico
+TORTOISEMODIFIED        ICON          ..\res\TortoiseModified.ico
+TORTOISEREADONLY        ICON          ..\res\TortoiseReadOnly.ico
+
