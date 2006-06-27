@@ -130,8 +130,8 @@
 			<Directories Name="UsePackages">False</Directories>
 		</Directories>
 		<Parameters>
-			<Parameters Name="RunParams"></Parameters>
-			<Parameters Name="HostApplication"></Parameters>
+			<Parameters Name="RunParams">-pDelphi -rBDSSvn</Parameters>
+			<Parameters Name="HostApplication">C:\Program Files\Borland\BDS\4.0\Bin\bds.exe</Parameters>
 			<Parameters Name="Launcher"></Parameters>
 			<Parameters Name="UseLauncher">False</Parameters>
 			<Parameters Name="DebugCWD"></Parameters>
@@ -150,7 +150,7 @@
 			<VersionInfo Name="MajorVer">1</VersionInfo>
 			<VersionInfo Name="MinorVer">0</VersionInfo>
 			<VersionInfo Name="Release">0</VersionInfo>
-			<VersionInfo Name="Build">15</VersionInfo>
+			<VersionInfo Name="Build">26</VersionInfo>
 			<VersionInfo Name="Debug">False</VersionInfo>
 			<VersionInfo Name="PreRelease">False</VersionInfo>
 			<VersionInfo Name="Special">False</VersionInfo>
@@ -162,7 +162,7 @@
 		<VersionInfoKeys>
 			<VersionInfoKeys Name="CompanyName">http://delphisvn.sourceforge.net/</VersionInfoKeys>
 			<VersionInfoKeys Name="FileDescription">Subversion client runtime</VersionInfoKeys>
-			<VersionInfoKeys Name="FileVersion">1.0.0.15</VersionInfoKeys>
+			<VersionInfoKeys Name="FileVersion">1.0.0.26</VersionInfoKeys>
 			<VersionInfoKeys Name="InternalName">svn</VersionInfoKeys>
 			<VersionInfoKeys Name="LegalCopyright">© http://delphisvn.sourceforge.net/</VersionInfoKeys>
 			<VersionInfoKeys Name="LegalTrademarks"></VersionInfoKeys>
