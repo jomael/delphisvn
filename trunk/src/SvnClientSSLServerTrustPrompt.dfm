@@ -88,14 +88,18 @@ object FormSvnClientSSLServerTrustPrompt: TFormSvnClientSSLServerTrustPrompt
         Anchors = [akLeft, akTop, akBottom]
         Caption = 'Do you accept the SSL server certificate?'
       end
+      object CheckBoxSave: TCheckBox
+        Left = 8
+        Top = 144
+        Width = 198
+        Height = 17
+        Caption = '&Save authentication data'
+        TabOrder = 0
+      end
     end
     object TabSheetCertificate: TTabSheet
       Caption = 'Certificate'
       ImageIndex = 1
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 0
       DesignSize = (
         427
         229)

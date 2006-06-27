@@ -35,6 +35,7 @@ type
     ButtonBrowse: TButton;
     ButtonCancel: TButton;
     ButtonOK: TButton;
+    CheckBoxSave: TCheckBox;
     EditCertFileName: TEdit;
     ImageLogo: TImage;
     LabelCertFileName: TLabel;
@@ -50,7 +51,7 @@ type
   end;
 
 function ShowSvnClientSSLClientCertPrompt(SvnClient: TSvnClient; const Realm: string;
-  var CertFileName: string): TModalResult;
+  var CertFileName: string; var Save: Boolean): TModalResult;
 
 implementation
 
@@ -66,7 +67,7 @@ resourcestring
 //----------------------------------------------------------------------------------------------------------------------
 
 function ShowSvnClientSSLClientCertPrompt(SvnClient: TSvnClient; const Realm: string;
-  var CertFileName: string): TModalResult;
+  var CertFileName: string; var Save: Boolean): TModalResult;
 
 var
   Form: TFormSvnClientSSLClientCertPrompt;
@@ -80,6 +81,7 @@ begin
       Form.LabelRealm.Caption := Format(SCertFileRealmCaption, [Realm]);
     Form.EditCertFileName.Text := CertFileName;
     Form.EditChange(Form.EditCertFileName);
+    Form.CheckBoxSave.Checked := Save;
     if CertFileName = '' then
       Form.ActiveControl := Form.EditCertFileName
     else
@@ -88,7 +90,10 @@ begin
     Result := Form.ShowModal;
 
     if Result = mrOK then
+    begin
       CertFileName := Form.EditCertFileName.Text;
+      Save := Form.CheckBoxSave.Checked;
+    end;
   finally
     Form.Free;
   end;

@@ -212,15 +212,15 @@ type
     sslCertAuthorityUnknown, sslCertOther);
 
   TLoginPromptEvent = procedure(Sender: TObject; const Realm: string; var UserName, Password: string;
-    var Cancel: Boolean) of object;
+    var Cancel, Save: Boolean) of object;
   TUserNamePromptEvent = procedure(Sender: TObject; const Realm: string; var UserName: string;
-    var Cancel: Boolean) of object;
+    var Cancel, Save: Boolean) of object;
   TSSLServerTrustPrompt = procedure(Sender: TObject; const Realm: string; const CertInfo: TSvnAuthSSLServerCertInfo;
-    Failures: TSSLServerTrustFailures; var Cancel: Boolean) of object;
+    Failures: TSSLServerTrustFailures; var Cancel, Save: Boolean) of object;
   TSSLClientCertPrompt = procedure(Sender: TObject; const Realm: string; var CertFileName: string;
-    var Cancel: Boolean) of object;
+    var Cancel, Save: Boolean) of object;
   TSSLClientPasswordPrompt = procedure(Sender: TObject; const Realm: string; var Password: string;
-    var Cancel: Boolean) of object;
+    var Cancel, Save: Boolean) of object;
 
   TSvnNotifyCallback = procedure(Sender: TObject; const Path, MimeType: string; Action: TSvnWCNotifyAction;
     Kind: TSvnNodeKind; ContentState, PropState: TSvnWCNotifyState; Revision: TSvnRevNum; var Cancel: Boolean)
@@ -250,14 +250,14 @@ type
 
     function GetInitialized: Boolean;
   protected
-    function DoLoginPrompt(const Realm: string; var UserName, Password: string): Boolean; virtual;
+    function DoLoginPrompt(const Realm: string; var UserName, Password: string; var Save: Boolean): Boolean; virtual;
     function DoNotify(const Path, MimeType: string; Action: TSvnWCNotifyAction; Kind: TSvnNodeKind;
       ContentState, PropState: TSvnWCNotifyState; Revision: TSvnRevNum): Boolean; virtual;
-    function DoSSLClientCertPrompt(const Realm: string; var CertFileName: string): Boolean; virtual;
-    function DoSSLClientPasswordPrompt(const Realm: string; var Password: string): Boolean; virtual;
+    function DoSSLClientCertPrompt(const Realm: string; var CertFileName: string; var Save: Boolean): Boolean; virtual;
+    function DoSSLClientPasswordPrompt(const Realm: string; var Password: string; var Save: Boolean): Boolean; virtual;
     function DoSSLServerTrustPrompt(const Realm: string; const CertInfo: TSvnAuthSSLServerCertInfo;
-      Failures: TSSLServerTrustFailures): Boolean; virtual;
-    function DoUserNamePrompt(const Realm: string; var UserName: string): Boolean; virtual;
+      Failures: TSSLServerTrustFailures; var Save: Boolean): Boolean; virtual;
+    function DoUserNamePrompt(const Realm: string; var UserName: string; var Save: Boolean): Boolean; virtual;
     function DoWCStatus(Path: PChar; const Status: TSvnWCStatus2): Boolean;
 
     property Cancelled: Boolean read FCancelled;
@@ -528,6 +528,7 @@ function SimplePrompt(out cred: PSvnAuthCredSimple; baton: Pointer; realm, usern
 
 var
   SRealm, SUserName, SPassword: string;
+  Save: Boolean;
 
 begin
   Result := nil;
@@ -541,15 +542,16 @@ begin
   else
     SUserName := '';
   SPassword := '';
+  Save := may_save;
 
-  if not TSvnClient(baton).DoLoginPrompt(SRealm, SUserName, SPassword) then // not cancelled
+  if not TSvnClient(baton).DoLoginPrompt(SRealm, SUserName, SPassword, Save) then // not cancelled
   begin
     cred := apr_pcalloc(pool, SizeOf(TSvnAuthCredSimple));
     if SUserName <> '' then
       cred^.username := apr_pstrdup(pool, PChar(SUserName));
     if SPassword <> '' then
       cred^.password := apr_pstrdup(pool, PChar(SPassword));
-    cred^.may_save := may_save;
+    cred^.may_save := Save;
   end;
 end;
 
@@ -560,6 +562,7 @@ function SSLClientCertPrompt(out cred: PSvnAuthCredSSLClientCert; baton: Pointer
 
 var
   SRealm, SCertFileName: string;
+  Save: Boolean;
 
 begin
   Result := nil;
@@ -569,12 +572,13 @@ begin
   else
     SRealm := '';
   SCertFileName := '';
-  if not TSvnClient(baton).DoSSLClientCertPrompt(SRealm, SCertFileName) then
+  Save := may_save;
+  if not TSvnClient(baton).DoSSLClientCertPrompt(SRealm, SCertFileName, Save) then
   begin
     cred := apr_pcalloc(pool, SizeOf(TSvnAuthCredSSLClientCert));
     if SCertFileName <> '' then
       cred^.cert_file := apr_pstrdup(pool, PChar(SCertFileName));
-    cred^.may_save := may_save;
+    cred^.may_save := Save;
   end;
 end;
 
@@ -585,6 +589,7 @@ function SSLClientPasswordPrompt(out cred: PSvnAuthCredSSLClientCertPw; baton: P
 
 var
   SRealm, SPassword: string;
+  Save: Boolean;
 
 begin
   Result := nil;
@@ -594,12 +599,13 @@ begin
   else
     SRealm := '';
   SPassword := '';
-  if not TSvnClient(baton).DoSSLClientPasswordPrompt(SRealm, SPassword) then
+  Save := may_save;
+  if not TSvnClient(baton).DoSSLClientPasswordPrompt(SRealm, SPassword, Save) then
   begin
     cred := apr_pcalloc(pool, SizeOf(TSvnAuthCredSSLClientCertPw));
     if SPassword <> '' then
       cred^.password := apr_pstrdup(pool, PChar(SPassword));
-    cred^.may_save := may_save;
+    cred^.may_save := Save;
   end;
 end;
 
@@ -611,6 +617,7 @@ function SSLServerTrustPrompt(out cred: PSvnAuthCredSSLServerTrust; baton: Point
 var
   SRealm: string;
   Failed: TSSLServerTrustFailures;
+  Save: Boolean;
 
 begin
   Result := nil;
@@ -631,11 +638,12 @@ begin
     Include(Failed, sslCertAuthorityUnknown);
   if failures and SVN_AUTH_SSL_OTHER <> 0 then
     Include(Failed, sslCertOther);
+  Save := may_save;
 
-  if not TSvnClient(baton).DoSSLServerTrustPrompt(SRealm, cert_info^, Failed) then
+  if not TSvnClient(baton).DoSSLServerTrustPrompt(SRealm, cert_info^, Failed, Save) then // not cancelled
   begin
     cred := apr_pcalloc(pool, SizeOf(TSvnAuthCredSSLServerTrust));
-    cred^.may_save := False;
+    cred^.may_save := Save;
     cred^.accepted_failures := failures;
   end;
 end;
@@ -821,6 +829,7 @@ function UserNamePrompt(out cred: PSvnAuthCredUsername; baton: Pointer; realm: P
 
 var
   SRealm, SUserName: string;
+  Save: Boolean;
 
 begin
   Result := nil;
@@ -830,13 +839,14 @@ begin
   else
     SRealm := '';
   SUserName := '';
+  Save := may_save;
 
-  if not TSvnClient(baton).DoUserNamePrompt(SRealm, SUserName) then
+  if not TSvnClient(baton).DoUserNamePrompt(SRealm, SUserName, Save) then // not cancelled
   begin
     cred := apr_pcalloc(pool, SizeOf(TSvnAuthCredUserName));
     if SUserName <> '' then
       cred^.username := apr_pstrdup(pool, PChar(SUserName));
-    cred^.may_save := may_save;
+    cred^.may_save := Save;
   end;
 end;
 
@@ -1594,12 +1604,12 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TSvnClient.DoLoginPrompt(const Realm: string; var UserName, Password: string): Boolean;
+function TSvnClient.DoLoginPrompt(const Realm: string; var UserName, Password: string; var Save: Boolean): Boolean;
 
 begin
   Result := not Assigned(FOnLoginPrompt);
   if not Result then
-    FOnLoginPrompt(Self, Realm, UserName, Password, Result);
+    FOnLoginPrompt(Self, Realm, UserName, Password, Result, Save);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -1627,43 +1637,43 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TSvnClient.DoSSLClientCertPrompt(const Realm: string; var CertFileName: string): Boolean;
+function TSvnClient.DoSSLClientCertPrompt(const Realm: string; var CertFileName: string; var Save: Boolean): Boolean;
 
 begin
   Result := not Assigned(FOnSSLClientCertPrompt);
   if not Result then
-    FOnSSLClientCertPrompt(Self, Realm, CertFileName, Result);
+    FOnSSLClientCertPrompt(Self, Realm, CertFileName, Result, Save);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TSvnClient.DoSSLClientPasswordPrompt(const Realm: string; var Password: string): Boolean;
+function TSvnClient.DoSSLClientPasswordPrompt(const Realm: string; var Password: string; var Save: Boolean): Boolean;
 
 begin
   Result := not Assigned(FOnSSLClientPasswordPrompt);
   if not Result then
-     FOnSSLClientPasswordPrompt(Self, Realm, Password, Result);
+     FOnSSLClientPasswordPrompt(Self, Realm, Password, Result, Save);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 function TSvnClient.DoSSLServerTrustPrompt(const Realm: string; const CertInfo: TSvnAuthSSLServerCertInfo;
-  Failures: TSSLServerTrustFailures): Boolean;
+  Failures: TSSLServerTrustFailures; var Save: Boolean): Boolean;
 
 begin
   Result := not Assigned(FOnSSLServerTrustPrompt);
   if not Result then
-    FOnSSLServerTrustPrompt(Self, Realm, CertInfo, Failures, Result);
+    FOnSSLServerTrustPrompt(Self, Realm, CertInfo, Failures, Result, Save);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TSvnClient.DoUserNamePrompt(const Realm: string; var UserName: string): Boolean;
+function TSvnClient.DoUserNamePrompt(const Realm: string; var UserName: string; var Save: Boolean): Boolean;
 
 begin
   Result := not Assigned(FOnUserNamePrompt);
   if not Result then
-    FOnUserNamePrompt(Self, Realm, UserName, Result);
+    FOnUserNamePrompt(Self, Realm, UserName, Result, Save);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

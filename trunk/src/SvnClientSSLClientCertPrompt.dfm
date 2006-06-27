@@ -85,6 +85,14 @@ object FormSvnClientSSLClientCertPrompt: TFormSvnClientSSLClientCertPrompt
     TabOrder = 3
     OnClick = ButtonBrowseClick
   end
+  object CheckBoxSave: TCheckBox
+    Left = 16
+    Top = 152
+    Width = 97
+    Height = 17
+    Caption = '&Save authentication data'
+    TabOrder = 4
+  end
   object OpenDialog: TOpenDialog
     Filter = 'CA SSL certificates (*.pem)|*.pem|All files (*.*)|*.*'
     Options = [ofHideReadOnly, ofPathMustExist, ofFileMustExist, ofEnableSizing, ofDontAddToRecent]
