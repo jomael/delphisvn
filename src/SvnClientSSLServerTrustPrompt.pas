@@ -34,6 +34,7 @@ type
   TFormSvnClientSSLServerTrustPrompt = class(TForm)
     ButtonCancel: TButton;
     ButtonOK: TButton;
+    CheckBoxSave: TCheckBox;
     EditFingerprint: TEdit;
     EditHostName: TEdit;
     EditIssuer: TEdit;
@@ -60,7 +61,8 @@ type
   end;
 
 function ShowSvnClientSSLServerTrustPrompt(SvnClient: TSvnClient; const Realm: string;
-  const CertInfo: TSvnAuthSSLServerCertInfo; Failures: TSSLServerTrustFailures): TModalResult;
+  const CertInfo: TSvnAuthSSLServerCertInfo; Failures: TSSLServerTrustFailures;
+  var Save: Boolean): TModalResult;
 
 implementation
 
@@ -82,7 +84,8 @@ resourcestring
 //----------------------------------------------------------------------------------------------------------------------
 
 function ShowSvnClientSSLServerTrustPrompt(SvnClient: TSvnClient; const Realm: string;
-  const CertInfo: TSvnAuthSSLServerCertInfo; Failures: TSSLServerTrustFailures): TModalResult;
+  const CertInfo: TSvnAuthSSLServerCertInfo; Failures: TSSLServerTrustFailures;
+  var Save: Boolean): TModalResult;
 
 var
   Form: TFormSvnClientSSLServerTrustPrompt;
@@ -113,6 +116,7 @@ begin
     Form.EditIssuer.Text := CertInfo.issuer_dname;
     Form.MemoCertData.Text := CertInfo.ascii_cert;
     Form.LabelFailures.Caption := SServerSSLCertFailures;
+    Form.CheckBoxSave.Checked := Save;
     Y := 40;
     if sslCertNotYetValid in Failures then
     begin
@@ -141,8 +145,11 @@ begin
     end;
     Inc(Y, 16);
     Form.LabelTrustPrompt.Top := Y;
+    Form.CheckBoxSave.Top := Y + 24;
 
     Result := Form.ShowModal;
+    if Result = mrOK then
+      Save := Form.CheckBoxSave.Checked;
   finally
     Form.Free;
   end;

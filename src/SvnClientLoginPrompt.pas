@@ -36,6 +36,7 @@ type
   TFormSvnClientLoginPrompt = class(TForm)
     ButtonCancel: TButton;
     ButtonOK: TButton;
+    CheckBoxSave: TCheckBox;
     EditPassword: TEdit;
     EditUserName: TEdit;
     ImageLogo: TImage;
@@ -52,9 +53,9 @@ type
   end;
 
 function ShowSvnClientLoginPrompt(SvnClient: TSvnClient; const Realm: string;
-  var UserName, Password: string; Options: TLoginPromptOptions = []): TModalResult;
+  var UserName, Password: string; var Save: Boolean; Options: TLoginPromptOptions = []): TModalResult;
 function ShowSvnClientSSLClientPasswordPrompt(SvnClient: TSvnClient; const Realm: string;
-  var Password: string): TModalResult;
+  var Password: string; var Save: Boolean): TModalResult;
 
 implementation
 
@@ -70,7 +71,7 @@ resourcestring
 //----------------------------------------------------------------------------------------------------------------------
 
 function ShowSvnClientLoginPrompt(SvnClient: TSvnClient; const Realm: string;
-  var UserName, Password: string; Options: TLoginPromptOptions = []): TModalResult;
+  var UserName, Password: string; var Save: Boolean; Options: TLoginPromptOptions = []): TModalResult;
 
 var
   Form: TFormSvnClientLoginPrompt;
@@ -105,6 +106,7 @@ begin
     if lpoPassword in Options then
       Form.EditPassword.Text := Password;
     Form.EditChange(Form.EditUserName);
+    Form.CheckBoxSave.Checked := Save;
 
     if Options = [lpoUserName, lpoPassword] then
     begin
@@ -135,6 +137,7 @@ begin
     if Result = mrOK then
     begin
       UserName := Form.EditUserName.Text;
+      Save := Form.CheckBoxSave.Checked;
       if lpoPassword in Options then
         Password := Form.EditPassword.Text;
     end;
@@ -146,7 +149,7 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 function ShowSvnClientSSLClientPasswordPrompt(SvnClient: TSvnClient; const Realm: string;
-  var Password: string): TModalResult;
+  var Password: string; var Save: Boolean): TModalResult;
 
 var
   Form: TFormSvnClientLoginPrompt;
