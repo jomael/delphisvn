@@ -542,7 +542,7 @@ begin
     SUserName := '';
   SPassword := '';
 
-  if not TSvnClient(baton).DoLoginPrompt(SRealm, SUserName, SPassword) then // not canceled
+  if not TSvnClient(baton).DoLoginPrompt(SRealm, SUserName, SPassword) then // not cancelled
   begin
     cred := apr_pcalloc(pool, SizeOf(TSvnAuthCredSimple));
     if SUserName <> '' then

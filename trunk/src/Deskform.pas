@@ -18,8 +18,8 @@
 {                                                                                                                      }
 {**********************************************************************************************************************}
 {                                                                                                                      }
-{ This unit contains a stub unit for TDesktopForm which is contained in designide100.bpl. It's intended purpose is     }
-{ only to be able to open and design any descendant forms within the IDE.                                              }
+{ This is a stub unit for TDesktopForm which is contained in designide100.bpl. It's intended purpose is only to be     }
+{ able to open and design descendant forms within the IDE.                                                             }
 {                                                                                                                      }
 {**********************************************************************************************************************}
 

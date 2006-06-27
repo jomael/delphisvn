@@ -86,6 +86,7 @@ type
     FMenuItem: TMenuItem;
     FSettings: TSvnIDESettings;
     FSvnClient: TSvnClient;
+    FSyncData: Pointer;
 
     procedure Finalize;
     procedure GetDirectories(Directories: TStrings);
@@ -99,6 +100,12 @@ type
     procedure SvnClientSSLServerTrustPrompt(Sender: TObject; const Realm: string;
       const CertInfo: TSvnAuthSSLServerCertInfo; Failures: TSSLServerTrustFailures; var Cancel: Boolean);
     procedure SvnClientUserNamePrompt(Sender: TObject; const Realm: string; var UserName: string; var Cancel: Boolean);
+
+    procedure SyncLoginPrompt;
+    procedure SyncSSLClientCertPrompt;
+    procedure SyncSSLClientPasswordPrompt;
+    procedure SyncSSLServerTrustPrompt;
+    procedure SyncUserNamePrompt;
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
@@ -138,6 +145,40 @@ type
   THistoryNodeData = record
     History: IOTAFileHistory;
     Index: Integer;
+  end;
+
+  PSyncLoginPrompt = ^TSyncLoginPrompt;
+  TSyncLoginPrompt = record
+    SvnClient: TSvnClient;
+    Realm: string;
+    UserName: string;
+    Password: string;
+    Cancel: Boolean;
+  end;
+
+  PSyncSSLClientCertPrompt = ^TSyncSSLClientCertPrompt;
+  TSyncSSLClientCertPrompt = record
+    SvnClient: TSvnClient;
+    Realm: string;
+    CertFileName: string;
+    Cancel: Boolean;
+  end;
+
+  PSyncSSLClientPasswordPrompt = ^TSyncSSLClientPasswordPrompt;
+  TSyncSSLClientPasswordPrompt = record
+    SvnClient: TSvnClient;
+    Realm: string;
+    Password: string;
+    Cancel: Boolean;
+  end;
+
+  PSyncSSLServerTrustPrompt = ^TSyncSSLServerTrustPrompt;
+  TSyncSSLServerTrustPrompt = record
+    SvnClient: TSvnClient;
+    Realm: string;
+    CertInfo: TSvnAuthSSLServerCertInfo;
+    Failures: TSSLServerTrustFailures;
+    Cancel: Boolean;
   end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -490,7 +531,22 @@ procedure TSvnIDEClient.SvnClientLoginPrompt(Sender: TObject; const Realm: strin
   var Cancel: Boolean);
 
 begin
-  Cancel := ShowSvnClientLoginPrompt(Sender as TSvnClient, Realm, UserName, Password) <> mrOK;
+  FSyncData := AllocMem(SizeOf(TSyncLoginPrompt));
+  try
+    PSyncLoginPrompt(FSyncData)^.SvnClient := Sender as TSvnClient;
+    PSyncLoginPrompt(FSyncData)^.Realm := Realm;
+    PSyncLoginPrompt(FSyncData)^.UserName := UserName;
+    PSyncLoginPrompt(FSyncData)^.Password := Password;
+    PSyncLoginPrompt(FSyncData)^.Cancel := Cancel;
+    TThread.Synchronize(nil, SyncLoginPrompt);
+    UserName := PSyncLoginPrompt(FSyncData)^.UserName;
+    Password := PSyncLoginPrompt(FSyncData)^.Password;
+    Cancel := PSyncLoginPrompt(FSyncData)^.Cancel;
+  finally
+    System.Finalize(TSyncLoginPrompt(FSyncData^));
+    FreeMem(FSyncData);
+    FSyncData := nil;
+  end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -499,7 +555,20 @@ procedure TSvnIDEClient.SvnClientSSLClientCertPrompt(Sender: TObject; const Real
   var Cancel: Boolean);
 
 begin
-  Cancel := ShowSvnClientSSLClientCertPrompt(Sender as TSvnClient, Realm, CertFileName) <> mrOK;
+  FSyncData := AllocMem(SizeOf(TSyncSSLClientCertPrompt));
+  try
+    PSyncSSLClientCertPrompt(FSyncData)^.SvnClient := Sender as TSvnClient;
+    PSyncSSLClientCertPrompt(FSyncData)^.Realm := Realm;
+    PSyncSSLClientCertPrompt(FSyncData)^.CertFileName := CertFileName;
+    PSyncSSLClientCertPrompt(FSyncData)^.Cancel := Cancel;
+    TThread.Synchronize(nil, SyncSSLClientCertPrompt);
+    CertFileName := PSyncSSLClientCertPrompt(FSyncData)^.CertFileName;
+    Cancel := PSyncSSLClientCertPrompt(FSyncData)^.Cancel;
+  finally
+    System.Finalize(TSyncSSLClientCertPrompt(FSyncData^));
+    FreeMem(FSyncData);
+    FSyncData := nil;
+  end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -508,7 +577,20 @@ procedure TSvnIDEClient.SvnClientSSLClientPasswordPrompt(Sender: TObject; const 
   var Cancel: Boolean);
 
 begin
-  Cancel := ShowSvnClientSSLClientPasswordPrompt(Sender as TSvnClient, Realm, Password) <> mrOK;
+  FSyncData := AllocMem(SizeOf(TSyncSSLClientPasswordPrompt));
+  try
+    PSyncSSLClientPasswordPrompt(FSyncData)^.SvnClient := Sender as TSvnClient;
+    PSyncSSLClientPasswordPrompt(FSyncData)^.Realm := Realm;
+    PSyncSSLClientPasswordPrompt(FSyncData)^.Password := Password;
+    PSyncSSLClientPasswordPrompt(FSyncData)^.Cancel := Cancel;
+    TThread.Synchronize(nil, SyncSSLClientPasswordPrompt);
+    Password := PSyncSSLClientPasswordPrompt(FSyncData)^.Password;
+    Cancel := PSyncSSLClientPasswordPrompt(FSyncData)^.Cancel;
+  finally
+    System.Finalize(TSyncSSLClientPasswordPrompt(FSyncData^));
+    FreeMem(FSyncData);
+    FSyncData := nil;
+  end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -517,7 +599,20 @@ procedure TSvnIDEClient.SvnClientSSLServerTrustPrompt(Sender: TObject; const Rea
   const CertInfo: TSvnAuthSSLServerCertInfo; Failures: TSSLServerTrustFailures; var Cancel: Boolean);
 
 begin
-  Cancel := ShowSvnClientSSLServerTrustPrompt(Sender as TSvnClient, Realm, CertInfo, Failures) <> mrOK;
+  FSyncData := AllocMem(SizeOf(TSyncSSLServerTrustPrompt));
+  try
+    PSyncSSLServerTrustPrompt(FSyncData)^.SvnClient := Sender as TSvnClient;
+    PSyncSSLServerTrustPrompt(FSyncData)^.Realm := Realm;
+    PSyncSSLServerTrustPrompt(FSyncData)^.CertInfo := CertInfo;
+    PSyncSSLServerTrustPrompt(FSyncData)^.Failures := Failures;
+    PSyncSSLServerTrustPrompt(FSyncData)^.Cancel := Cancel;
+    TThread.Synchronize(nil, SyncSSLServerTrustPrompt);
+    Cancel := PSyncSSLServerTrustPrompt(FSyncData)^.Cancel;
+  finally
+    System.Finalize(TSyncSSLServerTrustPrompt(FSyncData^));
+    FreeMem(FSyncData);
+    FSyncData := nil;
+  end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -525,12 +620,67 @@ end;
 procedure TSvnIDEClient.SvnClientUserNamePrompt(Sender: TObject; const Realm: string; var UserName: string;
   var Cancel: Boolean);
 
-var
-  DummyPassword: string;
+begin
+  FSyncData := AllocMem(SizeOf(TSyncLoginPrompt));
+  try
+    PSyncLoginPrompt(FSyncData)^.SvnClient := Sender as TSvnClient;
+    PSyncLoginPrompt(FSyncData)^.Realm := Realm;
+    PSyncLoginPrompt(FSyncData)^.UserName := UserName;
+    PSyncLoginPrompt(FSyncData)^.Password := '';
+    PSyncLoginPrompt(FSyncData)^.Cancel := Cancel;
+    TThread.Synchronize(nil, SyncUserNamePrompt);
+    UserName := PSyncLoginPrompt(FSyncData)^.UserName;
+    Cancel := PSyncLoginPrompt(FSyncData)^.Cancel;
+  finally
+    System.Finalize(TSyncLoginPrompt(FSyncData^));
+    FreeMem(FSyncData);
+    FSyncData := nil;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnIDEClient.SyncLoginPrompt;
 
 begin
-  DummyPassword := '';
-  Cancel := ShowSvnClientLoginPrompt(Sender as TSvnClient, Realm, UserName, DummyPassword, [lpoUserName]) <> mrOK;
+  with PSyncLoginPrompt(FSyncData)^ do
+    Cancel := ShowSvnClientLoginPrompt(SvnClient, Realm, UserName, Password) <> mrOK;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnIDEClient.SyncSSLClientCertPrompt;
+
+begin
+  with PSyncSSLClientCertPrompt(FSyncData)^ do
+    Cancel := ShowSvnClientSSLClientCertPrompt(SvnClient, Realm, CertFileName) <> mrOK;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnIDEClient.SyncSSLClientPasswordPrompt;
+
+begin
+  with PSyncSSLClientPasswordPrompt(FSyncData)^ do
+    Cancel := ShowSvnClientSSLClientPasswordPrompt(SvnClient, Realm, Password) <> mrOK;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnIDEClient.SyncSSLServerTrustPrompt;
+
+begin
+  with PSyncSSLServerTrustPrompt(FSyncData)^ do
+    Cancel := ShowSvnClientSSLServerTrustPrompt(SvnClient, Realm, CertInfo, Failures) <> mrOK;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnIDEClient.SyncUserNamePrompt;
+
+begin
+  with PSyncLoginPrompt(FSyncData)^ do
+    Cancel := ShowSvnClientLoginPrompt(SvnClient, Realm, UserName, Password, [lpoUserName]) <> mrOK;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -548,6 +698,7 @@ begin
   FEditorView := nil;
   FMenuItem := nil;
   FSettings := TSvnIDESettings.Create;
+  FSyncData := nil;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

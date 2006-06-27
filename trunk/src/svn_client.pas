@@ -2621,10 +2621,14 @@ var
 //----- svn_client.h ---------------------------------------------------------------------------------------------------
 
 type
+  TErrorData = record
+    Code: Integer; // error code
+    SPos: Integer; // substring start pos within Message
+    SLen: Integer; // substring length
+  end;
   ESvnError = class(EAprError)
   private
-    FErrorCodes: array of Integer;
-    FMessages: array of string;
+    FErrors: array of TErrorData;
 
     function GetCount: Integer;
     function GetErrorCodes(Index: Integer): Integer;
@@ -4564,7 +4568,7 @@ end;
 function ESvnError.GetCount: Integer;
 
 begin
-  Result := Length(FErrorCodes);
+  Result := Length(FErrors);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -4572,8 +4576,8 @@ end;
 function ESvnError.GetErrorCodes(Index: Integer): Integer;
 
 begin
-  if (Index >= Low(FErrorCodes)) and (Index <= High(FErrorCodes)) then
-    Result := FErrorCodes[Index]
+  if (Index >= Low(FErrors)) and (Index <= High(FErrors)) then
+    Result := FErrors[Index].Code
   else
     Result := -1;
 end;
@@ -4583,8 +4587,8 @@ end;
 function ESvnError.GetMessages(Index: Integer): string;
 
 begin
-  if (Index >= Low(FErrorCodes)) and (Index <= High(FErrorCodes)) then
-    Result := FMessages[Index]
+  if (Index >= Low(FErrors)) and (Index <= High(FErrors)) then
+    Result := Copy(Message, FErrors[Index].SPos, FErrors[Index].SLen)
   else
     Result := '';
 end;
@@ -4599,6 +4603,8 @@ constructor ESvnError.Create(Error: PSvnError);
 
 var
   E: PSvnError;
+  CurPos: Integer;
+  S: string;
 
 begin
   if Assigned(Error) then
@@ -4608,21 +4614,38 @@ begin
     inherited Create(APR_SUCCESS);
     Exit;
   end;
-  Message := GetSvnErrorMessage(Error^.apr_err);
 
-  E := Error^.child;
+  Message := '';
+  CurPos := 1;
+  E := Error;
   while Assigned(E) do
   begin
-    SetLength(FErrorCodes, Length(FErrorCodes) + 1);
-    SetLength(FMessages, Length(FMessages) + 1);
-    FErrorCodes[High(FErrorCodes)] := E^.apr_err;
+    SetLength(FErrors, Length(FErrors) + 1);
+
     if Assigned(E^.message) then
-      FMessages[High(FMessages)] := E^.message
+      S := E^.message
     else
-      FMessages[High(FMessages)] := GetSvnErrorMessage(E^.apr_err);
+      S := GetSvnErrorMessage(E^.apr_err);
+
+    with FErrors[High(FErrors)] do
+    begin
+      Code := E^.apr_err;
+      SPos := CurPos;
+      SLen := Length(S);
+    end;
+
+    if Message <> '' then
+    begin
+      Message := Message + #13#10;
+      Inc(CurPos, 2);
+    end;
+
+    Message := Message + S;
+    Inc(CurPos, Length(S));
 
     E := E^.child;
   end;
+
   svn_error_clear(Error);
 end;
 
@@ -4631,9 +4654,7 @@ end;
 destructor ESvnError.Destroy;
 
 begin
-  Finalize(FMessages);
-  FMessages := nil;
-  FErrorCodes := nil;
+  FErrors := nil;
   inherited Destroy;
 end;
 
