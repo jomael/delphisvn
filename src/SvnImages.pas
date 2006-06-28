@@ -112,7 +112,7 @@ const
   LargeFlags: array[Boolean] of Cardinal = (SHGFI_SMALLICON, 0);
 
 var
-  S: string;
+  Ext, S: string;
   Index: Integer;
   FileInfo: TSHFileInfo;
   SysImageList: THandle;
@@ -123,13 +123,27 @@ begin
   if Path = '' then
     Exit;
 
-  if AnsiSameText(ExcludeTrailingPathDelimiter(Path), ExtractFileDrive(Path)) then
-    S := Path
+  if FileGetAttr(Path) and FILE_ATTRIBUTE_DIRECTORY = 0 then
+  begin
+    Ext := AnsiUpperCase(ExtractFileExt(Path));
+    // for files with no extension, store invalid filename character '?' (to distinguish from non-root directories)
+    if Ext = '' then
+      S := '?'
+    // for *.exe and *.ico files, store the full path to use their individual icons
+    else if AnsiSameText(Ext, '.ICO') or AnsiSameText(Ext, '.EXE') then
+      S := Path
+    // otherwise store the extension
+    else
+      S := Ext;
+  end
   else
   begin
-    S := AnsiUpperCase(ExtractFileExt(Path));
-    if S = '' then
-      S := Path;
+    // for root directories, store the full path to use their individual icons (local drives vs. network shares)
+    if AnsiSameText(ExcludeTrailingPathDelimiter(Path), ExtractFileDrive(Path)) then
+      S := Path
+    // for non-root directories, store an empty string
+    else
+      S := '';
   end;
 
   if FShellCache.Find(S, Index) then
