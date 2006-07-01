@@ -25,7 +25,7 @@ object FrameSvnListView: TFrameSvnListView
     TreeOptions.AutoOptions = [toAutoDropExpand, toAutoScrollOnExpand, toAutoSort, toAutoTristateTracking, toAutoDeleteMovedNodes]
     TreeOptions.MiscOptions = [toAcceptOLEDrop, toCheckSupport, toFullRepaintOnResize, toInitOnSave, toReportMode, toToggleOnDblClick, toWheelPanning]
     TreeOptions.PaintOptions = [toShowDropmark, toThemeAware, toUseBlendedImages]
-    TreeOptions.SelectionOptions = [toMultiSelect]
+    TreeOptions.SelectionOptions = [toFullRowSelect, toMultiSelect]
     OnAfterCellPaint = TreeAfterCellPaint
     OnCompareNodes = TreeCompareNodes
     OnGetText = TreeGetText

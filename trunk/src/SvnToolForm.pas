@@ -59,10 +59,12 @@ type
 
   TFormSvnTools = class(TDockableToolbarForm)
     ActionOpen: TAction;
+    ActionShowBlame: TAction;
     ActionShowDiff: TAction;
     MenuDockable: TMenuItem;
     MenuOpen: TMenuItem;
     MenuSeparator1: TMenuItem;
+    MenuShowBlame: TMenuItem;
     MenuShowDiff: TMenuItem;
     MenuStayOnTop: TMenuItem;
     ToolButtonCancel: TToolButton;
@@ -79,6 +81,8 @@ type
 
     procedure ActionOpenExecute(Sender: TObject);
     procedure ActionOpenUpdate(Sender: TObject);
+    procedure ActionShowBlameExecute(Sender: TObject);
+    procedure ActionShowBlameUpdate(Sender: TObject);
     procedure ActionShowDiffExecute(Sender: TObject);
     procedure ActionShowDiffUpdate(Sender: TObject);
     procedure PopupMenu1Popup(Sender: TObject);
@@ -482,6 +486,26 @@ begin
     FFrame.HandleOpenUpdate(Sender as TAction)
   else
     (Sender as TAction).Visible := False;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFormSvnTools.ActionShowBlameExecute(Sender: TObject);
+
+begin
+  inherited;
+  if Assigned(FFrame) then
+    FFrame.HandleShowBlameExecute(Sender as TAction);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFormSvnTools.ActionShowBlameUpdate(Sender: TObject);
+
+begin
+  inherited;
+  if Assigned(FFrame) then
+    FFrame.HandleShowBlameUpdate(Sender as TAction);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

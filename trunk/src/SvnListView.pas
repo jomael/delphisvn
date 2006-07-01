@@ -140,7 +140,8 @@ begin
     if FCheckBoxes then
       Result^.CheckType := ctCheckBox;
     Data := Tree.GetNodeData(Result);
-    Data^.Item := Item;
+    if Assigned(Data) then
+      Data^.Item := Item;
   end;
 end;
 

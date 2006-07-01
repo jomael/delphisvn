@@ -37,18 +37,50 @@ type
   TSvnClient = class;
   TSvnItem = class;
 
+  TSvnBlameItem = class
+  private
+    FAuthor: string;
+    FLine: string;
+    FLineNo: Int64;
+    FRevision: Integer;
+    FTime: TDateTime;
+  public
+    property Author: string read FAuthor;
+    property Line: string read FLine;
+    property LineNo: Int64 read FLineNo;
+    property Revision: Integer read FRevision;
+    property Time: TDateTime read FTime;
+  end;
+
   TSvnHistoryItem = class
   private
     FAuthor: string;
+    FBlame: TList;
     FFile: string;
+    FLoadingBlame: Boolean;
     FLogMessage: string;
     FOwner: TSvnItem;
     FRevision: Integer;
     FTime: TDateTime;
+
+    procedure BlameCallback(Sender: TObject; LineNo: Int64; Revision: Integer; const Author: string; Time: TDateTime;
+      const Line: string; var Cancel: Boolean);
+    procedure ClearBlame;
+    function GetBlameCount: Integer;
+    function GetBlameItems(Index: Integer): TSvnBlameItem;
+    procedure ReloadBlame;
   public
+    constructor Create;
+    destructor Destroy; override;
+
     function GetFile: string;
+    function HasBlameLoaded: Boolean;
+    function IsLoadingBlame: Boolean;
+    procedure StartLoadingBlame(ANotify: TNotifyEvent = nil);
 
     property Author: string read FAuthor;
+    property BlameCount: Integer read GetBlameCount;
+    property BlameItems[Index: Integer]: TSvnBlameItem read GetBlameItems;
     property LogMessage: string read FLogMessage;
     property Owner: TSvnItem read FOwner;
     property Revision: Integer read FRevision;
@@ -222,6 +254,8 @@ type
   TSSLClientPasswordPrompt = procedure(Sender: TObject; const Realm: string; var Password: string;
     var Cancel, Save: Boolean) of object;
 
+  TSvnBlameCallback = procedure(Sender: TObject; LineNo: Int64; Revision: Integer; const Author: string;
+    Time: TDateTime; const Line: string; var Cancel: Boolean) of object;
   TSvnNotifyCallback = procedure(Sender: TObject; const Path, MimeType: string; Action: TSvnWCNotifyAction;
     Kind: TSvnNodeKind; ContentState, PropState: TSvnWCNotifyState; Revision: TSvnRevNum; var Cancel: Boolean)
     of object;
@@ -239,6 +273,8 @@ type
     FPoolUtf8: PAprPool; // pool for UTF-8 routines
     FUserName: string;
 
+    FBlameCallback: TSvnBlameCallback;
+    FBlameSubPool: PAprPool;
     FNotifyCallback: TSvnNotifyCallback;
     FStatusCallback: TSvnStatusCallback;
 
@@ -250,6 +286,7 @@ type
 
     function GetInitialized: Boolean;
   protected
+    function DoBlame(LineNo: Int64; Revision: Integer; const Author, Date, Line: string): Boolean;
     function DoLoginPrompt(const Realm: string; var UserName, Password: string; var Save: Boolean): Boolean; virtual;
     function DoNotify(const Path, MimeType: string; Action: TSvnWCNotifyAction; Kind: TSvnNodeKind;
       ContentState, PropState: TSvnWCNotifyState; Revision: TSvnRevNum): Boolean; virtual;
@@ -265,6 +302,8 @@ type
     constructor Create;
     destructor Destroy; override;
 
+    procedure Blame(const PathName: string; Callback: TSvnBlameCallback; StartRevision: Integer = 1;
+      EndRevision: Integer = -1; PegRevision: Integer = -1; SubPool: PAprPool = nil);
     procedure Cleanup(const PathName: string; SubPool: PAprPool = nil);
     function Commit(PathNames: TStrings; const LogMessage: string; Callback: TSvnNotifyCallback = nil;
       Recurse: Boolean = True; KeepLocks: Boolean = False; SubPool: PAprPool = nil): Boolean;
@@ -353,6 +392,7 @@ const
   NodeKindStrings: array[TSvnNodeKind] of string = (SNodeKindNone, SNodeKindFile, SNodeKindDir, SNodeKindUnknown);
 
 function AprTimeToDateTime(AprTime: TAprTime): TDateTime;
+function SvnStrToDateTime(const S: string; Pool: PAprPool): TDateTime;
 function TzToUTCDateTime(Value: TDateTime): TDateTime;
 function UTCToTzDateTime(Value: TDateTime): TDateTime;
 
@@ -469,6 +509,35 @@ begin
       SetLength(Result, StrLen(PChar(Result)));
     Malloc.Free(P);
   end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function SvnStrToDateTime(const S: string; Pool: PAprPool): TDateTime;
+
+var
+  AprTime: TAprTime;
+  Error: PSvnError;
+
+begin
+  Result := 0;
+  AprTime := 0;
+  Error := svn_time_from_cstring(AprTime, PChar(S), Pool);
+  if Assigned(Error) then
+    svn_error_clear(Error)
+  else
+    Result := AprTimeToDateTime(AprTime);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function BlameReceiver(baton: Pointer; line_no: Int64; revision: TSvnRevNum; author, date, line: PChar;
+  pool: PAprPool): PSvnError; cdecl;
+
+begin
+  Result := nil;
+  if revision <> SVN_INVALID_REVNUM then
+    TSvnClient(baton).DoBlame(line_no, revision, author, date, line);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -876,9 +945,171 @@ begin
   Result := nil;
 end;
 
+type
+  TBlameThread = class(TThread)
+  private
+    FItem: TSvnHistoryItem;
+    FNotify: TNotifyEvent;
+  protected
+    procedure Execute; override;
+  public
+    constructor Create(AItem: TSvnHistoryItem; ANotify: TNotifyEvent);
+  end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+{ TBlameThread protected }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TBlameThread.Execute;
+
+begin
+  try
+    FItem.ReloadBlame;
+    if Assigned(FNotify) then
+      FNotify(FItem);
+  finally
+    FItem.FLoadingBlame := False;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+{ TBlameThread public }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+constructor TBlameThread.Create(AItem: TSvnHistoryItem; ANotify: TNotifyEvent);
+
+begin
+  FItem := AItem;
+  FNotify := ANotify;
+  FreeOnTerminate := True;
+  inherited Create(False);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+{ TSvnHistoryItem private }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnHistoryItem.BlameCallback(Sender: TObject; LineNo: Int64; Revision: Integer; const Author: string;
+  Time: TDateTime; const Line: string; var Cancel: Boolean);
+
+var
+  Item: TSvnBlameItem;
+
+begin
+  Cancel := False;
+  Item := TSvnBlameItem.Create;
+  try
+    Item.FLineNo := LineNo;
+    Item.FRevision := Revision;
+    Item.FAuthor := Author;
+    Item.FTime := Time;
+    Item.FLine := Line;
+    
+    FBlame.Add(Item);
+  except
+    Item.Free;
+    raise;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnHistoryItem.ClearBlame;
+
+var
+  I: Integer;
+
+begin
+  if Assigned(FBlame) then
+  begin
+    for I := 0 to FBlame.Count - 1 do
+      TObject(FBlame[I]).Free;
+    FreeAndNil(FBlame);
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnHistoryItem.ReloadBlame;
+
+begin
+  ClearBlame;
+
+  FBlame := TList.Create;
+  try
+    FOwner.FSvnClient.Blame(FOwner.PathName, BlameCallback, 1, FRevision, FOwner.BaseRevision);
+  except
+    ClearBlame;
+    raise;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnHistoryItem.StartLoadingBlame(ANotify: TNotifyEvent = nil);
+
+begin
+  if FLoadingBlame then
+    Exit;
+  FLoadingBlame := True;
+  TBlameThread.Create(Self, ANotify);
+end;
+
 //----------------------------------------------------------------------------------------------------------------------
 
 { TSvnHistoryItem public }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+constructor TSvnHistoryItem.Create;
+
+begin
+  inherited Create;
+  FBlame := nil;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+destructor TSvnHistoryItem.Destroy;
+
+begin
+  ClearBlame;
+  inherited Destroy;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TSvnHistoryItem.GetBlameCount: Integer;
+
+begin
+  Result := 0;
+  if FLoadingBlame then
+    Exit;
+    
+  if not Assigned(FBlame) then
+    ReloadBlame;
+  Result := FBlame.Count;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TSvnHistoryItem.GetBlameItems(Index: Integer): TSvnBlameItem;
+
+begin
+  Result := nil;
+  if FLoadingBlame then
+    Exit;
+    
+  if not Assigned(FBlame) then
+    ReloadBlame;
+  Result := FBlame[Index];
+end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -913,6 +1144,22 @@ begin
   end;
 
   Result := FFile;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TSvnHistoryItem.HasBlameLoaded: Boolean;
+
+begin
+  Result := Assigned(FBlame) and not FLoadingBlame;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TSvnHistoryItem.IsLoadingBlame: Boolean;
+
+begin
+  Result := FLoadingBlame;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -1314,7 +1561,7 @@ end;
 //
 // for example:
 //   V://unversioned1.txt
-//   V://unversioned1.txt
+//   V://unversioned2.txt
 //   V:/
 //   V://Subdir/unversioned1.txt
 //   V://Subdir/unversioned2.txt
@@ -1604,6 +1851,29 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+function TSvnClient.DoBlame(LineNo: Int64; Revision: Integer; const Author, Date, Line: string): Boolean;
+
+var
+  D: TDateTime;
+  L: Integer;
+  SLine: string;
+
+begin
+  Result := False;
+  if Assigned(FBlameCallback) then
+  begin
+    D := SvnStrToDateTime(Date, FBlameSubPool);
+    SLine := Line;
+    L := Length(SLine);
+    if (L > 0) and (SLine[L] = #13) then
+      Delete(SLine, L, 1);
+    FBlameCallback(Self, LineNo, Revision, Author, D, SLine, Result);
+    FCancelled := Result;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
 function TSvnClient.DoLoginPrompt(const Realm: string; var UserName, Password: string; var Save: Boolean): Boolean;
 
 begin
@@ -1726,7 +1996,59 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TSvnClient.Cleanup(const PathName: string; SubPool: PAprPool);
+procedure TSvnClient.Blame(const PathName: string; Callback: TSvnBlameCallback; StartRevision: Integer = 1;
+  EndRevision: Integer = -1; PegRevision: Integer = -1; SubPool: PAprPool = nil);
+
+var
+  NewPool: Boolean;
+  PegRev, StartRev, EndRev: TSvnOptRevision;
+
+begin
+  if not Initialized then
+    Initialize;
+
+  NewPool := not Assigned(SubPool);
+  if NewPool then
+    AprCheck(apr_pool_create_ex(SubPool, FPool, nil, FAllocator));
+  try
+    FillChar(StartRev, SizeOf(TSvnOptRevision), 0);
+    StartRev.Kind := svnOptRevisionNumber;
+    if StartRevision <= 0 then
+      StartRev.Value.number := 1
+    else
+      StartRev.Value.number := StartRevision;
+    FillChar(EndRev, SizeOf(TSvnOptRevision), 0);
+    if EndRevision <= 0 then
+      EndRev.Kind := svnOptRevisionBase
+    else
+    begin
+      EndRev.Kind := svnOptRevisionNumber;
+      EndRev.Value.number := EndRevision;
+    end;
+    FillChar(PegRev, SizeOf(TSvnOptRevision), 0);
+    if PegRevision <= 0 then
+      PegRev.Kind := svnOptRevisionUnspecified
+    else
+    begin
+      PegRev.Kind := svnOptRevisionNumber;
+      PegRev.Value.number := PegRevision;
+    end;
+
+    FBlameCallback := Callback;
+    FBlameSubPool := SubPool;
+    SvnCheck(svn_client_blame2(PChar(NativePathToSvnPath(PathName)), @PegRev, @StartRev, @EndRev, BlameReceiver, Self,
+      FCtx, SubPool));
+  finally
+    FBlameSubPool := nil;
+    FBlameCallback := nil;
+    if NewPool then
+      apr_pool_destroy(SubPool);
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnClient.Cleanup(const PathName: string; SubPool: PAprPool = nil);
 
 var
   NewPool: Boolean;
