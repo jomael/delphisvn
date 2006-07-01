@@ -171,6 +171,7 @@ begin
 
     Form.EditPassword.Text := Password;
     Form.EditChange(Form.EditUserName);
+    Form.CheckBoxSave.Checked := Save;
 
     if Password = '' then
       Form.ActiveControl := Form.EditPassword
@@ -180,7 +181,10 @@ begin
     Result := Form.ShowModal;
 
     if Result = mrOK then
+    begin
+      Save := Form.CheckBoxSave.Checked;
       Password := Form.EditPassword.Text;
+    end;
   finally
     Form.Free;
   end;

@@ -63,7 +63,6 @@ object FormSvnClientLoginPrompt: TFormSvnClientLoginPrompt
     Default = True
     ModalResult = 1
     TabOrder = 0
-    ExplicitTop = 193
   end
   object ButtonCancel: TButton
     Left = 256
@@ -75,7 +74,6 @@ object FormSvnClientLoginPrompt: TFormSvnClientLoginPrompt
     Caption = 'Cancel'
     ModalResult = 2
     TabOrder = 1
-    ExplicitTop = 193
   end
   object EditUserName: TEdit
     Left = 16

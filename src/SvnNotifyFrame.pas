@@ -69,6 +69,8 @@ type
   public
     procedure HandleOpenExecute(Action: TAction); override;
     procedure HandleOpenUpdate(Action: TAction); override;
+    procedure HandleShowBlameExecute(Action: TAction); override;
+    procedure HandleShowBlameUpdate(Action: TAction); override;
     procedure HandleShowDiffExecute(Action: TAction); override;
     procedure HandleShowDiffUpdate(Action: TAction); override;
     procedure StartCommit(AClient: TSvnClient; APathNames: TStrings; const ALogMessage: string;
@@ -381,6 +383,30 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+procedure TFrameSvnNotify.HandleShowBlameExecute(Action: TAction);
+
+var
+  Data: PNodeData;
+
+begin
+  if Tree.SelectedCount <> 1 then
+    Exit;
+
+  Data := Tree.GetNodeData(Tree.GetFirstSelected);
+  if Assigned(Data) and FileExists(Data^.Path) then
+    SvnIDEModule.ShowBlame(Data^.Path);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFrameSvnNotify.HandleShowBlameUpdate(Action: TAction);
+
+begin
+  Action.Enabled := Tree.SelectedCount = 1;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
 procedure TFrameSvnNotify.HandleShowDiffExecute(Action: TAction);
 
 var
@@ -396,7 +422,7 @@ begin
     Data := Tree.GetNodeData(SelectedNodes[I]);
     if Assigned(Data) and FileExists(Data^.Path) then
     begin
-      Item := TSvnItem.Create(SvnIDEModule.SvnClient, nil, Data^.Path, False, True);
+      Item := TSvnItem.Create(SvnIDEModule.SvnClient, nil, Data^.Path, False, False);
       try
         SvnIDEModule.ShowDiff(Item.PathName, -1, Item.CommittedRevision);
       finally

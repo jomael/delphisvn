@@ -85,6 +85,12 @@ inherited FormSvnTools: TFormSvnTools
       OnExecute = ActionOpenExecute
       OnUpdate = ActionOpenUpdate
     end
+    object ActionShowBlame: TAction
+      Caption = 'Show &Blame'
+      Hint = 'Show blame information'
+      OnExecute = ActionShowBlameExecute
+      OnUpdate = ActionShowBlameUpdate
+    end
   end
   inherited PopupMenu1: TPopupActionBar
     OnPopup = PopupMenu1Popup
@@ -95,7 +101,10 @@ inherited FormSvnTools: TFormSvnTools
     object MenuShowDiff: TMenuItem [1]
       Action = ActionShowDiff
     end
-    object MenuSeparator1: TMenuItem [2]
+    object MenuShowBlame: TMenuItem [2]
+      Action = ActionShowBlame
+    end
+    object MenuSeparator1: TMenuItem [3]
       Caption = '-'
       Visible = False
     end

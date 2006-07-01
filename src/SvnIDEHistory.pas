@@ -46,6 +46,9 @@ type
   TSvnFileHistoryProvider = class(TDispInterfacedObject, IOTAFileHistoryProvider)
   private
     FClient: TSvnClient;
+    FItems: TStringList;
+
+    procedure ClearItems;
 
     { IOTAFileHistoryProvider }
     function Get_Ident: WideString; safecall;
@@ -73,7 +76,6 @@ uses
 type
   TSvnFileHistory = class(TDispInterfacedObject, IOTAFileHistory, ISvnFileHistory)
   private
-    FFileName: string;
     FItem: TSvnItem;
     FItems: TList;
 
@@ -91,7 +93,7 @@ type
     { ISvnFileHistory }
     function GetItem: TSvnItem; safecall;
   public
-    constructor Create(SvnClient: TSvnClient; const AFileName: WideString);
+    constructor Create(AItem: TSvnItem);
     destructor Destroy; override;
 
     function SafeCallException(ExceptObject: TObject; ExceptAddr: Pointer): HResult; override;
@@ -242,7 +244,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-constructor TSvnFileHistory.Create(SvnClient: TSvnClient; const AFileName: WideString);
+constructor TSvnFileHistory.Create(AItem: TSvnItem);
 
 var
   I: Integer;
@@ -250,13 +252,10 @@ var
 begin
   inherited Create;
   FItems := TList.Create;
-  FFileName := AFileName;
-  if SvnClient.IsPathVersioned(AFileName) then
-  begin
-    FItem := TSvnItem.Create(SvnClient, nil, FFileName);
+  FItem := AItem;
+  if Assigned(FItem) then
     for I := 0 to FItem.HistoryCount - 1 do
       FItems.Add(FItem.HistoryItems[I]);
-  end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -278,14 +277,55 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+{ TSvnFileHistoryProvider private }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnFileHistoryProvider.ClearItems;
+
+var
+  I: Integer;
+
+begin
+  for I := 0 to FItems.Count - 1 do
+    FItems.Objects[I].Free;
+  FItems.Clear;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
 { TSvnFileHistoryProvider private: IOTAFileHistoryProvider }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 function TSvnFileHistoryProvider.GetFileHistory(const AFileName: WideString): IOTAFileHistory;
 
+var
+  Index: Integer;
+  Item: TSvnItem;
+
 begin
-  Result := TSvnFileHistory.Create(FClient, AFileName);
+  Result := nil;
+
+  if not FClient.IsPathVersioned(AFileName) then
+    Exit;
+
+  SvnIDEModule.SetupBlamePanel;
+  
+  if FItems.Find(AFileName, Index) then
+    Item := TSvnItem(FItems.Objects[Index])
+  else
+  begin
+    Item := TSvnItem.Create(FClient, nil, AFileName);
+    try
+      FItems.AddObject(Item.PathName, Item);
+    except
+      Item.Free;
+      raise;
+    end;
+  end;
+
+  Result := TSvnFileHistory.Create(Item);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -315,6 +355,10 @@ constructor TSvnFileHistoryProvider.Create;
 begin
   inherited Create;
   FClient := SvnIDEModule.SvnClient;
+  FItems := TStringList.Create;
+  FItems.CaseSensitive := False;
+  FItems.Duplicates := dupError;
+  FItems.Sorted := True;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -322,6 +366,8 @@ end;
 destructor TSvnFileHistoryProvider.Destroy;
 
 begin
+  ClearItems;
+  FItems.Free;
   FClient := nil;
   inherited Destroy;
 end;

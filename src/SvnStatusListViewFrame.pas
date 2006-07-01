@@ -29,7 +29,7 @@ interface
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms, Dialogs, ActnList,
   VirtualTrees,
-  SvnClient, SvnBaseFrame, SvnListView;
+  svn_client, SvnClient, SvnBaseFrame, SvnListView, Menus;
 
 type
   TFrameSvnStatusListView = class(TFrameSvnBase)
@@ -46,6 +46,8 @@ type
 
     procedure HandleOpenExecute(Action: TAction); override;
     procedure HandleOpenUpdate(Action: TAction); override;
+    procedure HandleShowBlameExecute(Action: TAction); override;
+    procedure HandleShowBlameUpdate(Action: TAction); override;
     procedure HandleShowDiffExecute(Action: TAction); override;
     procedure HandleShowDiffUpdate(Action: TAction); override;
     procedure StartCheckModifications(AClient: TSvnClient; ADirectories: TStrings; ARecurse: Boolean = True;
@@ -224,6 +226,31 @@ procedure TFrameSvnStatusListView.HandleOpenUpdate(Action: TAction);
 begin
   Action.Visible := True;
   Action.Enabled := FrameSvnListView.Tree.SelectedCount > 0;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFrameSvnStatusListView.HandleShowBlameExecute(Action: TAction);
+
+var
+  Data: PNodeData;
+
+begin
+  if FrameSvnListView.Tree.SelectedCount <> 1 then
+    Exit;
+
+  Data := FrameSvnListView.Tree.GetNodeData(FrameSvnListView.Tree.GetFirstSelected);
+  if Assigned(Data) and Assigned(Data^.Item) and (Data^.Item.Kind = svnNodeFile) and
+    FileExists(Data^.Item.PathName) then
+    SvnIDEModule.ShowBlame(Data^.Item.PathName);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFrameSvnStatusListView.HandleShowBlameUpdate(Action: TAction);
+
+begin
+  Action.Enabled := FrameSvnListView.Tree.SelectedCount = 1;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

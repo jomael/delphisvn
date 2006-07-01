@@ -28,8 +28,8 @@ unit SvnIDEClient;
 interface
 
 uses
-  Windows, Classes, SysUtils, Forms, Dialogs, Controls, Menus, ActnList, ActnMenus, ImgList,
-  ToolsAPI, FileHistoryAPI, EditorViewSupport,
+  Windows, Classes, SysUtils, Forms, Messages, Graphics, Dialogs, Controls, Menus, ActnList, ActnMenus, ImgList,
+  ToolsAPI, FileHistoryAPI, EditorViewSupport, Dockform,
   svn_client, SvnClient;
 
 type
@@ -65,7 +65,6 @@ type
 
     procedure DataModuleCreate(Sender: TObject);
     procedure DataModuleDestroy(Sender: TObject);
-
     procedure ActionCancelExecute(Sender: TObject);
     procedure ActionCancelUpdate(Sender: TObject);
     procedure ActionCheckModificationsExecute(Sender: TObject);
@@ -91,6 +90,7 @@ type
     procedure Finalize;
     procedure GetDirectories(Directories: TStrings);
     procedure Initialize;
+    procedure InsertBlamePanel(Form: TCustomForm);
     procedure SvnClientLoginPrompt(Sender: TObject; const Realm: string; var UserName, Password: string;
       var Cancel, Save: Boolean);
     procedure SvnClientSSLClientCertPrompt(Sender: TObject; const Realm: string; var CertFileName: string;
@@ -111,9 +111,12 @@ type
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
 
+    function FindFirstSvnHistoryNode(Tree: TObject): Pointer;
     function FindSvnHistoryNode(Tree: TObject; Revision: Integer): Pointer;
     function GetEditWindow: TCustomForm;
-    function SelectEditorView(const TabCaption: string): Boolean;
+    function GetSvnHistoryNodeItem(Tree: TObject; Node: Pointer): TSvnHistoryItem;
+    procedure SetupBlamePanel;
+    function ShowBlame(const FileName: string): Boolean;
     function ShowDiff(const FileName: string; FromRevision, ToRevision: Integer): Boolean;
     procedure ShowEditor(const FileName: string);
 
@@ -132,7 +135,7 @@ procedure Register;
 implementation
 
 uses
-  Registry, ActnMan, StdCtrls, Tabs,
+  Registry, ActnMan, StdCtrls, Tabs, ComCtrls, ExtCtrls,
   DeskUtil,
   SvnImages, SvnClientLoginPrompt, SvnClientSSLClientCertPrompt, SvnClientSSLServerTrustPrompt, SvnLogMessagePrompt,
   SvnIDEHistory, SvnEditorView, SvnOptionsDialog, SvnToolForm;
@@ -141,6 +144,7 @@ uses
 
 type
   THackActionMainMenuBar = class(TActionMainMenuBar);
+  THackWinControl = class(TWinControl);
 
   PHistoryNodeData = ^THistoryNodeData;
   THistoryNodeData = record
@@ -189,9 +193,12 @@ type
 //----------------------------------------------------------------------------------------------------------------------
 
 function ExpandRootMacro(const S: string): string; external 'coreide100.bpl' index 1158;
+function EditControlGetLinesInWindow(Self: TObject): Integer; external 'coreide100.bpl' index 3178;
+function EditControlGetTopLine(Self: TObject): Integer; external 'coreide100.bpl' index 3174;
 
 // vclide seems to contain a different version of Virtual TreeView; hence these imports as a workaround
 function BaseVirtualTreeGetFirst(Self: TObject): Pointer; external 'vclide100.bpl' index 3704;
+function BaseVirtualTreeGetFirstSelected(Self: TObject): Pointer; external 'vclide100.bpl' index 3699;
 function BaseVirtualTreeGetNext(Self: TObject; Node: Pointer): Pointer; external 'vclide100.bpl' index 3683;
 function BaseVirtualTreeGetNodeData(Self: TObject; Node: Pointer): Pointer; external 'vclide100.bpl' index 3671;
 function BaseVirtualTreeScrollIntoView(Self: TObject; Node: Pointer; Center, Horizontally: Boolean): Boolean;
@@ -251,6 +258,293 @@ begin
     
     FModified := True;
   end;
+end;
+
+const
+  BlameColors: array[0..25] of TColor = (
+    $00E0E1F5, //   0 220 120
+    $00E0EAF5, //  20 220 120
+    $00E0F5F5, //  40 220 120
+    $00E0F5EA, //  60 220 120
+    $00E1F5E0, //  80 220 120
+    $00EAF5E0, // 100 220 120
+    $00F5F5E0, // 120 220 120
+    $00F5EAE0, // 140 220 120
+    $00F5E0E0, // 160 220 120
+    $00F5E0EA, // 180 220 120
+    $00F5E0F5, // 200 220 120
+    $00EAE0F5, // 220 220 120
+    $00E0E0F5, // 240 220 120
+    $00E0E6F5, //  10 220 120
+    $00E0F0F5, //  30 220 120
+    $00E0F5F0, //  50 220 120
+    $00E0F5E6, //  70 220 120
+    $00E6F5E0, //  90 220 120
+    $00F0F5E0, // 110 220 120
+    $00F5F0E0, // 130 220 120
+    $00F5E6E0, // 150 220 120
+    $00F5E0E6, // 170 220 120
+    $00F5E0F0, // 190 220 120
+    $00F0E0F5, // 210 220 120
+    $00E6E0F5, // 230 220 120
+    $00E0E0E0  // -10 220 120
+  );
+
+type
+  TBlameControl = class(TCustomControl)
+  private
+    FAuthors: TStringList;
+    FControl: TWinControl;
+    FControlProc: TWndMethod;
+    FLastItem: TSvnHistoryItem;
+    FLastH: Integer;
+    FLastColor: Integer;
+    FRevisionX: Integer;
+    FTimeX: Integer;
+
+    procedure BlameLoaded(Sender: TObject);
+    procedure ControlProc(var Message: TMessage);
+    function GetNextColor: TColor;
+
+    procedure CMHintShow(var Message: TMessage); message CM_HINTSHOW;
+  protected
+    procedure Paint; override;
+  public
+    constructor Create(AOwner: TComponent; AControl: TWinControl); reintroduce;
+    destructor Destroy; override;
+  end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+{ TBlameControl private }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TBlameControl.BlameLoaded(Sender: TObject);
+
+begin
+  OutputDebugString(PChar(Format('BlameLoaded', [])));
+  PostMessage(Handle, CM_INVALIDATE, 0, 0);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TBlameControl.ControlProc(var Message: TMessage);
+
+begin
+  FControlProc(Message);
+  case Message.Msg of
+    WM_PAINT, WM_KEYDOWN, WM_VSCROLL:
+      Invalidate;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TBlameControl.GetNextColor: TColor;
+
+begin
+  Result := BlameColors[FLastColor];
+  Inc(FLastColor);
+  if FLastColor > High(BlameColors) then
+    FLastColor := 0;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TBlameControl.CMHintShow(var Message: TMessage);
+
+var
+  Frame: TWinControl;
+  Tree: TObject;
+  I, TopLine, LinesInWindow, LineHeight, Index: Integer;
+  HistoryItem, BlameHistoryItem: TSvnHistoryItem;
+
+begin
+  TCMHintShow(Message).HintInfo^.ReshowTimeout := 500;
+  TCMHintShow(Message).HintInfo^.HintStr := '';
+
+  Frame := Parent.Parent;
+  Tree := nil;
+  for I := 0 to Frame.ControlCount - 1 do
+    if SameText(Frame.Controls[I].Name, 'RevisionContentTree') then
+    begin
+      Tree := Frame.Controls[I];
+      Break;
+    end;
+  if not Assigned(Tree) then
+    Exit;
+
+  HistoryItem := SvnIDEModule.GetSvnHistoryNodeItem(Tree, BaseVirtualTreeGetFirstSelected(Tree));
+  if not Assigned(HistoryItem) then
+    Exit;
+
+  TopLine := EditControlGetTopLine(FControl);
+  LinesInWindow := EditControlGetLinesInWindow(FControl);
+  LineHeight := FControl.Height div LinesInWindow;
+  Index := TopLine + TCMHintShow(Message).HintInfo^.CursorPos.Y div LineHeight - 1;
+  if Index > HistoryItem.BlameCount - 1 then
+    Exit;
+
+  BlameHistoryItem := nil;
+  if Assigned(HistoryItem.Owner) then
+    for I := 0 to HistoryItem.Owner.HistoryCount - 1 do
+      if HistoryItem.Owner.HistoryItems[I].Revision = HistoryItem.BlameItems[Index].Revision then
+      begin
+        BlameHistoryItem := HistoryItem.Owner.HistoryItems[I];
+        Break;
+      end;
+  if Assigned(BlameHistoryItem) then
+    TCMHintShow(Message).HintInfo^.HintStr := BlameHistoryItem.LogMessage;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+{ TBlameControl protected }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TBlameControl.Paint;
+
+var
+  Frame: TWinControl;
+  TabSet1: TTabSet;
+  Tree: TObject;
+  I, Index, W: Integer;
+  EditorServices: IOTAEditorServices;
+  EditOptions: IOTAEditOptions;
+  HistoryItem: TSvnHistoryItem;
+  TopLine, LinesInWindow, LineHeight, Y: Integer;
+  BlameItem: TSvnBlameItem;
+  R: TRect;
+
+begin
+  Canvas.Brush.Style := bsSolid;
+  Canvas.Brush.Color := clWindow;
+  Canvas.FillRect(ClientRect);
+
+  if not Assigned(FControl) or not Assigned(Parent) or // our panel
+    not Assigned(Parent.Parent) or // tab sheet
+    not Assigned(Parent.Parent.Parent) then // page control
+    Exit;
+
+  // find tabset and check its index
+  Frame := Parent.Parent.Parent.Parent;
+  if not Assigned(Frame) then
+    Exit;
+  TabSet1 := TTabSet(Frame.FindComponent('TabSet1'));
+  if not Assigned(TabSet1) or (TabSet1.TabIndex <> 0) then
+    Exit;
+
+  // find treeview
+  Tree := Frame.FindComponent('RevisionContentTree');
+  if not Assigned(Tree) then
+    Exit;
+
+  HistoryItem := SvnIDEModule.GetSvnHistoryNodeItem(Tree, BaseVirtualTreeGetFirstSelected(Tree));
+  if not Assigned(HistoryItem) then
+    Exit;
+
+  if not HistoryItem.HasBlameLoaded then
+  begin
+    Canvas.Font := Font;
+    Canvas.TextOut(8, 8, 'loading...');
+    if not HistoryItem.IsLoadingBlame then
+      HistoryItem.StartLoadingBlame(BlameLoaded);
+    Exit;
+  end;
+
+  if BorlandIDEServices.GetService(IOTAEditorServices, EditorServices) then
+  begin
+    EditOptions := EditorServices.GetEditOptions(cDefEdPascal);
+    if Assigned(EditOptions) then
+    begin
+      Font.Name := EditOptions.FontName;
+      Font.Size := EditOptions.FontSize;
+    end;
+  end;
+
+  Canvas.Font := Font;
+  TopLine := EditControlGetTopLine(FControl);
+  LinesInWindow := EditControlGetLinesInWindow(FControl);
+  LineHeight := FControl.Height div LinesInWindow;
+
+  if HistoryItem <> FLastItem then
+  begin
+    FLastColor := 0;
+    FAuthors.Clear;
+    FLastH := 0;
+    FRevisionX := 0;
+    FTimeX := 0;
+    for I := 0 to HistoryItem.BlameCount - 1 do
+    begin
+      BlameItem := HistoryItem.BlameItems[I];
+      if FAuthors.IndexOf(BlameItem.Author) = -1 then
+      begin
+        if FAuthors.Count = 0 then
+          FAuthors.AddObject(BlameItem.Author, TObject(clWhite))
+        else
+          FAuthors.AddObject(BlameItem.Author, TObject(GetNextColor));
+      end;
+      W := Canvas.TextWidth(BlameItem.Author);
+      if W + 8 > FRevisionX then
+        FRevisionX := W + 8;
+      W := Canvas.TextWidth(IntToStr(BlameItem.Revision));
+      if FRevisionX + W + 8 > FTimeX then
+        FTimeX := FRevisionX + W + 8;
+    end;
+  end;
+
+  Y := 0;
+  for I := TopLine - 1 to TopLine + LinesInWindow - 1 do
+  begin
+    if I >= HistoryItem.BlameCount then
+      Break;
+    BlameItem := HistoryItem.BlameItems[I];
+
+    if FAuthors.Find(BlameItem.Author, Index) then
+      Canvas.Brush.Color := TColor(FAuthors.Objects[Index])
+    else
+      Canvas.Brush.Color := clWhite;
+    R := Rect(0, Y, ClientWidth, Y + LineHeight);
+    Canvas.FillRect(R);
+
+    Canvas.TextOut(0, Y, BlameItem.Author);
+    R := Rect(FRevisionX, Y, FTimeX - 8, Y + LineHeight);
+    DrawText(Canvas.Handle, PChar(IntToStr(BlameItem.Revision)), -1, R, DT_RIGHT);
+    Canvas.TextOut(FTimeX, Y, FormatDateTime('yyyy/mm/dd hh:nn:ss', BlameItem.Time));
+
+    Inc(Y, LineHeight);
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+{ TBlameControl public }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+constructor TBlameControl.Create(AOwner: TComponent; AControl: TWinControl);
+
+begin
+  inherited Create(AOwner);
+  FLastItem := nil;
+  FAuthors := TStringList.Create;
+  FAuthors.Sorted := True;
+  FControl := AControl;
+  FControlProc := FControl.WindowProc;
+  FControl.WindowProc := ControlProc;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+destructor TBlameControl.Destroy;
+
+begin
+  FAuthors.Free;
+  FControl.WindowProc := FControlProc;
+  FControlProc := nil;
+  inherited Destroy;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -346,7 +640,7 @@ begin
         Inc(I);
       end;
     end;
-    
+
     FModified := False;
   finally
     Registry.Free;
@@ -528,6 +822,91 @@ begin
 
   FormSvnTools := TFormSvnTools.Create(Application);
   FormSvnTools.Name := SvnToolFormSection;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnIDEClient.InsertBlamePanel(Form: TCustomForm);
+
+var
+  HistoryFrame: TCustomFrame;
+  RevisionContentTree: TObject;
+  TabSheet1, EditControl: TWinControl;
+  I: Integer;
+  Panel: TPanel;
+  BlameControl: TBlameControl;
+  Splitter: TSplitter;
+
+begin
+  HistoryFrame := TCustomFrame(FindChildControl(Form, 'TFileHistoryFrame'));
+  if not Assigned(HistoryFrame) then
+    Exit;
+  RevisionContentTree := HistoryFrame.FindComponent('RevisionContentTree');
+  if not Assigned(RevisionContentTree) then
+    Exit;
+  TabSheet1 := TTabSheet(HistoryFrame.FindComponent('TabSheet1'));
+  if not Assigned(TabSheet1) then
+    Exit;
+
+  // find edit control
+  EditControl := nil;
+  for I := 0 to TabSheet1.ControlCount - 1 do
+    if TabSheet1.Controls[I].ClassNameIs('TEditControl') then
+    begin
+      EditControl := TabSheet1.Controls[I] as TWinControl;
+      Break;
+    end;
+
+  // find panel
+  Panel := nil;
+  for I := 0 to TabSheet1.ControlCount - 1 do
+    if SameText(TabSheet1.Controls[I].Name, 'SvnBlamePanel') then
+    begin
+      Panel := TPanel(TabSheet1.Controls[I]);
+      Break;
+    end;
+
+  if Assigned(Panel) then
+  begin
+    if not Assigned(EditControl) then
+      for I := 0 to Panel.ControlCount - 1 do
+        if Panel.Controls[I].ClassNameIs('TEditControl') then
+        begin
+          EditControl := TWinControl(Panel.Controls[I]);
+          Break;
+        end;
+    if Assigned(EditControl) then
+      EditControl.Show;
+  end
+  else
+  begin
+    if not Assigned(EditControl) then
+      Exit;
+
+    EditControl.Align := alNone;
+    Panel := TPanel.Create(HistoryFrame);
+    Panel.Parent := TabSheet1;
+    Panel.Name := 'SvnBlamePanel';
+    Panel.Align := alClient;
+    Panel.BevelInner := bvNone;
+    Panel.BevelOuter := bvNone;
+    Panel.Caption := '';
+    BlameControl := TBlameControl.Create(HistoryFrame, EditControl);
+    BlameControl.Parent := Panel;
+    BlameControl.Name := 'SvnBlameControl';
+    BlameControl.Width := 100;
+    BlameControl.Align := alLeft;
+    BlameControl.DoubleBuffered := True;
+    BlameControl.ShowHint := True;
+    Splitter := TSplitter.Create(EditControl.Parent);
+    Splitter.Parent := Panel;
+    Splitter.Name := 'SvnBlameSplitter';
+    Splitter.Left := BlameControl.Width + 1;
+    Splitter.Width := 3;
+    Splitter.Align := alLeft;
+    EditControl.Parent := Panel;
+    EditControl.Align := alClient;
+  end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -727,6 +1106,34 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+function TSvnIDEClient.FindFirstSvnHistoryNode(Tree: TObject): Pointer;
+
+var
+  Node: Pointer;
+  Data: PHistoryNodeData;
+  SvnFileHistory: ISvnFileHistory;
+
+begin
+  Result := nil;
+
+  Node := BaseVirtualTreeGetFirst(Tree);
+
+  while Assigned(Node) do
+  begin
+    Data := BaseVirtualTreeGetNodeData(Tree, Node);
+    if Assigned(Data) and Assigned(Data^.History) and
+      Succeeded(Data^.History.QueryInterface(ISvnFileHistory, SvnFileHistory)) and Assigned(SvnFileHistory.Item) then
+    begin
+      Result := Node;
+      Break;
+    end;
+
+    Node := BaseVirtualTreeGetNext(Tree, Node);
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
 function TSvnIDEClient.FindSvnHistoryNode(Tree: TObject; Revision: Integer): Pointer;
 
 var
@@ -784,25 +1191,121 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TSvnIDEClient.SelectEditorView(const TabCaption: string): Boolean;
+function TSvnIDEClient.GetSvnHistoryNodeItem(Tree: TObject; Node: Pointer): TSvnHistoryItem;
 
 var
+  Data: PHistoryNodeData;
+  SvnFileHistory: ISvnFileHistory;
+  Item: TSvnItem;
+
+begin
+  Result := nil;
+
+  if not Assigned(Node) then
+    Exit;
+  Data := BaseVirtualTreeGetNodeData(Tree, Node);
+  if Assigned(Data) and Assigned(Data^.History) and
+    Succeeded(Data^.History.QueryInterface(ISvnFileHistory, SvnFileHistory)) then
+  begin
+    Item := SvnFileHistory.Item;
+    if Assigned(Item) and (Data^.Index >= 0) and (Data^.Index < Item.HistoryCount) then
+      Result := Item.HistoryItems[Data^.Index];
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnIDEClient.SetupBlamePanel;
+
+begin
+  InsertBlamePanel(GetEditWindow);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TSvnIDEClient.ShowBlame(const FileName: string): Boolean;
+
+var
+  ModuleServices: IOTAModuleServices;
+  Module: IOTAModule;
+  SourceEditor: IOTASourceEditor;
+  I: Integer;
   Form: TCustomForm;
-  ViewBar: TTabSet;
-  TabIndex: Integer;
+  HistoryFrame: TCustomFrame;
+  TabSet1: TTabSet;
+  Index: Integer;
+  FileSelector: TComboBox;
+  Tree: TObject;
+  Node: Pointer;
 
 begin
   Result := False;
+
+  // open and show the file in source code editor
+  if not BorlandIDEServices.GetService(IOTAModuleServices, ModuleServices) then
+    Exit;
+  Module := ModuleServices.FindModule(FileName);
+  if not Assigned(Module) then
+    Module := ModuleServices.OpenModule(FileName);
+  if not Assigned(Module) then
+    Exit;
+  SourceEditor := nil;
+  for I := 0 to Module.ModuleFileCount - 1 do
+    if Succeeded(Module.ModuleFileEditors[I].QueryInterface(IOTASourceEditor, SourceEditor)) then
+      Break;
+
+  // switch to 'History' tab
+  if not Assigned(SourceEditor) then
+    Exit;
+  SourceEditor.Show;
+  SourceEditor.SwitchToView('Borland.FileHistoryView');
+
+  // find the history frame
   Form := GetEditWindow;
   if not Assigned(Form) then
     Exit;
-  ViewBar := TTabSet(Form.FindComponent('ViewBar'));
-  if not Assigned(ViewBar) then
+  HistoryFrame := TCustomFrame(FindChildControl(Form, 'TFileHistoryFrame'));
+  if not Assigned(HistoryFrame) then
     Exit;
-  TabIndex := ViewBar.Tabs.IndexOf(TabCaption);
-  if TabIndex = -1 then
+
+  // switch to 'Contents' tab
+  TabSet1 := TTabSet(HistoryFrame.FindComponent('TabSet1'));
+  if not Assigned(TabSet1) then
     Exit;
-  ViewBar.TabIndex := TabIndex;
+  Index := TabSet1.Tabs.IndexOf('Contents');
+  if Index = -1 then
+    Exit;
+  TabSet1.TabIndex := Index;
+  if Assigned(TabSet1.OnClick) then
+    TabSet1.OnClick(TabSet1);
+
+  // select file
+  if Module.ModuleFileCount > 1 then
+  begin
+    FileSelector := TComboBox(HistoryFrame.FindComponent('FileSelector'));
+    if not Assigned(FileSelector) then
+      Exit;
+    Index := FileSelector.Items.IndexOf(ExtractFileName(FileName));
+    if Index = -1 then
+      Exit;
+    FileSelector.ItemIndex := Index;
+    if Assigned(FileSelector.OnClick) then
+      FileSelector.OnClick(FileSelector);
+  end;
+
+  // find the treeview
+  Tree := HistoryFrame.FindComponent('RevisionContentTree');
+  if not Assigned(Tree) then
+    Exit;
+
+  Node := FindFirstSvnHistoryNode(Tree);
+  if not Assigned(Node) then
+    Exit;
+
+  // select and show node
+  BaseVirtualTreeSetSelected(Tree, Node, True);
+  BaseVirtualTreeScrollIntoView(Tree, Node, True, False);
+
   Result := True;
 end;
 
@@ -838,18 +1341,12 @@ begin
   for I := 0 to Module.ModuleFileCount - 1 do
     if Succeeded(Module.ModuleFileEditors[I].QueryInterface(IOTASourceEditor, SourceEditor)) then
       Break;
-  if Assigned(SourceEditor) then
-  begin
-    SourceEditor.Show;
-    SourceEditor.SwitchToView('Borland.FileHistoryView');
-  end
-  else if Assigned(Module.CurrentEditor) then
-  begin
-    Module.CurrentEditor.Show;
-    // switch to 'History' tab
-    if not SelectEditorView('History') then
-      Exit;
-  end;
+
+  // switch to 'History' tab
+  if not Assigned(SourceEditor) then
+    Exit;
+  SourceEditor.Show;
+  SourceEditor.SwitchToView('Borland.FileHistoryView');
 
   // find the history frame
   Form := GetEditWindow;
@@ -867,6 +1364,8 @@ begin
   if Index = -1 then
     Exit;
   TabSet1.TabIndex := Index;
+  if Assigned(TabSet1.OnClick) then
+    TabSet1.OnClick(TabSet1);
 
   // select file
   if Module.ModuleFileCount > 1 then
