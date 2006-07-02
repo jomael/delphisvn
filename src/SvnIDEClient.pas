@@ -299,7 +299,6 @@ type
     FControl: TWinControl;
     FControlProc: TWndMethod;
     FLastItem: TSvnHistoryItem;
-    FLastH: Integer;
     FLastColor: Integer;
     FRevisionX: Integer;
     FTimeX: Integer;
@@ -475,7 +474,6 @@ begin
   begin
     FLastColor := 0;
     FAuthors.Clear;
-    FLastH := 0;
     FRevisionX := 0;
     FTimeX := 0;
     for I := 0 to HistoryItem.BlameCount - 1 do
@@ -898,7 +896,7 @@ begin
     BlameControl := TBlameControl.Create(HistoryFrame, EditControl);
     BlameControl.Parent := Panel;
     BlameControl.Name := 'SvnBlameControl';
-    BlameControl.Width := 100;
+    BlameControl.Width := 170;
     BlameControl.Align := alLeft;
     BlameControl.DoubleBuffered := True;
     BlameControl.ShowHint := True;
@@ -1272,17 +1270,6 @@ begin
   if not Assigned(HistoryFrame) then
     Exit;
 
-  // switch to 'Contents' tab
-  TabSet1 := TTabSet(HistoryFrame.FindComponent('TabSet1'));
-  if not Assigned(TabSet1) then
-    Exit;
-  Index := TabSet1.Tabs.IndexOf('Contents');
-  if Index = -1 then
-    Exit;
-  TabSet1.TabIndex := Index;
-  if Assigned(TabSet1.OnClick) then
-    TabSet1.OnClick(TabSet1);
-
   // select file
   if Module.ModuleFileCount > 1 then
   begin
@@ -1296,6 +1283,17 @@ begin
     if Assigned(FileSelector.OnClick) then
       FileSelector.OnClick(FileSelector);
   end;
+
+  // switch to 'Contents' tab
+  TabSet1 := TTabSet(HistoryFrame.FindComponent('TabSet1'));
+  if not Assigned(TabSet1) then
+    Exit;
+  Index := TabSet1.Tabs.IndexOf('Contents');
+  if Index = -1 then
+    Exit;
+  TabSet1.TabIndex := Index;
+  if Assigned(TabSet1.OnClick) then
+    TabSet1.OnClick(TabSet1);
 
   // find the treeview
   Tree := HistoryFrame.FindComponent('RevisionContentTree');
@@ -1360,16 +1358,8 @@ begin
   if not Assigned(HistoryFrame) then
     Exit;
 
-  // switch to 'Diff' tab
-  TabSet1 := TTabSet(HistoryFrame.FindComponent('TabSet1'));
-  if not Assigned(TabSet1) then
-    Exit;
-  Index := TabSet1.Tabs.IndexOf('Diff');
-  if Index = -1 then
-    Exit;
-  TabSet1.TabIndex := Index;
-  if Assigned(TabSet1.OnClick) then
-    TabSet1.OnClick(TabSet1);
+  // order is important; first select file, then switch tabs
+  // otherwise selecting file reactivates first tab sheet
 
   // select file
   if Module.ModuleFileCount > 1 then
@@ -1384,6 +1374,17 @@ begin
     if Assigned(FileSelector.OnClick) then
       FileSelector.OnClick(FileSelector);
   end;
+
+  // switch to 'Diff' tab
+  TabSet1 := TTabSet(HistoryFrame.FindComponent('TabSet1'));
+  if not Assigned(TabSet1) then
+    Exit;
+  Index := TabSet1.Tabs.IndexOf('Diff');
+  if Index = -1 then
+    Exit;
+  TabSet1.TabIndex := Index;
+  if Assigned(TabSet1.OnClick) then
+    TabSet1.OnClick(TabSet1);
 
   // find the treeviews
   FromTree := HistoryFrame.FindComponent('DiffFrom');
