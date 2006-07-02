@@ -10,8 +10,6 @@ inherited DockableForm: TDockableForm
   DragMode = dmAutomatic
   PopupMode = pmExplicit
   OnGetSiteInfo = FormGetSiteInfo
-  ExplicitWidth = 201
-  ExplicitHeight = 103
   PixelsPerInch = 96
   TextHeight = 13
   object DockActionList: TActionList

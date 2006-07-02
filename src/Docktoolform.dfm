@@ -7,8 +7,6 @@ inherited DockableToolbarForm: TDockableToolbarForm
   ClientHeight = 157
   ClientWidth = 342
   PopupMenu = PopupMenu1
-  ExplicitWidth = 350
-  ExplicitHeight = 181
   PixelsPerInch = 96
   TextHeight = 13
   object Splitter1: TSplitter [0]
@@ -29,7 +27,6 @@ inherited DockableToolbarForm: TDockableToolbarForm
     Width = 342
     Height = 30
     BorderWidth = 1
-    DrawingStyle = dsGradient
     EdgeBorders = [ebTop, ebBottom]
     Indent = 4
     PopupMenu = ToolbarPopupMenu

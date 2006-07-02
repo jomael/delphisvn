@@ -35,7 +35,6 @@ object FormSvnClientSSLServerTrustPrompt: TFormSvnClientSSLServerTrustPrompt
     AutoSize = False
     Caption = 'Server %s returned the following SSL server certificate:'
     WordWrap = True
-    ExplicitWidth = 219
   end
   object ButtonOK: TButton
     Left = 288

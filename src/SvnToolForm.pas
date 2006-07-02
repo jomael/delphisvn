@@ -26,6 +26,8 @@ unit SvnToolForm;
 
 interface
 
+{$include Compilers.inc}
+
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Forms, Controls, ComCtrls, ExtCtrls, ToolWin,
   Menus, ActnList, ActnPopup, Dialogs, IniFiles,
@@ -306,7 +308,7 @@ end;
 procedure TFormSvnTools.Cancel;
 
 begin
-  if Assigned(FFrame) and (MessageDlg(SConfirmCancel, mtConfirmation, [mbYes, mbNo], 0, mbNo) = mrYes) then
+  if Assigned(FFrame) and (MessageDlg(SConfirmCancel, mtConfirmation, [mbYes, mbNo], 0 {$IFDEF COMPILER_10_UP}, mbNo {$ENDIF}) = mrYes) then
     FFrame.Cancel;
 end;
 

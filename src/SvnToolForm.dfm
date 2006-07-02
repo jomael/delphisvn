@@ -4,22 +4,16 @@ inherited FormSvnTools: TFormSvnTools
   Caption = 'Subversion'
   ClientHeight = 340
   ClientWidth = 516
-  ExplicitLeft = 365
-  ExplicitTop = 193
-  ExplicitWidth = 524
-  ExplicitHeight = 367
   PixelsPerInch = 96
   TextHeight = 13
   inherited Splitter1: TSplitter
     Width = 516
-    ExplicitWidth = 516
   end
   inherited ToolBar1: TToolBar
     Width = 516
     ButtonWidth = 27
     Images = SvnIDEClient.ImageList
     List = True
-    ExplicitWidth = 516
     object ToolButtonCancel: TToolButton
       Left = 4
       Top = 0

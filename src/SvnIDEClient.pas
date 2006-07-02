@@ -27,6 +27,8 @@ unit SvnIDEClient;
 
 interface
 
+{$include Compilers.inc}
+
 uses
   Windows, Classes, SysUtils, Forms, Messages, Graphics, Dialogs, Controls, Menus, ActnList, ActnMenus, ImgList,
   ToolsAPI, FileHistoryAPI, EditorViewSupport, Dockform,
@@ -719,7 +721,9 @@ begin
   StringList := TStringList.Create;
   try
     StringList.Delimiter := ';';
+    {$IFDEF COMPILER_10_UP}
     StringList.StrictDelimiter := True;
+    {$ENDIF}
     StringList.DelimitedText := FSettings.Directories;
     for I := StringList.Count - 1 downto 0 do
     begin
@@ -1517,7 +1521,7 @@ var
   Directories: TStringList;
 
 begin
-  if MessageDlg(SConfirmCleanup, mtConfirmation, [mbYes, mbNo], 0, mbNo) <> mrYes then
+  if MessageDlg(SConfirmCleanup, mtConfirmation, [mbYes, mbNo], 0 {$IFDEF COMPILER_10_UP}, mbNo {$ENDIF}) <> mrYes then
     Exit;
 
   Directories := TStringList.Create;
@@ -1612,7 +1616,7 @@ var
   Directories: TStringList;
 
 begin
-  if MessageDlg(SConfirmRevert, mtConfirmation, [mbYes, mbNo], 0, mbNo) <> mrYes then
+  if MessageDlg(SConfirmRevert, mtConfirmation, [mbYes, mbNo], 0 {$IFDEF COMPILER_10_UP}, mbNo {$ENDIF}) <> mrYes then
     Exit;
     
   Directories := TStringList.Create;

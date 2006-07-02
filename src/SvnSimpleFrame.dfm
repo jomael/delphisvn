@@ -3,8 +3,6 @@ inherited FrameSvnSimple: TFrameSvnSimple
   Height = 205
   Color = clWindow
   ParentColor = False
-  ExplicitWidth = 364
-  ExplicitHeight = 205
   object LabelStatus: TLabel
     Left = 0
     Top = 0
@@ -13,7 +11,5 @@ inherited FrameSvnSimple: TFrameSvnSimple
     Align = alClient
     Alignment = taCenter
     Layout = tlCenter
-    ExplicitWidth = 3
-    ExplicitHeight = 13
   end
 end
