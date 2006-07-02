@@ -113,9 +113,7 @@ type
 implementation
 
 uses
-  {$IFNDEF TEST}
   SvnIDEClient,
-  {$ENDIF}
   svn_client;
 
 {$R *.dfm}
@@ -298,33 +296,25 @@ end;
 
 procedure TFrameSvnEditorView.ActionDiffExecute(Sender: TObject);
 
-{$IFNDEF TEST}
 var
   Item: TSvnItem;
-{$ENDIF}
 
 begin
-  {$IFNDEF TEST}
   Item := GetCurrentItem;
   if Assigned(Item) then
-    SvnIDEModule.ShowDiff(Item.PathName, Item.CommittedRevision, -1);
-  {$ENDIF}
+    SvnIDEModule.ShowDiff(Item.PathName, -1, Item.CommittedRevision);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TFrameSvnEditorView.ActionDiffUpdate(Sender: TObject);
 
-{$IFNDEF TEST}
 var
   Item: TSvnItem;
-{$ENDIF}
 
 begin
-  {$IFNDEF TEST}
   Item := GetCurrentItem;
   (Sender as TAction).Enabled := Assigned(Item) and (Item.TextStatus = svnWcStatusModified);
-  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
