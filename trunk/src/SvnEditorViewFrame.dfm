@@ -19,9 +19,6 @@ object FrameSvnEditorView: TFrameSvnEditorView
     Height = 22
     AutoSize = True
     Caption = 'ToolBar'
-    DrawingStyle = dsGradient
-    GradientEndColor = clBtnFace
-    GradientStartColor = clWhite
     Images = ImageList
     ParentColor = False
     TabOrder = 0

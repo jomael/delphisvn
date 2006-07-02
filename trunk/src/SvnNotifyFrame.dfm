@@ -1,8 +1,6 @@
 inherited FrameSvnNotify: TFrameSvnNotify
   Width = 513
   Height = 333
-  ExplicitWidth = 513
-  ExplicitHeight = 333
   object Tree: TVirtualStringTree
     Left = 0
     Top = 0

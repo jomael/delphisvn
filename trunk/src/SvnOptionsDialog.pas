@@ -26,6 +26,8 @@ unit SvnOptionsDialog;
 
 interface
 
+{$include Compilers.inc}
+
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms, Dialogs, StdCtrls;
 
@@ -91,7 +93,15 @@ var
   ListBox: TListBox;
 
 begin
+  {$IFDEF COMPILER_10}
   Lib := GetModuleHandle('coreide100.bpl');
+  {$ENDIF}
+  {$IFDEF COMPILER_9}
+  Lib := GetModuleHandle('coreide90.bpl');
+  {$ENDIF}
+  {$IFNDEF COMPILER_9_UP}
+  Lib := 0;
+  {$ENDIF}
   if Lib = 0 then
     Exit;
   TOrderedListEditDlg := GetProcAddress(Lib, '@Orderedlisteditdialog@TOrderedListEditDlg@');
@@ -110,7 +120,9 @@ begin
     if not Assigned(ListBox) then
       Exit;
     ListBox.Items.Delimiter := ';';
+    {$IFDEF COMPILER_10_UP}
     ListBox.Items.StrictDelimiter := True;
+    {$ENDIF}
     ListBox.Items.DelimitedText := ComboBoxDirs.Text;
     ListBox.Style := lbOwnerDrawFixed;
 

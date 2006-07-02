@@ -1,8 +1,6 @@
 inherited FrameSvnStatusListView: TFrameSvnStatusListView
   Width = 441
   Height = 314
-  ExplicitWidth = 441
-  ExplicitHeight = 314
   inline FrameSvnListView: TFrameSvnListView
     Left = 0
     Top = 0
@@ -11,16 +9,12 @@ inherited FrameSvnStatusListView: TFrameSvnStatusListView
     Align = alClient
     TabOrder = 0
     TabStop = True
-    ExplicitWidth = 441
-    ExplicitHeight = 314
     inherited Tree: TVirtualStringTree
       Width = 441
       Height = 314
       Cursor = crHourGlass
       TreeOptions.SelectionOptions = [toFullRowSelect, toMultiSelect, toRightClickSelect]
       OnFreeNode = FrameSvnListViewTreeFreeNode
-      ExplicitWidth = 441
-      ExplicitHeight = 314
       Columns = <
         item
           Position = 0

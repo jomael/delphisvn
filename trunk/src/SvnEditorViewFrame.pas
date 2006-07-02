@@ -26,6 +26,8 @@ unit SvnEditorViewFrame;
 
 interface
 
+{$include Compilers.inc}
+
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms, Dialogs, ImgList, ActnList, StdCtrls,
   ComCtrls, ToolWin, Grids,
@@ -101,6 +103,7 @@ type
 
     procedure AMReload(var Message: TMessage); message AM_RELOAD;
   public
+    constructor Create(AOwner: TComponent); override;
     procedure Clear;
     procedure Display(Item: TSvnItem); overload;
     procedure Display(const Items: TSvnItemArray); overload;
@@ -153,6 +156,18 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 { TFrameSvnEditorView public }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+constructor TFrameSvnEditorView.Create(AOwner: TComponent);
+begin
+  inherited Create(AOwner);
+  {$IFDEF COMPILER10_UP}
+  ToolBar.DrawingStyle := dsGradient;
+  ToolBar.GradientEndColor := clBtnFace;
+  ToolBar.GradientStartColor := clWhite;
+  {$ENDIF}
+end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
