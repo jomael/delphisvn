@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+	<PersonalityInfo>
+		<Option>
+			<Option Name="Personality">Default.Personality</Option>
+			<Option Name="ProjectType"></Option>
+			<Option Name="Version">1.0</Option>
+			<Option Name="GUID">{F321D181-EF67-4316-BB80-12FACABC66CA}</Option>
+		</Option>
+	</PersonalityInfo>
+	<Default.Personality>  <Projects>
+      <Projects Name="svn90.bpl">svn.bdsproj</Projects>
+      <Projects Name="svnui90.bpl">svnui.bdsproj</Projects>
+      <Projects Name="svnide90.bpl">svnide.bdsproj</Projects>
+      <Projects Name="Targets">svn90.bpl svnui90.bpl svnide90.bpl</Projects>
+    </Projects>
+    <Dependencies/>
+  </Default.Personality>
+</BorlandProject>
