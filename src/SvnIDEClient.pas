@@ -194,6 +194,7 @@ type
 
 //----------------------------------------------------------------------------------------------------------------------
 
+{$IFDEF COMPILER_10}
 function ExpandRootMacro(const S: string): string; external 'coreide100.bpl' index 1158;
 function EditControlGetLinesInWindow(Self: TObject): Integer; external 'coreide100.bpl' index 3178;
 function EditControlGetTopLine(Self: TObject): Integer; external 'coreide100.bpl' index 3174;
@@ -207,6 +208,29 @@ function BaseVirtualTreeScrollIntoView(Self: TObject; Node: Pointer; Center, Hor
   external 'vclide100.bpl' index 3628;
 procedure BaseVirtualTreeSetSelected(Self: TObject; Node: Pointer; Value: Boolean);
   external 'vclide100.bpl' index 3990;
+{$ENDIF}
+{$IFDEF COMPILER_9}
+function ExpandRootMacro(const S: string): string; external 'coreide90.bpl'
+  name '@Uiutils@ExpandRootMacro$qqrx17System@AnsiString';
+function EditControlGetLinesInWindow(Self: TObject): Integer; external 'coreide90.bpl'
+  name '@Editorcontrol@TCustomEditControl@GetLinesInWindow$qqrv';
+function EditControlGetTopLine(Self: TObject): Integer; external 'coreide90.bpl'
+  name '@Editorcontrol@TCustomEditControl@GetTopLine$qqrv';
+  
+// vclide seems to contain a different version of Virtual TreeView; hence these imports as a workaround
+function BaseVirtualTreeGetFirst(Self: TObject): Pointer; external 'vclide90.bpl'
+  name '@Idevirtualtrees@TBaseVirtualTree@GetFirst$qqrv';
+function BaseVirtualTreeGetFirstSelected(Self: TObject): Pointer; external 'vclide90.bpl'
+  name '@Idevirtualtrees@TBaseVirtualTree@GetFirstSelected$qqrv';
+function BaseVirtualTreeGetNext(Self: TObject; Node: Pointer): Pointer; external 'vclide90.bpl'
+  name '@Idevirtualtrees@TBaseVirtualTree@GetNext$qqrp28Idevirtualtrees@TVirtualNode';
+function BaseVirtualTreeGetNodeData(Self: TObject; Node: Pointer): Pointer; external 'vclide90.bpl'
+  name '@Idevirtualtrees@TBaseVirtualTree@GetNodeData$qqrp28Idevirtualtrees@TVirtualNode';
+function BaseVirtualTreeScrollIntoView(Self: TObject; Node: Pointer; Center, Horizontally: Boolean): Boolean;
+  external 'vclide90.bpl' name '@Idevirtualtrees@TBaseVirtualTree@ScrollIntoView$qqrp28Idevirtualtrees@TVirtualNodeoo';
+procedure BaseVirtualTreeSetSelected(Self: TObject; Node: Pointer; Value: Boolean);
+  external 'vclide90.bpl' name '@Idevirtualtrees@TBaseVirtualTree@SetSelected$qqrp28Idevirtualtrees@TVirtualNodeo';
+{$ENDIF}
 
 //----------------------------------------------------------------------------------------------------------------------
 
