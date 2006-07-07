@@ -15,6 +15,7 @@
 {                                                                                                                      }
 { Contributors:                                                                                                        }
 {   Ondrej Kelle (tondrej)                                                                                             }
+{   Uwe Schuster (uschuster)                                                                                           }
 {                                                                                                                      }
 {**********************************************************************************************************************}
 {                                                                                                                      }
@@ -26,7 +27,7 @@ unit SvnToolForm;
 
 interface
 
-{$include Compilers.inc}
+{$INCLUDE Compilers.inc}
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Forms, Controls, ComCtrls, ExtCtrls, ToolWin,
