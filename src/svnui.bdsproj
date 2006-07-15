@@ -146,11 +146,11 @@
 		</Language>
 		<VersionInfo>
 			<VersionInfo Name="IncludeVerInfo">True</VersionInfo>
-			<VersionInfo Name="AutoIncBuild">True</VersionInfo>
+			<VersionInfo Name="AutoIncBuild">False</VersionInfo>
 			<VersionInfo Name="MajorVer">1</VersionInfo>
 			<VersionInfo Name="MinorVer">0</VersionInfo>
 			<VersionInfo Name="Release">0</VersionInfo>
-			<VersionInfo Name="Build">30</VersionInfo>
+			<VersionInfo Name="Build">37</VersionInfo>
 			<VersionInfo Name="Debug">False</VersionInfo>
 			<VersionInfo Name="PreRelease">False</VersionInfo>
 			<VersionInfo Name="Special">False</VersionInfo>
@@ -162,7 +162,7 @@
 		<VersionInfoKeys>
 			<VersionInfoKeys Name="CompanyName">http://delphisvn.sourceforge.net/</VersionInfoKeys>
 			<VersionInfoKeys Name="FileDescription">Subversion client UI runtime</VersionInfoKeys>
-			<VersionInfoKeys Name="FileVersion">1.0.0.30</VersionInfoKeys>
+			<VersionInfoKeys Name="FileVersion">1.0.0.37</VersionInfoKeys>
 			<VersionInfoKeys Name="InternalName">svnui</VersionInfoKeys>
 			<VersionInfoKeys Name="LegalCopyright">© http://delphisvn.sourceforge.net/</VersionInfoKeys>
 			<VersionInfoKeys Name="LegalTrademarks"></VersionInfoKeys>

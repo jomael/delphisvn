@@ -310,8 +310,6 @@ begin
   if not FClient.IsPathVersioned(AFileName) then
     Exit;
 
-  SvnIDEModule.SetupBlamePanel;
-  
   if FItems.Find(AFileName, Index) then
     Item := TSvnItem(FItems.Objects[Index])
   else
@@ -324,6 +322,8 @@ begin
       raise;
     end;
   end;
+
+  SvnIDEModule.SetupBlamePanel;
 
   Result := TSvnFileHistory.Create(Item);
 end;
