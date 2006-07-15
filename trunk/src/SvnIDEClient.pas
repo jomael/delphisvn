@@ -473,10 +473,13 @@ begin
   if not HistoryItem.HasBlameLoaded then
   begin
     Canvas.Font := Font;
+    Canvas.Font.Color := clGrayText;
     Canvas.TextOut(8, 8, 'loading...');
-    if not HistoryItem.IsLoadingBlame then
+    if not HistoryItem.HasBlameLoaded then
+    begin
       HistoryItem.StartLoadingBlame(BlameLoaded);
-    Exit;
+      Exit;
+    end;
   end;
 
   if BorlandIDEServices.GetService(IOTAEditorServices, EditorServices) then
@@ -484,12 +487,12 @@ begin
     EditOptions := EditorServices.GetEditOptions(cDefEdPascal);
     if Assigned(EditOptions) then
     begin
-      Font.Name := EditOptions.FontName;
-      Font.Size := EditOptions.FontSize;
+      Canvas.Font.Name := EditOptions.FontName;
+      Canvas.Font.Size := EditOptions.FontSize;
+      Canvas.Font.Color := clWindowText;
     end;
   end;
 
-  Canvas.Font := Font;
   TopLine := EditControlGetTopLine(FControl);
   LinesInWindow := EditControlGetLinesInWindow(FControl);
   LineHeight := FControl.Height div LinesInWindow;
@@ -517,6 +520,7 @@ begin
       if FRevisionX + W + 8 > FTimeX then
         FTimeX := FRevisionX + W + 8;
     end;
+    FLastItem := HistoryItem;
   end;
 
   Y := 0;
@@ -857,7 +861,7 @@ procedure TSvnIDEClient.InsertBlamePanel(Form: TCustomForm);
 var
   HistoryFrame: TCustomFrame;
   RevisionContentTree: TObject;
-  TabSheet1, EditControl: TWinControl;
+  TabSet1, TabSheet1, EditControl: TWinControl;
   I: Integer;
   Panel: TPanel;
   BlameControl: TBlameControl;
@@ -870,6 +874,7 @@ begin
   RevisionContentTree := HistoryFrame.FindComponent('RevisionContentTree');
   if not Assigned(RevisionContentTree) then
     Exit;
+
   TabSheet1 := TTabSheet(HistoryFrame.FindComponent('TabSheet1'));
   if not Assigned(TabSheet1) then
     Exit;
@@ -894,15 +899,25 @@ begin
 
   if Assigned(Panel) then
   begin
-    if not Assigned(EditControl) then
-      for I := 0 to Panel.ControlCount - 1 do
-        if Panel.Controls[I].ClassNameIs('TEditControl') then
-        begin
-          EditControl := TWinControl(Panel.Controls[I]);
-          Break;
-        end;
-    if Assigned(EditControl) then
-      EditControl.Show;
+    TabSet1 := nil;
+    for I := 0 to HistoryFrame.ControlCount - 1 do
+      if HistoryFrame.Controls[I].ClassNameIs('TTabSet') then
+      begin
+        TabSet1 := TWinControl(HistoryFrame.Controls[I]);
+        Break;
+      end;
+    if Assigned(TabSet1) and (TTabSet(TabSet1).TabIndex = 0) then
+    begin
+      if not Assigned(EditControl) then
+        for I := 0 to Panel.ControlCount - 1 do
+          if Panel.Controls[I].ClassNameIs('TEditControl') then
+          begin
+            EditControl := TWinControl(Panel.Controls[I]);
+            Break;
+          end;
+      if Assigned(EditControl) then
+        EditControl.Show;
+    end;
   end
   else
   begin

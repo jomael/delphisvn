@@ -1774,7 +1774,7 @@ begin
   Result := -1;
 
   if not Assigned(FItems) then
-    FItems := TList.Create;
+    Exit;
 
   for I := 0 to FItems.Count - 1 do
   begin
