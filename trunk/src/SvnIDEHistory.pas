@@ -311,7 +311,10 @@ begin
     Exit;
 
   if FItems.Find(AFileName, Index) then
-    Item := TSvnItem(FItems.Objects[Index])
+  begin
+    Item := TSvnItem(FItems.Objects[Index]);
+    Item.Reload;
+  end
   else
   begin
     Item := TSvnItem.Create(FClient, nil, AFileName);
