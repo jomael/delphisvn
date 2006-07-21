@@ -56,8 +56,12 @@ type
   private
     FAuthor: string;
     FBlame: TList;
+    FBlameError: string;
+    FBlameNotify: TNotifyEvent;
+    FBlameThread: TThread;
+    FCancelBlame: Boolean;
+    FDestroying: Boolean;
     FFile: string;
-    FLoadingBlame: Boolean;
     FLogMessage: string;
     FOwner: TSvnItem;
     FRevision: Integer;
@@ -65,14 +69,17 @@ type
 
     procedure BlameCallback(Sender: TObject; LineNo: Int64; Revision: Integer; const Author: string; Time: TDateTime;
       const Line: string; var Cancel: Boolean);
+    procedure BlameThreadTerminate(Sender: TObject);
     procedure ClearBlame;
     function GetBlameCount: Integer;
     function GetBlameItems(Index: Integer): TSvnBlameItem;
-    procedure ReloadBlame;
+    procedure ReloadBlame; overload;
+    procedure ReloadBlame(ASvnClient: TSvnClient; const APathName: string; ABaseRevision: Integer); overload;
   public
     constructor Create;
     destructor Destroy; override;
 
+    procedure CancelBlame;
     function GetFile: string;
     function HasBlameLoaded: Boolean;
     function IsLoadingBlame: Boolean;
@@ -80,6 +87,7 @@ type
 
     property Author: string read FAuthor;
     property BlameCount: Integer read GetBlameCount;
+    property BlameError: string read FBlameError;
     property BlameItems[Index: Integer]: TSvnBlameItem read GetBlameItems;
     property LogMessage: string read FLogMessage;
     property Owner: TSvnItem read FOwner;
@@ -264,6 +272,7 @@ type
   TSvnClient = class
   private
     FAllocator: PAprAllocator;
+    FAprLibLoaded: Boolean;
     FCancelled: Boolean;
     FCommitLogMessage: string;
     FConfigDir: string;
@@ -271,6 +280,7 @@ type
     FPassword: string;
     FPool: PAprPool; // main pool
     FPoolUtf8: PAprPool; // pool for UTF-8 routines
+    FSvnClientLibLoaded: Boolean;
     FUserName: string;
 
     FBlameCallback: TSvnBlameCallback;
@@ -329,6 +339,7 @@ type
     property Initialized: Boolean read GetInitialized;
     property Password: string read FPassword write FPassword;
     property Pool: PAprPool read FPool;
+    property PoolUtf8: PAprPool read FPoolUtf8;
     property UserName: string read FUserName write FUserName;
 
     property OnLoginPrompt: TLoginPromptEvent read FOnLoginPrompt write FOnLoginPrompt;
@@ -949,11 +960,10 @@ type
   TBlameThread = class(TThread)
   private
     FItem: TSvnHistoryItem;
-    FNotify: TNotifyEvent;
   protected
     procedure Execute; override;
   public
-    constructor Create(AItem: TSvnHistoryItem; ANotify: TNotifyEvent);
+    constructor Create(AItem: TSvnHistoryItem; AOnTerminate: TNotifyEvent);
   end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -964,13 +974,16 @@ type
 
 procedure TBlameThread.Execute;
 
+var
+  SvnClient: TSvnClient;
+
 begin
+  SvnClient := TSvnClient.Create;
   try
-    FItem.ReloadBlame;
-    if Assigned(FNotify) then
-      FNotify(FItem);
+    SvnClient.Initialize;
+    FItem.ReloadBlame(SvnClient, FItem.Owner.PathName, FItem.Owner.BaseRevision);
   finally
-    FItem.FLoadingBlame := False;
+    SvnClient.Free;
   end;
 end;
 
@@ -980,11 +993,11 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-constructor TBlameThread.Create(AItem: TSvnHistoryItem; ANotify: TNotifyEvent);
+constructor TBlameThread.Create(AItem: TSvnHistoryItem; AOnTerminate: TNotifyEvent);
 
 begin
   FItem := AItem;
-  FNotify := ANotify;
+  OnTerminate := AOnTerminate;
   FreeOnTerminate := True;
   inherited Create(False);
 end;
@@ -1002,7 +1015,10 @@ var
   Item: TSvnBlameItem;
 
 begin
-  Cancel := False;
+  Cancel := FCancelBlame or (Assigned(FBlameThread) and TBlameThread(FBlameThread).Terminated);
+  if Cancel then
+    Exit;
+    
   Item := TSvnBlameItem.Create;
   try
     Item.FLineNo := LineNo;
@@ -1015,6 +1031,28 @@ begin
   except
     Item.Free;
     raise;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnHistoryItem.BlameThreadTerminate(Sender: TObject);
+
+begin
+  try
+    if Assigned(TThread(Sender).FatalException) then
+    begin
+      ClearBlame;
+      if TThread(Sender).FatalException is Exception then
+        FBlameError := Exception(TThread(Sender).FatalException).Message;
+    end;
+
+    if Assigned(FBlameNotify) and not FCancelBlame and not FDestroying then
+      FBlameNotify(Self);
+  finally
+    FBlameThread := nil;
+    FBlameNotify := nil;
+    FCancelBlame := False;
   end;
 end;
 
@@ -1039,26 +1077,24 @@ end;
 procedure TSvnHistoryItem.ReloadBlame;
 
 begin
-  ClearBlame;
-
-  FBlame := TList.Create;
-  try
-    FOwner.FSvnClient.Blame(FOwner.PathName, BlameCallback, 1, FRevision, FOwner.BaseRevision);
-  except
-    ClearBlame;
-    raise;
-  end;
+  ReloadBlame(FOwner.SvnClient, FOwner.PathName, FOwner.BaseRevision);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TSvnHistoryItem.StartLoadingBlame(ANotify: TNotifyEvent = nil);
+procedure TSvnHistoryItem.ReloadBlame(ASvnClient: TSvnClient; const APathName: string; ABaseRevision: Integer);
 
 begin
-  if FLoadingBlame then
-    Exit;
-  FLoadingBlame := True;
-  TBlameThread.Create(Self, ANotify);
+  ClearBlame;
+  FBlameError := '';
+
+  FBlame := TList.Create;
+  try
+    ASvnClient.Blame(APathName, BlameCallback, 1, FRevision, ABaseRevision);
+  except
+    ClearBlame;
+    raise;
+  end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -1072,6 +1108,9 @@ constructor TSvnHistoryItem.Create;
 begin
   inherited Create;
   FBlame := nil;
+  FBlameThread := nil;
+  FBlameNotify := nil;
+  FCancelBlame := False;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -1079,6 +1118,9 @@ end;
 destructor TSvnHistoryItem.Destroy;
 
 begin
+  FDestroying := True;
+  CancelBlame;
+  FBlameThread := nil;
   ClearBlame;
   inherited Destroy;
 end;
@@ -1089,7 +1131,7 @@ function TSvnHistoryItem.GetBlameCount: Integer;
 
 begin
   Result := 0;
-  if FLoadingBlame then
+  if IsLoadingBlame then
     Exit;
     
   if not Assigned(FBlame) then
@@ -1103,12 +1145,20 @@ function TSvnHistoryItem.GetBlameItems(Index: Integer): TSvnBlameItem;
 
 begin
   Result := nil;
-  if FLoadingBlame then
+  if IsLoadingBlame then
     Exit;
     
   if not Assigned(FBlame) then
     ReloadBlame;
   Result := FBlame[Index];
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnHistoryItem.CancelBlame;
+
+begin
+  FCancelBlame := True;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -1135,6 +1185,7 @@ begin
       Revision.Value.number := FRevision;
       Buffer := svn_stringbuf_create('', SubPool);
       Stream := svn_stream_from_stringbuf(Buffer, SubPool);
+      FOwner.FSvnClient.FCancelled := False;
       SvnCheck(svn_client_cat2(Stream, PChar(FOwner.SvnPathName), @PegRevision, @Revision, FOwner.SvnClient.Ctx,
         SubPool));
       SetString(FFile, Buffer.data, Buffer.len);
@@ -1151,7 +1202,7 @@ end;
 function TSvnHistoryItem.HasBlameLoaded: Boolean;
 
 begin
-  Result := Assigned(FBlame) and not FLoadingBlame;
+  Result := Assigned(FBlame) and not IsLoadingBlame;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -1159,7 +1210,20 @@ end;
 function TSvnHistoryItem.IsLoadingBlame: Boolean;
 
 begin
-  Result := FLoadingBlame;
+  Result := Assigned(FBlameThread);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnHistoryItem.StartLoadingBlame(ANotify: TNotifyEvent = nil);
+
+begin
+  if IsLoadingBlame then
+    Exit;
+  FCancelBlame := False;
+  FBlameNotify := ANotify;
+  FBlameError := '';
+  FBlameThread := TBlameThread.Create(Self, BlameThreadTerminate);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -1428,6 +1492,7 @@ begin
 
       Targets := apr_array_make(SubPool, 1, SizeOf(PChar));
       PPChar(apr_array_push(Targets))^ := PChar(FSvnPathName);
+      FSvnClient.FCancelled := False;
       Error := svn_client_log2(Targets, @StartRevision, @EndRevision, 0, False, False, LogMessage, Self, FSvnClient.Ctx,
         SubPool);
       if Assigned(Error) then
@@ -1468,6 +1533,7 @@ begin
       FillChar(Revision, SizeOf(TSvnOptRevision), 0);
       Revision.Kind := svnOptRevisionUnspecified;
       AprCheck(apr_filepath_merge(TruePath, '', PChar(FPathName), APR_FILEPATH_TRUENAME, SubPool));
+      FSvnClient.FCancelled := False;
       SvnCheck(svn_client_proplist2(Props, TruePath, @PegRevision, @Revision, False, FSvnClient.Ctx,
         SubPool));
 
@@ -1516,6 +1582,7 @@ begin
     if svn_prop_needs_translation(PChar(Name)) then
       SvnCheck(svn_subst_translate_string(SvnValue, SvnValue, nil, SubPool));
 
+    FSvnClient.FCancelled := False;
     SvnCheck(svn_client_propset2(PChar(Name), SvnValue, TruePath, False, False, FSvnClient.Ctx, SubPool));
   finally
     apr_pool_destroy(SubPool);
@@ -1818,6 +1885,7 @@ begin
       FSvnPathName := FSvnClient.NativePathToSvnPath(FPathName, SubPool);
       FillChar(Revision, SizeOf(TSvnOptRevision), 0);
       Revision.Kind := svnOptRevisionHead;
+      FSvnClient.FCancelled := False;
       FReloadStack.Push(Self);
       SvnCheck(svn_client_status2(nil, PChar(FSvnPathName), @Revision, WCStatus, Self, Recurse, True, Update, False,
         False, FSvnClient.Ctx, SubPool));
@@ -2034,6 +2102,7 @@ begin
       PegRev.Value.number := PegRevision;
     end;
 
+    FCancelled := False;
     FBlameCallback := Callback;
     FBlameSubPool := SubPool;
     SvnCheck(svn_client_blame2(PChar(NativePathToSvnPath(PathName)), @PegRev, @StartRev, @EndRev, BlameReceiver, Self,
@@ -2061,6 +2130,7 @@ begin
   if NewPool then
     AprCheck(apr_pool_create_ex(SubPool, FPool, nil, FAllocator));
   try
+    FCancelled := False;
     SvnCheck(svn_client_cleanup(PChar(NativePathToSvnPath(PathName)), FCtx, SubPool));
   finally
     if NewPool then
@@ -2095,6 +2165,7 @@ begin
     CommitInfo := nil;
     FCommitLogMessage := LogMessage;
     FNotifyCallback := Callback;
+    FCancelled := False;
     SvnCheck(svn_client_commit3(CommitInfo, Targets, Recurse, KeepLocks, FCtx, SubPool));
     if Assigned(CommitInfo) and Assigned(CommitInfo^.post_commit_err) and (CommitInfo^.post_commit_err^ <> #0) then
       raise Exception.Create(CommitInfo^.post_commit_err);
@@ -2129,8 +2200,10 @@ begin
     FAllocator := nil;
   end;
   apr_terminate2;
-  FreeSvnClientLib;
-  FreeAprLib;
+  if FSvnClientLibLoaded then
+    FreeSvnClientLib;
+  if FAprLibLoaded then
+    FreeAprLib;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -2248,16 +2321,20 @@ begin
   begin
     if not LoadAprLib then
       RaiseLastOSError;
-    AprCheck(apr_initialize);
+    FAprLibLoaded := True;
   end;
+
   if not SvnClientLibLoaded then
   begin
     if not LoadSvnClientLib then
       RaiseLastOSError;
-    FPoolUtf8 := svn_pool_create_ex(nil, nil);
-    svn_utf_initialize(FPoolUtf8);
-    SvnCheck(svn_nls_init);
+    FSvnClientLibLoaded := True;
   end;
+
+  AprCheck(apr_initialize);
+  FPoolUtf8 := svn_pool_create_ex(nil, nil);
+  svn_utf_initialize(FPoolUtf8);
+  SvnCheck(svn_nls_init);
 
   AprCheck(apr_allocator_create(FAllocator));
   try
@@ -2370,6 +2447,7 @@ begin
     FillChar(Revision, SizeOf(TSvnOptRevision), 0);
     Revision.Kind := svnOptRevisionUnspecified;
     AprCheck(apr_filepath_merge(TruePath, '', PChar(PathName), APR_FILEPATH_TRUENAME, SubPool));
+    FCancelled := False;
     SvnError := svn_client_info(TruePath, @PegRevision, @Revision, DummyInfoReceiver, nil, False, Ctx, SubPool);
     Result := not Assigned(SvnError);
     if not Result then
@@ -2482,6 +2560,7 @@ begin
     AprCheck(apr_pool_create_ex(SubPool, FPool, nil, FAllocator));
   try
     Paths := PathNamesToAprArray(PathNames, SubPool);
+    FCancelled := False;
     FNotifyCallback := Callback;
     SvnCheck(svn_client_revert(Paths, Recurse, FCtx, SubPool));
   finally

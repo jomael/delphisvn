@@ -348,8 +348,7 @@ type
 procedure TBlameControl.BlameLoaded(Sender: TObject);
 
 begin
-  OutputDebugString(PChar(Format('BlameLoaded', [])));
-  PostMessage(Handle, CM_INVALIDATE, 0, 0);
+  Invalidate;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -468,16 +467,26 @@ begin
 
   HistoryItem := SvnIDEModule.GetSvnHistoryNodeItem(Tree, BaseVirtualTreeGetFirstSelected(Tree));
   if not Assigned(HistoryItem) then
+  begin
+    FLastItem := nil;
     Exit;
+  end;
 
   if not HistoryItem.HasBlameLoaded then
   begin
     Canvas.Font := Font;
-    Canvas.Font.Color := clGrayText;
-    Canvas.TextOut(8, 8, 'loading...');
-    if not HistoryItem.HasBlameLoaded then
+    if HistoryItem.BlameError = '' then
     begin
-      HistoryItem.StartLoadingBlame(BlameLoaded);
+      Canvas.Font.Color := clGrayText;
+      Canvas.TextOut(8, 8, 'loading...');
+      if not HistoryItem.IsLoadingBlame then
+        HistoryItem.StartLoadingBlame(BlameLoaded);
+      Exit;
+    end
+    else
+    begin
+      Canvas.Font.Color := clRed;
+      Canvas.TextOut(8, 8, HistoryItem.BlameError);
       Exit;
     end;
   end;
