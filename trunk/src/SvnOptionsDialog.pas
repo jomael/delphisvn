@@ -30,23 +30,28 @@ interface
 {$INCLUDE Compilers.inc}
 
 uses
-  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms, Dialogs, StdCtrls;
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms, Dialogs, StdCtrls,
+  SvnIDEClient;
 
 type
   TFormSvnOptions = class(TForm)
     ButtonBrowse: TButton;
     ButtonCancel: TButton;
     ButtonOK: TButton;
+    CheckBoxAllowEmptyCommitMsg: TCheckBox;
+    CheckBoxConfirmAdd: TCheckBox;
     ComboBoxDirs: TComboBox;
     LabelDirs: TLabel;
 
     procedure ButtonBrowseClick(Sender: TObject);
+    procedure CheckBoxClick(Sender: TObject);
     procedure ComboBoxDirsChange(Sender: TObject);
   private
+    FLoading: Boolean;
   public
   end;
 
-function ShowSvnOptionsDialog(var Directories: string; History: TStrings): TModalResult;
+function ShowSvnOptionsDialog(Settings: TSvnIDESettings): TModalResult;
 
 implementation
 
@@ -58,7 +63,7 @@ uses
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function ShowSvnOptionsDialog(var Directories: string; History: TStrings): TModalResult;
+function ShowSvnOptionsDialog(Settings: TSvnIDESettings): TModalResult;
 
 var
   Form: TFormSvnOptions;
@@ -66,12 +71,25 @@ var
 begin
   Form := TFormSvnOptions.Create(nil);
   try
-    Form.Icon := SvnImageModule.Icon;
-    Form.ComboBoxDirs.Items.Assign(History);
-    Form.ComboBoxDirs.Text := Directories;
+    Form.FLoading := True;
+    try
+      Form.Icon := SvnImageModule.Icon;
+      Form.ComboBoxDirs.Items.Assign(Settings.DirHistory);
+      Form.ComboBoxDirs.Text := Settings.Directories;
+      Form.CheckBoxConfirmAdd.Checked := Settings.ConfirmAdd;
+      Form.CheckBoxAllowEmptyCommitMsg.Checked := Settings.AllowEmptyCommitMsg;
+    finally
+      Form.FLoading := False;
+    end;
+
     Result := Form.ShowModal;
+
     if Result = mrOK then
-      Directories := Form.ComboBoxDirs.Text;
+    begin
+      Settings.Directories := Form.ComboBoxDirs.Text;
+      Settings.ConfirmAdd := Form.CheckBoxConfirmAdd.Checked;
+      Settings.AllowEmptyCommitMsg := Form.CheckBoxAllowEmptyCommitMsg.Checked;
+    end;
   finally
     Form.Free;
   end;
@@ -146,6 +164,15 @@ begin
   finally
     Dlg.Free;
   end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFormSvnOptions.CheckBoxClick(Sender: TObject);
+
+begin
+  if not FLoading then
+    ButtonOK.Enabled := True;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

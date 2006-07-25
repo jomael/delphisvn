@@ -102,7 +102,7 @@ begin
   FillChar(Data^, SizeOf(TNodeData), 0);
   Data^.Item := Item;
   Item.Tag := Integer(Data);
-  Data^.Item.OnDestroy := ItemDestroy;
+  Data^.Item.AddDestroyNotification(ItemDestroy);
   StrLCopy(Data^.DisplayName, PChar(GetDisplayName(Data^.Item.PathName)), SizeOf(Data^.DisplayName) - 1);
   Data^.Attr := GetFileAttributes(PChar(Data^.Item.PathName));
   Data^.IconIndex := -1;

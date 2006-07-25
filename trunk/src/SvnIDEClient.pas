@@ -38,10 +38,14 @@ uses
 type
   TSvnIDESettings = class
   private
+    FAllowEmptyCommitMsg: Boolean;
+    FConfirmAdd: Boolean;
     FDirectories: string;
     FDirHistory: TStrings;
     FModified: Boolean;
 
+    procedure SetAllowEmptyCommitMsg(Value: Boolean);
+    procedure SetConfirmAdd(Value: Boolean);
     procedure SetDirectories(const Value: string);
   public
     constructor Create;
@@ -50,6 +54,8 @@ type
     procedure LoadSettings;
     procedure SaveSettings;
 
+    property AllowEmptyCommitMsg: Boolean read FAllowEmptyCommitMsg write SetAllowEmptyCommitMsg;
+    property ConfirmAdd: Boolean read FConfirmAdd write SetConfirmAdd;
     property Directories: string read FDirectories write SetDirectories;
     property DirHistory: TStrings read FDirHistory;
     property Modified: Boolean read FModified;
@@ -93,7 +99,7 @@ type
     procedure Finalize;
     procedure GetDirectories(Directories: TStrings);
     procedure Initialize;
-    procedure InsertBlamePanel(Form: TCustomForm);
+    procedure InsertBlameControl(Form: TCustomForm);
     procedure SvnClientLoginPrompt(Sender: TObject; const Realm: string; var UserName, Password: string;
       var Cancel, Save: Boolean);
     procedure SvnClientSSLClientCertPrompt(Sender: TObject; const Realm: string; var CertFileName: string;
@@ -118,18 +124,21 @@ type
     function FindSvnHistoryNode(Tree: TObject; Revision: Integer): Pointer;
     function GetEditWindow: TCustomForm;
     function GetSvnHistoryNodeItem(Tree: TObject; Node: Pointer): TSvnHistoryItem;
-    procedure SetupBlamePanel;
+    procedure SetupBlameControl;
     function ShowBlame(const FileName: string): Boolean;
     function ShowDiff(const FileName: string; FromRevision, ToRevision: Integer): Boolean;
     procedure ShowEditor(const FileName: string);
+    procedure ShowHistoryEditControls;
 
     property SvnClient: TSvnClient read FSvnClient;
+    property Settings: TSvnIDESettings read FSettings;
   end;
 
 var
   SvnIDEModule: TSvnIDEClient = nil;
 
 resourcestring
+  SConfirmAdd = 'Add selected files and directories to Subversion?';
   SConfirmCleanup = 'Clean up working copy directories?';
   SConfirmRevert = 'Revert local changes?';
 
@@ -262,6 +271,30 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+procedure TSvnIDESettings.SetAllowEmptyCommitMsg(Value: Boolean);
+
+begin
+  if FAllowEmptyCommitMsg <> Value then
+  begin
+    FAllowEmptyCommitMsg := Value;
+    FModified := True;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnIDESettings.SetConfirmAdd(Value: Boolean);
+
+begin
+  if FConfirmAdd <> Value then
+  begin
+    FConfirmAdd := Value;
+    FModified := True;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
 procedure TSvnIDESettings.SetDirectories(const Value: string);
 
 var
@@ -379,21 +412,22 @@ end;
 procedure TBlameControl.CMHintShow(var Message: TMessage);
 
 var
-  Frame: TWinControl;
   Tree: TObject;
   I, TopLine, LinesInWindow, LineHeight, Index: Integer;
   HistoryItem, BlameHistoryItem: TSvnHistoryItem;
 
 begin
+  if not Assigned(Parent) then
+    Exit;
+
   TCMHintShow(Message).HintInfo^.ReshowTimeout := 500;
   TCMHintShow(Message).HintInfo^.HintStr := '';
 
-  Frame := Parent.Parent;
   Tree := nil;
-  for I := 0 to Frame.ControlCount - 1 do
-    if SameText(Frame.Controls[I].Name, 'RevisionContentTree') then
+  for I := 0 to Parent.ControlCount - 1 do
+    if SameText(Parent.Controls[I].Name, 'RevisionContentTree') then
     begin
-      Tree := Frame.Controls[I];
+      Tree := Parent.Controls[I];
       Break;
     end;
   if not Assigned(Tree) then
@@ -447,13 +481,12 @@ begin
   Canvas.Brush.Color := clWindow;
   Canvas.FillRect(ClientRect);
 
-  if not Assigned(FControl) or not Assigned(Parent) or // our panel
-    not Assigned(Parent.Parent) or // tab sheet
-    not Assigned(Parent.Parent.Parent) then // page control
+  if not Assigned(FControl) or not Assigned(Parent) or // tab sheet
+    not Assigned(Parent.Parent) then // page control
     Exit;
 
   // find tabset and check its index
-  Frame := Parent.Parent.Parent.Parent;
+  Frame := Parent.Parent.Parent;
   if not Assigned(Frame) then
     Exit;
   TabSet1 := TTabSet(Frame.FindComponent('TabSet1'));
@@ -596,6 +629,8 @@ begin
   inherited Create;
   FDirectories := '';
   FDirHistory := TStringList.Create;
+  FAllowEmptyCommitMsg := False;
+  FConfirmAdd := True;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -630,7 +665,17 @@ begin
     Registry.RootKey := HKEY_CURRENT_USER;
     SKey := Format('%s\Subversion', [Services.GetBaseRegistryKey]);
     if Registry.OpenKeyReadOnly(SKey) then
+    begin
       FDirectories := Registry.ReadString('Directories');
+      if Registry.ValueExists('AllowEmptyCommitMsg') then
+        FAllowEmptyCommitMsg := Registry.ReadBool('AllowEmptyCommitMsg')
+      else
+        FAllowEmptyCommitMsg := False;
+      if Registry.ValueExists('ConfirmAdd') then
+        FConfirmAdd := Registry.ReadBool('ConfirmAdd')
+      else
+        FConfirmAdd := True;
+    end;
 
     SKey := Format('%s\Subversion\hlDirectories', [Services.GetBaseRegistryKey]);
     if Registry.OpenKeyReadOnly(SKey) then
@@ -639,6 +684,8 @@ begin
       for I := 0 to Count - 1 do
         FDirHistory.Add(Registry.ReadString(Format('Item%d', [I])));
     end;
+
+    FModified := False;
   finally
     Registry.Free;
   end;
@@ -663,7 +710,11 @@ begin
     Registry.RootKey := HKEY_CURRENT_USER;
     SKey := Format('%s\Subversion', [Services.GetBaseRegistryKey]);
     if Registry.OpenKey(SKey, True) then
+    begin
       Registry.WriteString('Directories', FDirectories);
+      Registry.WriteBool('AllowEmptyCommitMsg', FAllowEmptyCommitMsg);
+      Registry.WriteBool('ConfirmAdd', FConfirmAdd);
+    end;
     SKey := Format('%s\Subversion\hlDirectories', [Services.GetBaseRegistryKey]);
     if Registry.OpenKey(SKey, True) then
     begin
@@ -865,14 +916,13 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TSvnIDEClient.InsertBlamePanel(Form: TCustomForm);
+procedure TSvnIDEClient.InsertBlameControl(Form: TCustomForm);
 
 var
   HistoryFrame: TCustomFrame;
   RevisionContentTree: TObject;
-  TabSet1, TabSheet1, EditControl: TWinControl;
+  TabSheet1, EditControl: TWinControl;
   I: Integer;
-  Panel: TPanel;
   BlameControl: TBlameControl;
   Splitter: TSplitter;
 
@@ -896,67 +946,41 @@ begin
       EditControl := TabSheet1.Controls[I] as TWinControl;
       Break;
     end;
+  if not Assigned(EditControl) then
+    Exit;
 
-  // find panel
-  Panel := nil;
+  // find blame control
+  BlameControl := nil;
   for I := 0 to TabSheet1.ControlCount - 1 do
-    if SameText(TabSheet1.Controls[I].Name, 'SvnBlamePanel') then
+    if TabSheet1.Controls[I].ClassNameIs('TBlameControl') then
     begin
-      Panel := TPanel(TabSheet1.Controls[I]);
+      BlameControl := TabSheet1.Controls[I] as TBlameControl;
       Break;
     end;
 
-  if Assigned(Panel) then
-  begin
-    TabSet1 := nil;
-    for I := 0 to HistoryFrame.ControlCount - 1 do
-      if HistoryFrame.Controls[I].ClassNameIs('TTabSet') then
-      begin
-        TabSet1 := TWinControl(HistoryFrame.Controls[I]);
-        Break;
-      end;
-    if Assigned(TabSet1) and (TTabSet(TabSet1).TabIndex = 0) then
-    begin
-      if not Assigned(EditControl) then
-        for I := 0 to Panel.ControlCount - 1 do
-          if Panel.Controls[I].ClassNameIs('TEditControl') then
-          begin
-            EditControl := TWinControl(Panel.Controls[I]);
-            Break;
-          end;
-      if Assigned(EditControl) then
-        EditControl.Show;
-    end;
-  end
-  else
+  if not Assigned(BlameControl) then
   begin
     if not Assigned(EditControl) then
       Exit;
 
     EditControl.Align := alNone;
-    Panel := TPanel.Create(HistoryFrame);
-    Panel.Parent := TabSheet1;
-    Panel.Name := 'SvnBlamePanel';
-    Panel.Align := alClient;
-    Panel.BevelInner := bvNone;
-    Panel.BevelOuter := bvNone;
-    Panel.Caption := '';
     BlameControl := TBlameControl.Create(HistoryFrame, EditControl);
-    BlameControl.Parent := Panel;
+    BlameControl.Parent := TabSheet1;
     BlameControl.Name := 'SvnBlameControl';
     BlameControl.Width := 170;
     BlameControl.Align := alLeft;
     BlameControl.DoubleBuffered := True;
     BlameControl.ShowHint := True;
     Splitter := TSplitter.Create(EditControl.Parent);
-    Splitter.Parent := Panel;
+    Splitter.Parent := TabSheet1;
     Splitter.Name := 'SvnBlameSplitter';
     Splitter.Left := BlameControl.Width + 1;
     Splitter.Width := 3;
     Splitter.Align := alLeft;
-    EditControl.Parent := Panel;
+    EditControl.Parent := TabSheet1;
     EditControl.Align := alClient;
   end;
+  EditControl.Visible := True;  
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -1195,22 +1219,22 @@ begin
   Result := nil;
 
   Node := BaseVirtualTreeGetFirst(Tree);
-  // -1 = top node ('File' in the from treeview, 'Buffer' in the to treeview)
-  if Revision = -1 then
-  begin
-    Result := Node;
-    Exit;
-  end;
-
   while Assigned(Node) do
   begin
     Data := BaseVirtualTreeGetNodeData(Tree, Node);
-    if Assigned(Data) and Assigned(Data^.History) and
-      Succeeded(Data^.History.QueryInterface(ISvnFileHistory, SvnFileHistory)) and Assigned(SvnFileHistory.Item) and
-      (SvnFileHistory.Item.HistoryItems[Data^.Index].Revision = Revision) then
+    if Assigned(Data) and Assigned(Data^.History) then
     begin
-      Result := Node;
-      Break;
+      if (Revision = -1) and (Data^.History.HistoryStyle[Data^.Index] in [hsBuffer, hsFile]) then
+      begin
+        Result := Node;
+        Break;
+      end
+      else if Succeeded(Data^.History.QueryInterface(ISvnFileHistory, SvnFileHistory)) and
+        Assigned(SvnFileHistory.Item) and (SvnFileHistory.Item.HistoryItems[Data^.Index].Revision = Revision) then
+      begin
+        Result := Node;
+        Break;
+      end;
     end;
 
     Node := BaseVirtualTreeGetNext(Tree, Node);
@@ -1265,10 +1289,10 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TSvnIDEClient.SetupBlamePanel;
+procedure TSvnIDEClient.SetupBlameControl;
 
 begin
-  InsertBlamePanel(GetEditWindow);
+  InsertBlameControl(GetEditWindow);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -1495,6 +1519,39 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+procedure TSvnIDEClient.ShowHistoryEditControls;
+
+var
+  Form: TCustomForm;
+  HistoryFrame: TCustomFrame;
+  PageControl1: TPageControl;
+  I, J: Integer;
+  TabSheet: TTabSheet;
+
+begin
+  Form := GetEditWindow;
+  if not Assigned(Form) then
+    Exit;
+
+  HistoryFrame := TCustomFrame(FindChildControl(Form, 'TFileHistoryFrame'));
+  if not Assigned(HistoryFrame) then
+    Exit;
+
+  PageControl1 := TPageControl(HistoryFrame.FindComponent('PageControl1'));
+  if not Assigned(PageControl1) then
+    Exit;
+
+  for I := 0 to PageControl1.PageCount - 1 do
+  begin
+    TabSheet := PageControl1.Pages[I];
+    for J := 0 to TabSheet.ControlCount - 1 do
+      if TabSheet.Controls[J].ClassNameIs('TEditControl') then
+        TabSheet.Controls[J].Visible := True;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
 { TSvnIDEClient event handlers }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -1647,11 +1704,10 @@ begin
   History := TStringList.Create;
   try
     History.Assign(FSettings.DirHistory);
-    if ShowSvnOptionsDialog(Directories, History) = mrOK then
-    begin
-      FSettings.Directories := Directories;
-      FSettings.SaveSettings;
-    end;
+    if ShowSvnOptionsDialog(FSettings) = mrOK then
+      FSettings.SaveSettings
+    else
+      FSettings.LoadSettings;
   finally
     History.Free;
   end;

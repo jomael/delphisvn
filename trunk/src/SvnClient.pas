@@ -110,6 +110,7 @@ type
     FCopiedFromRevision: Integer;
     FCopiedFromURL: string;
     FDeleted: Boolean;
+    FDestroyNotifications: TList;
     FFileAttr: Cardinal;
     FHistory: TList;
     FIncomplete: Boolean;
@@ -150,8 +151,6 @@ type
     FURL: string;
     FUUID: string;
 
-    FOnDestroy: TNotifyEvent;
-
     procedure ClearHistory;
     procedure ClearItems;
     function GetCount: Integer;
@@ -165,12 +164,13 @@ type
     function GetPropValueFromIndex(Index: Integer): string;
     function GetPropValues(const Name: string): string;
     procedure LoadStatus(const Status: TSvnWCStatus2);
+    procedure LoadUnversionedPaths;
     procedure ReloadHistory;
     procedure ReloadProps;
     procedure SetPropValues(const Name, Value: string);
     procedure SortItems(Recurse: Boolean);
   protected
-    procedure DoDestroy; virtual;
+    procedure DoDestroyNotifications; virtual;
     procedure DoWCStatus(Path: PChar; const Status: TSvnWCStatus2);
   public
     constructor Create(ASvnClient: TSvnClient; AParent: TSvnItem; const APathName: string; Recurse: Boolean = False;
@@ -180,11 +180,14 @@ type
     destructor Destroy; override;
 
     function Add(Item: TSvnItem): Integer;
+    procedure AddDestroyNotification(Notification: TNotifyEvent);
     procedure Clear;
     function IndexOf(Item: TSvnItem): Integer; overload;
     function IndexOf(const PathName: string; SvnPath: Boolean = False): Integer; overload;
     procedure Reload(Recurse: Boolean = False; Update: Boolean = False);
+    procedure ReloadStatus;
     procedure Remove(Item: TSvnItem);
+    procedure RemoveDestroyNotification(Notification: TNotifyEvent);
 
     property Absent: Boolean read FAbsent;
     property BaseRevision: Integer read FBaseRevision;
@@ -242,8 +245,6 @@ type
     property TextStatus: TSvnWCStatusKind read FTextStatus;
     property URL: string read FURL;
     property UUID: string read FUUID;
-
-    property OnDestroy: TNotifyEvent read FOnDestroy write FOnDestroy;
   end;
 
   TSvnItemArray = array of TSvnItem;
@@ -312,6 +313,8 @@ type
     constructor Create;
     destructor Destroy; override;
 
+    procedure Add(const PathName: string; Recurse: Boolean = False; Force: Boolean = False; NoIgnore: Boolean = False;
+      SubPool: PAprPool = nil);
     procedure Blame(const PathName: string; Callback: TSvnBlameCallback; StartRevision: Integer = 1;
       EndRevision: Integer = -1; PegRevision: Integer = -1; SubPool: PAprPool = nil);
     procedure Cleanup(const PathName: string; SubPool: PAprPool = nil);
@@ -420,6 +423,9 @@ implementation
 
 uses
   RTLConsts, ActiveX, ComObj, ShlObj, TypInfo, WinSock;
+
+type
+  PMethod = ^TMethod;
 
 { helper routines }
 
@@ -950,6 +956,15 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+procedure WCStatus3(baton: Pointer; path: PChar; status: PSvnWCStatus2); cdecl;
+
+begin
+  if Assigned(status) then
+    TSvnItem(baton).LoadStatus(status^);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
 function DummyInfoReceiver(baton: Pointer; path: PChar; const info: TSvnInfo; pool: PAprPool): PSvnError; cdecl;
 
 begin
@@ -1462,6 +1477,51 @@ begin
   FLastCommitRevision := Status.ood_last_cmt_rev;
   FLastCommitAuthor := Status.ood_last_cmt_author;
   FLastCommitTime := AprTimeToDateTime(Status.ood_last_cmt_date);
+
+  if IsDirectory and (FTextStatus = svnWcStatusUnversioned) then
+    LoadUnversionedPaths;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnItem.LoadUnversionedPaths;
+
+var
+  R: Integer;
+  F: TSearchRec;
+  Status: TSvnWCStatus2;
+  Item: TSvnItem;
+  Error: PSvnError;
+  Cancel: Boolean;
+
+begin
+  R := FindFirst(IncludeTrailingPathDelimiter(FPathName) + '*.*', faAnyFile, F);
+  if R <> 0 then
+    Exit;
+
+  try
+    while R = 0 do
+    begin
+      if (F.Name <> '.') and (F.Name <> '..') then
+      begin
+        FillChar(Status, SizeOf(TSvnWcStatus2), 0);
+        Status.entry := nil;
+        Status.text_status := svnWcStatusUnversioned;
+        Item := TSvnItem.Create(FSvnClient, Self,
+          FSvnClient.NativePathToSvnPath(IncludeTrailingPathDelimiter(FPathName) + F.Name), Status);
+
+        Cancel := False;
+        FSvnClient.FStatusCallback(FSvnClient, Item, Cancel);
+        Error := SvnContextCancel(FSvnClient);
+        if Assigned(Error) then
+          RaiseSvnError(Error);
+      end;
+
+      R := FindNext(F);
+    end;
+  finally
+    FindClose(F);
+  end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -1549,15 +1609,6 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TSvnItem.Remove(Item: TSvnItem);
-
-begin
-  if Assigned(FItems) then
-    FItems.Remove(Item);
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
 procedure TSvnItem.SetPropValues(const Name, Value: string);
 
 var
@@ -1612,11 +1663,15 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TSvnItem.DoDestroy;
+procedure TSvnItem.DoDestroyNotifications;
+
+var
+  I: Integer;
 
 begin
-  if Assigned(FOnDestroy) then
-    FOnDestroy(Self);
+  if Assigned(FDestroyNotifications) then
+    for I := 0 to FDestroyNotifications.Count - 1 do
+      TNotifyEvent(PMethod(FDestroyNotifications[I])^)(Self);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -1739,17 +1794,25 @@ begin
   LoadStatus(Status);
   if Assigned(FParent) then
     FParent.Add(Self);
+  FDestroyNotifications := nil;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 destructor TSvnItem.Destroy;
 
+var
+  I: Integer;
+
 begin
+  DoDestroyNotifications;
+  if Assigned(FDestroyNotifications) then
+    for I := 0 to FDestroyNotifications.Count - 1 do
+      Dispose(FDestroyNotifications[I]);
+  FDestroyNotifications.Free;
   if Assigned(FParent) then
     FParent.Remove(Self);
   Clear;
-  DoDestroy;
   inherited Destroy;
 end;
 
@@ -1761,6 +1824,27 @@ begin
   if not Assigned(FItems) then
     FItems := TList.Create;
   Result := FItems.Add(Item);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnItem.AddDestroyNotification(Notification: TNotifyEvent);
+
+var
+  P: PMethod;
+
+begin
+  if not Assigned(FDestroyNotifications) then
+    FDestroyNotifications := TList.Create;
+    
+  New(P);
+  try
+    P^ := TMethod(Notification);
+    FDestroyNotifications.Add(P);
+  except
+    Dispose(P);
+    raise;
+  end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -1898,6 +1982,66 @@ begin
   finally
     FreeAndNil(FReloadStack);
     FreeAndNil(FReloadUnversionedList);
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnItem.ReloadStatus;
+
+var
+  SubPool: PAprPool;
+  Revision: TSvnOptRevision;
+
+begin
+  AprCheck(apr_pool_create_ex(SubPool, FSvnClient.Pool, nil, FSvnClient.Allocator));
+  try
+    FillChar(Revision, SizeOf(TSvnOptRevision), 0);
+    Revision.Kind := svnOptRevisionHead;
+    FSvnClient.FCancelled := False;
+    SvnCheck(svn_client_status2(nil, PChar(FSvnPathName), @Revision, WCStatus3, Self, False, True, True, False, False,
+      FSvnClient.Ctx, SubPool));
+  finally
+    apr_pool_destroy(SubPool);
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnItem.Remove(Item: TSvnItem);
+
+begin
+  if Assigned(FItems) then
+    FItems.Remove(Item);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnItem.RemoveDestroyNotification(Notification: TNotifyEvent);
+
+var
+  P: PMethod;
+  I, Index: Integer;
+
+begin
+  if Assigned(FDestroyNotifications) then
+  begin
+    P := nil;
+    Index := -1;
+    for I := 0 to FDestroyNotifications.Count - 1 do
+     if (PMethod(FDestroyNotifications[I])^.Data = TMethod(Notification).Data) and
+       (PMethod(FDestroyNotifications[I])^.Code = TMethod(Notification).Code) then
+     begin
+       P := FDestroyNotifications[I];
+       Index := I;
+       Break;
+     end;
+     
+     if Index <> -1 then
+     begin
+       FDestroyNotifications.Delete(Index);
+       Dispose(P);
+     end;
   end;
 end;
 
@@ -2060,6 +2204,29 @@ destructor TSvnClient.Destroy;
 begin
   Finalize;
   inherited Destroy;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnClient.Add(const PathName: string; Recurse, Force, NoIgnore: Boolean; SubPool: PAprPool);
+
+var
+  NewPool: Boolean;
+
+begin
+  if not Initialized then
+    Initialize;
+
+  NewPool := not Assigned(SubPool);
+  if NewPool then
+    AprCheck(apr_pool_create_ex(SubPool, FPool, nil, FAllocator));
+  try
+    FCancelled := False;
+    SvnCheck(svn_client_add3(PChar(NativePathToSvnPath(PathName)), Recurse, Force, NoIgnore, FCtx, SubPool));
+  finally
+    if NewPool then
+      apr_pool_destroy(SubPool);
+  end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

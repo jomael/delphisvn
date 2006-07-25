@@ -69,4 +69,22 @@ object FormSvnOptions: TFormSvnOptions
     TabOrder = 3
     OnClick = ButtonBrowseClick
   end
+  object CheckBoxConfirmAdd: TCheckBox
+    Left = 8
+    Top = 51
+    Width = 257
+    Height = 17
+    Caption = 'Confirm &Add'
+    TabOrder = 4
+    OnClick = CheckBoxClick
+  end
+  object CheckBoxAllowEmptyCommitMsg: TCheckBox
+    Left = 8
+    Top = 74
+    Width = 257
+    Height = 17
+    Caption = 'Allow empty Commit &message'
+    TabOrder = 5
+    OnClick = CheckBoxClick
+  end
 end

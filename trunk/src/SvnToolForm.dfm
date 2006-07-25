@@ -85,6 +85,12 @@ inherited FormSvnTools: TFormSvnTools
       OnExecute = ActionShowBlameExecute
       OnUpdate = ActionShowBlameUpdate
     end
+    object ActionAdd: TAction
+      Caption = '&Add'
+      Hint = 'Add selected paths to Subversion'
+      OnExecute = ActionAddExecute
+      OnUpdate = ActionAddUpdate
+    end
   end
   inherited PopupMenu1: TPopupActionBar
     OnPopup = PopupMenu1Popup
@@ -98,7 +104,10 @@ inherited FormSvnTools: TFormSvnTools
     object MenuShowBlame: TMenuItem [2]
       Action = ActionShowBlame
     end
-    object MenuSeparator1: TMenuItem [3]
+    object MenuAdd: TMenuItem [3]
+      Action = ActionAdd
+    end
+    object MenuSeparator1: TMenuItem [4]
       Caption = '-'
       Visible = False
     end

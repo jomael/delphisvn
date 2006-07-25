@@ -37,6 +37,7 @@ type
     MemoLogMessage: TMemo;
 
     procedure FormCreate(Sender: TObject);
+    procedure MemoLogMessageChange(Sender: TObject);
   private
   public
   end;
@@ -46,7 +47,7 @@ function ShowSvnLogMessagePrompt(const Prompt: string; var LogMessage: string): 
 implementation
 
 uses
-  SvnImages;
+  SvnImages, SvnIDEClient;
 
 {$R *.dfm}
 
@@ -62,6 +63,7 @@ begin
   try
     Form.LabelPrompt.Caption := Prompt;
     Form.MemoLogMessage.Text := LogMessage;
+    Form.MemoLogMessageChange(Form.MemoLogMessage);
     Result := Form.ShowModal;
     if Result = mrOK then
       LogMessage := Form.MemoLogMessage.Text;
@@ -82,6 +84,15 @@ begin
   Constraints.MinHeight := Height;
   Constraints.MinWidth := Width;
   Icon := SvnImageModule.Icon;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFormSvnLogMessagePrompt.MemoLogMessageChange(Sender: TObject);
+
+begin
+  if not SvnIDEModule.Settings.AllowEmptyCommitMsg then
+    ButtonOK.Enabled := MemoLogMessage.Text <> '';
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
