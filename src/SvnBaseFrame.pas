@@ -43,6 +43,8 @@ type
 
     procedure Cancel;
     procedure Finished;
+    procedure HandleAddExecute(Action: TAction); virtual;
+    procedure HandleAddUpdate(Action: TAction); virtual;
     procedure HandleOpenExecute(Action: TAction); virtual;
     procedure HandleOpenUpdate(Action: TAction); virtual;
     procedure HandleShowBlameExecute(Action: TAction); virtual;
@@ -88,6 +90,22 @@ procedure TFrameSvnBase.Finished;
 
 begin
   FRunning := False;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFrameSvnBase.HandleAddExecute(Action: TAction);
+
+begin
+
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFrameSvnBase.HandleAddUpdate(Action: TAction);
+
+begin
+
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

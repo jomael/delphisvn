@@ -40,10 +40,14 @@ type
     FItem: TSvnItem;
     FStatusException: string;
 
+    procedure ItemDestroy(Sender: TObject);
+
     procedure AMUpdate(var Message: TMessage); message AM_UPDATE;
   public
     constructor Create(AOwner: TComponent); override;
 
+    procedure HandleAddExecute(Action: TAction); override;
+    procedure HandleAddUpdate(Action: TAction); override;
     procedure HandleOpenExecute(Action: TAction); override;
     procedure HandleOpenUpdate(Action: TAction); override;
     procedure HandleShowBlameExecute(Action: TAction); override;
@@ -158,9 +162,24 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+procedure TFrameSvnStatusListView.ItemDestroy(Sender: TObject);
+
+var
+  Data: PNodeData;
+
+begin
+  Data := Pointer(TSvnItem(Sender).Tag);
+  if Assigned(Data) then
+    Data^.Item := nil;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
 procedure TFrameSvnStatusListView.AMUpdate(var Message: TMessage);
 
 var
+  Node: PVirtualNode;
+  Data: PNodeData;
   TextWidth: Integer;
 
 begin
@@ -178,7 +197,12 @@ begin
   if Running then
     with FrameSvnListView do
     begin
-      Tree.ScrollIntoView(AddItem(FItem), False);
+      Node := AddItem(FItem);
+      Data := FrameSvnListView.Tree.GetNodeData(Node);
+      FItem.Tag := Integer(Data);
+      FItem.AddDestroyNotification(ItemDestroy);
+
+      Tree.ScrollIntoView(Node, False);
       TextWidth := Tree.Canvas.TextWidth(FItem.PathName);
       if TextWidth + Tree.Images.Width + 16 > Tree.Header.Columns[Ord(cxPathName)].Width then
         Tree.Header.Columns[Ord(cxPathName)].Width := TextWidth + Tree.Images.Width + 16;
@@ -198,6 +222,71 @@ begin
   FItem := nil;
   FrameSvnListView.Tree.Images := SvnImageModule.ShellImagesSmall;
   FrameSvnListView.FullPaths := True;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFrameSvnStatusListView.HandleAddExecute(Action: TAction);
+
+var
+  SelectedNodes: TNodeArray;
+  I: Integer;
+  Data: PNodeData;
+  PathNames: TStringList;
+
+begin
+  if SvnIDEModule.Settings.ConfirmAdd and (MessageDlg(SConfirmAdd, mtConfirmation, [mbYes, mbNo], 0, mbNo) <> mrYes) then
+    Exit;
+    
+  PathNames := TStringList.Create;
+  try
+    SelectedNodes := FrameSvnListView.Tree.GetSortedSelection(True);
+    for I := Low(SelectedNodes) to High(SelectedNodes) do
+    begin
+      Data := FrameSvnListView.Tree.GetNodeData(SelectedNodes[I]);
+      if not Assigned(Data) or not Assigned(Data^.Item) or (Data^.Item.TextStatus <> svnWcStatusUnversioned) then
+        Exit;
+      PathNames.AddObject(Data^.Item.PathName, Pointer(SelectedNodes[I]));
+    end;
+
+    // sort to make sure parents are added before children
+    PathNames.Sort;
+    for I := 0 to PathNames.Count - 1 do
+    begin
+      SvnIDEModule.SvnClient.Add(PathNames[I]);
+      Data := FrameSvnListView.Tree.GetNodeData(Pointer(PathNames.Objects[I]));
+      Data^.Item.ReloadStatus;
+      FrameSvnListView.Tree.InvalidateNode(Pointer(PathNames.Objects[I]))
+    end;
+  finally
+    PathNames.Free;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFrameSvnStatusListView.HandleAddUpdate(Action: TAction);
+
+var
+  SelectedNodes: TNodeArray;
+  I: Integer;
+  Data: PNodeData;
+
+begin
+  Action.Visible := True;
+  Action.Enabled := False;
+
+  SelectedNodes := FrameSvnListView.Tree.GetSortedSelection(True);
+  if Length(SelectedNodes) = 0 then
+    Exit;
+    
+  for I := Low(SelectedNodes) to High(SelectedNodes) do
+  begin
+    Data := FrameSvnListView.Tree.GetNodeData(SelectedNodes[I]);
+    if not Assigned(Data) or not Assigned(Data^.Item) or (Data^.Item.TextStatus <> svnWcStatusUnversioned) then
+      Exit;
+  end;
+  Action.Enabled := True;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

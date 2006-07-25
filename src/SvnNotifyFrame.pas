@@ -67,6 +67,7 @@ type
 
     procedure AMUpdate(var Message: TMessage); message AM_UPDATE;
   public
+    procedure HandleAddUpdate(Action: TAction); override;
     procedure HandleOpenExecute(Action: TAction); override;
     procedure HandleOpenUpdate(Action: TAction); override;
     procedure HandleShowBlameExecute(Action: TAction); override;
@@ -352,6 +353,14 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 { TFrameSvnNotify public }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFrameSvnNotify.HandleAddUpdate(Action: TAction);
+
+begin
+  Action.Visible := False;
+end;
 
 //----------------------------------------------------------------------------------------------------------------------
 

@@ -263,6 +263,7 @@ end;
 destructor TSvnFileHistory.Destroy;
 
 begin
+  FItem.Tag := 1;
   FItems.Free;
   inherited Destroy;
 end;
@@ -313,7 +314,11 @@ begin
   if FItems.Find(AFileName, Index) then
   begin
     Item := TSvnItem(FItems.Objects[Index]);
-    Item.Reload;
+    if Item.Tag <> 0 then
+    begin
+      Item.Tag := 0;
+      Item.Reload;
+    end;
   end
   else
   begin
@@ -326,7 +331,8 @@ begin
     end;
   end;
 
-  SvnIDEModule.SetupBlamePanel;
+  SvnIDEModule.SetupBlameControl;
+  SvnIDEModule.ShowHistoryEditControls;
 
   Result := TSvnFileHistory.Create(Item);
 end;

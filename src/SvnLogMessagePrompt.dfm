@@ -59,5 +59,6 @@ object FormSvnLogMessagePrompt: TFormSvnLogMessagePrompt
     ScrollBars = ssBoth
     TabOrder = 2
     WordWrap = False
+    OnChange = MemoLogMessageChange
   end
 end

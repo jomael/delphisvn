@@ -13,6 +13,7 @@ inherited FrameSvnStatusListView: TFrameSvnStatusListView
       Width = 441
       Height = 314
       Cursor = crHourGlass
+      TreeOptions.PaintOptions = [toHideFocusRect, toShowDropmark, toThemeAware, toUseBlendedImages]
       OnFreeNode = FrameSvnListViewTreeFreeNode
       Columns = <
         item

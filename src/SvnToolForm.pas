@@ -61,9 +61,11 @@ type
   end;
 
   TFormSvnTools = class(TDockableToolbarForm)
+    ActionAdd: TAction;
     ActionOpen: TAction;
     ActionShowBlame: TAction;
     ActionShowDiff: TAction;
+    MenuAdd: TMenuItem;
     MenuDockable: TMenuItem;
     MenuOpen: TMenuItem;
     MenuSeparator1: TMenuItem;
@@ -82,6 +84,8 @@ type
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
 
+    procedure ActionAddExecute(Sender: TObject);
+    procedure ActionAddUpdate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure ActionOpenUpdate(Sender: TObject);
     procedure ActionShowBlameExecute(Sender: TObject);
@@ -467,6 +471,26 @@ begin
   FNotifyFrameSettings.Free;
   FStatusFrameSettings.Free;
   inherited;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFormSvnTools.ActionAddExecute(Sender: TObject);
+
+begin
+  inherited;
+  if Assigned(FFrame) then
+    FFrame.HandleAddExecute(Sender as TAction);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFormSvnTools.ActionAddUpdate(Sender: TObject);
+
+begin
+  inherited;
+  if Assigned(FFrame) then
+    FFrame.HandleAddUpdate(Sender as TAction);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
