@@ -15,6 +15,7 @@
 {                                                                                                                      }
 { Contributors:                                                                                                        }
 {   Ondrej Kelle (tondrej)                                                                                             }
+{   Uwe Schuster (uschuster)                                                                                           }
 {                                                                                                                      }
 {**********************************************************************************************************************}
 {                                                                                                                      }
@@ -25,6 +26,8 @@
 unit SvnStatusListViewFrame;
 
 interface
+
+{$INCLUDE Compilers.inc}
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms, Dialogs, ActnList,
@@ -235,7 +238,7 @@ var
   PathNames: TStringList;
 
 begin
-  if SvnIDEModule.Settings.ConfirmAdd and (MessageDlg(SConfirmAdd, mtConfirmation, [mbYes, mbNo], 0, mbNo) <> mrYes) then
+  if SvnIDEModule.Settings.ConfirmAdd and (MessageDlg(SConfirmAdd, mtConfirmation, [mbYes, mbNo], 0 {$IFDEF COMPILER_10_UP}, mbNo {$ENDIF}) <> mrYes) then
     Exit;
     
   PathNames := TStringList.Create;
