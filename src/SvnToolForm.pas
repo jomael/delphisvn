@@ -106,7 +106,7 @@ type
     procedure LoadWindowState(Desktop: TCustomIniFile); override;
     procedure SaveWindowState(Desktop: TCustomIniFile; IsProject: Boolean); override;
     procedure StartSvnCheckModifications(AClient: TSvnClient; APathNames: TStrings; ARecurse: Boolean = True;
-      AUpdate: Boolean = True; AIgnoreExternals: Boolean = False);
+      AUpdate: Boolean = True; AIgnoreExternals: Boolean = False; ARecurseUnversioned: Boolean = False);
     procedure StartSvnCleanup(AClient: TSvnClient; APathNames: TStrings);
     procedure StartSvnCommit(AClient: TSvnClient; APathNames: TStrings; const ALogMessage: string;
       ARecurse: Boolean = True; AKeepLocks: Boolean = False);
@@ -356,7 +356,7 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TFormSvnTools.StartSvnCheckModifications(AClient: TSvnClient; APathNames: TStrings;
-  ARecurse, AUpdate, AIgnoreExternals: Boolean);
+  ARecurse, AUpdate, AIgnoreExternals, ARecurseUnversioned: Boolean);
 
 begin
   if not (FFrame is TFrameSvnStatusListView) then
@@ -370,7 +370,8 @@ begin
     FStatusFrameSettings.Save(FFrame);
   end;
 
-  TFrameSvnStatusListView(FFrame).StartCheckModifications(AClient, APathNames, ARecurse, AUpdate, AIgnoreExternals);
+  TFrameSvnStatusListView(FFrame).StartCheckModifications(AClient, APathNames, ARecurse, AUpdate, AIgnoreExternals,
+    ARecurseUnversioned);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

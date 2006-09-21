@@ -58,7 +58,7 @@ type
     procedure HandleShowDiffExecute(Action: TAction); override;
     procedure HandleShowDiffUpdate(Action: TAction); override;
     procedure StartCheckModifications(AClient: TSvnClient; ADirectories: TStrings; ARecurse: Boolean = True;
-      AUpdate: Boolean = True; AIgnoreExternals: Boolean = False);
+      AUpdate: Boolean = True; AIgnoreExternals: Boolean = False; ARecurseUnversioned: Boolean = False);
   end;
 
 implementation
@@ -76,6 +76,7 @@ type
     FFrame: TFrameSvnStatusListView;
     FIgnoreExternals: Boolean;
     FRecurse: Boolean;
+    FRecurseUnversioned: Boolean;
     FUpdate: Boolean;
 
     procedure SvnGetModifications(Sender: TObject; Item: TSvnItem; var Cancel: Boolean);
@@ -83,7 +84,7 @@ type
     procedure Execute; override;
   public
     constructor Create(AFrame: TFrameSvnStatusListView; AClient: TSvnClient; ADirectories: TStrings;
-      ARecurse, AUpdate, AIgnoreExternals: Boolean);
+      ARecurse, AUpdate, AIgnoreExternals, ARecurseUnversioned: Boolean);
     destructor Destroy; override;
   end;
 
@@ -118,7 +119,8 @@ var
 begin
   try
     for I := 0 to FDirectories.Count - 1 do
-      FClient.GetModifications(FDirectories[I], SvnGetModifications, FRecurse, FUpdate, FIgnoreExternals);
+      FClient.GetModifications(FDirectories[I], SvnGetModifications, FRecurse, FUpdate, FIgnoreExternals,
+        FRecurseUnversioned);
     PostMessage(FFrame.Handle, AM_UPDATE, 1, 0);
   except
     on E: Exception do
@@ -136,7 +138,7 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 constructor TSvnCheckModificationsThread.Create(AFrame: TFrameSvnStatusListView; AClient: TSvnClient;
-  ADirectories: TStrings; ARecurse, AUpdate, AIgnoreExternals: Boolean);
+  ADirectories: TStrings; ARecurse, AUpdate, AIgnoreExternals, ARecurseUnversioned: Boolean);
 
 begin
   FFrame := AFrame;
@@ -146,6 +148,7 @@ begin
   FRecurse := ARecurse;
   FUpdate := AUpdate;
   FIgnoreExternals := AIgnoreExternals;
+  FRecurseUnversioned := ARecurseUnversioned;
   FreeOnTerminate := True;
   inherited Create(False);
 end;
@@ -376,7 +379,7 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TFrameSvnStatusListView.StartCheckModifications(AClient: TSvnClient; ADirectories: TStrings;
-  ARecurse: Boolean = True; AUpdate: Boolean = True; AIgnoreExternals: Boolean = False);
+  ARecurse, AUpdate, AIgnoreExternals, ARecurseUnversioned: Boolean);
 
 begin
   Starting;
@@ -385,7 +388,8 @@ begin
   FrameSvnListView.Tree.Clear;
   FrameSvnListView.Tree.Header.SortColumn := NoColumn;
   FrameSvnListView.Tree.Cursor := crHourGlass;
-  TSvnCheckModificationsThread.Create(Self, AClient, ADirectories, ARecurse, AUpdate, AIgnoreExternals);
+  TSvnCheckModificationsThread.Create(Self, AClient, ADirectories, ARecurse, AUpdate, AIgnoreExternals,
+    ARecurseUnversioned);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

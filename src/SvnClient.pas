@@ -281,6 +281,7 @@ type
     FPassword: string;
     FPool: PAprPool; // main pool
     FPoolUtf8: PAprPool; // pool for UTF-8 routines
+    FRecurseUnversioned: Boolean;
     FSvnClientLibLoaded: Boolean;
     FUserName: string;
 
@@ -323,11 +324,12 @@ type
     procedure Finalize;
     function GetModifications(const PathName: string; Callback: TSvnStatusCallback = nil;
       Recurse: Boolean = True; Update: Boolean = False; IgnoreExternals: Boolean = False;
-      SubPool: PAprPool = nil): TSvnRevNum;
+      RecurseUnversioned: Boolean = False; SubPool: PAprPool = nil): TSvnRevNum;
     procedure GetProps(Props: PAprArrayHeader; Strings: TStrings; SubPool: PAprPool = nil;
       Delimiter: Char = DefaultPropValDelimiter);
     procedure Initialize(const AConfigDir: string = '');
     function IsPathVersioned(const PathName: string): Boolean;
+    function MatchGlobalIgnores(const PathName: string; SubPool: PAprPool = nil): Boolean;
     function NativePathToSvnPath(const NativePath: string; SubPool: PAprPool = nil): string;
     function PathNamesToAprArray(PathNames: TStrings; SubPool: PAprPool = nil): PAprArrayHeader;
     procedure Revert(PathNames: TStrings; Callback: TSvnNotifyCallback = nil; Recurse: Boolean = True;
@@ -343,6 +345,7 @@ type
     property Password: string read FPassword write FPassword;
     property Pool: PAprPool read FPool;
     property PoolUtf8: PAprPool read FPoolUtf8;
+    property RecurseUnversioned: Boolean read FRecurseUnversioned;
     property UserName: string read FUserName write FUserName;
 
     property OnLoginPrompt: TLoginPromptEvent read FOnLoginPrompt write FOnLoginPrompt;
@@ -1478,7 +1481,7 @@ begin
   FLastCommitAuthor := Status.ood_last_cmt_author;
   FLastCommitTime := AprTimeToDateTime(Status.ood_last_cmt_date);
 
-  if IsDirectory and (FTextStatus = svnWcStatusUnversioned) then
+  if IsDirectory and (FTextStatus = svnWcStatusUnversioned) and FSvnClient.RecurseUnversioned then
     LoadUnversionedPaths;
 end;
 
@@ -1502,19 +1505,20 @@ begin
   try
     while R = 0 do
     begin
-      if (F.Name <> '.') and (F.Name <> '..') then
+      if (F.Name <> '.') and (F.Name <> '..') and not FSvnClient.MatchGlobalIgnores(F.Name) then
       begin
-        FillChar(Status, SizeOf(TSvnWcStatus2), 0);
-        Status.entry := nil;
-        Status.text_status := svnWcStatusUnversioned;
-        Item := TSvnItem.Create(FSvnClient, Self,
-          FSvnClient.NativePathToSvnPath(IncludeTrailingPathDelimiter(FPathName) + F.Name), Status);
+          FillChar(Status, SizeOf(TSvnWcStatus2), 0);
+          Status.entry := nil;
+          Status.text_status := svnWcStatusUnversioned;
+          Item := TSvnItem.Create(FSvnClient, Self,
+            FSvnClient.NativePathToSvnPath(IncludeTrailingPathDelimiter(FPathName) + F.Name), Status);
 
-        Cancel := False;
-        FSvnClient.FStatusCallback(FSvnClient, Item, Cancel);
-        Error := SvnContextCancel(FSvnClient);
-        if Assigned(Error) then
-          RaiseSvnError(Error);
+          Cancel := False;
+          if Assigned(FSvnClient.FStatusCallback) then
+            FSvnClient.FStatusCallback(FSvnClient, Item, Cancel);
+          Error := SvnContextCancel(FSvnClient);
+          if Assigned(Error) then
+            RaiseSvnError(Error);
       end;
 
       R := FindNext(F);
@@ -1682,16 +1686,16 @@ end;
 //     if the item is a directory, descend and continue with step 1 (unversioned items first).
 //
 // for example:
-//   V://unversioned1.txt
-//   V://unversioned2.txt
-//   V:/
-//   V://Subdir/unversioned1.txt
-//   V://Subdir/unversioned2.txt
-//   V://Subdir
-//   V://Subdir/versioned1.txt
-//   V://Subdir/versioned2.txt
-//   V://versioned1.txt
-//   V://versioned2.txt
+//   V:/unversioned1.txt
+//   V:/unversioned2.txt
+//   V:
+//   V:/Subdir/unversioned1.txt
+//   V:/Subdir/unversioned2.txt
+//   V:/Subdir
+//   V:/Subdir/versioned1.txt
+//   V:/Subdir/versioned2.txt
+//   V:/versioned1.txt
+//   V:/versioned2.txt
 
 procedure TSvnItem.DoWCStatus(Path: PChar; const Status: TSvnWCStatus2);
 
@@ -2375,9 +2379,8 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TSvnClient.GetModifications(const PathName: string; Callback: TSvnStatusCallback = nil;
-  Recurse: Boolean = True; Update: Boolean = False; IgnoreExternals: Boolean = False;
-  SubPool: PAprPool = nil): TSvnRevNum;
+function TSvnClient.GetModifications(const PathName: string; Callback: TSvnStatusCallback;
+  Recurse, Update, IgnoreExternals, RecurseUnversioned: Boolean; SubPool: PAprPool): TSvnRevNum;
 
 var
   NewPool: Boolean;
@@ -2395,6 +2398,7 @@ begin
     FillChar(Revision, SizeOf(TSvnOptRevision), 0);
     Revision.Kind := svnOptRevisionHead;
     FCancelled := False;
+    FRecurseUnversioned := RecurseUnversioned; 
     FStatusCallback := Callback;
     SvnCheck(svn_client_status2(@Result, PChar(NativePathToSvnPath(PathName)), @Revision, WCStatus2, Self, Recurse,
       False, Update, False, IgnoreExternals, FCtx, SubPool));
@@ -2628,6 +2632,27 @@ begin
     end;
   finally
     apr_pool_destroy(SubPool);
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TSvnClient.MatchGlobalIgnores(const PathName: string; SubPool: PAprPool = nil): Boolean;
+
+var
+  NewPool: Boolean;
+  GlobalIgnores: PAprArrayHeader;
+
+begin
+  NewPool := not Assigned(SubPool);
+  if NewPool then
+    AprCheck(apr_pool_create_ex(SubPool, FPool, nil, FAllocator));
+  try
+    SvnCheck(svn_wc_get_default_ignores(GlobalIgnores, FCtx^.config, SubPool));
+    Result := svn_cstring_match_glob_list(PChar(PathName), GlobalIgnores);
+  finally
+    if NewPool then
+      apr_pool_destroy(SubPool);
   end;
 end;
 

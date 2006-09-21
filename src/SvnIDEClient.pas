@@ -43,10 +43,12 @@ type
     FDirectories: string;
     FDirHistory: TStrings;
     FModified: Boolean;
+    FRecurseUnversioned: Boolean;
 
     procedure SetAllowEmptyCommitMsg(Value: Boolean);
     procedure SetConfirmAdd(Value: Boolean);
     procedure SetDirectories(const Value: string);
+    procedure SetRecurseUnversioned(Value: Boolean);
   public
     constructor Create;
     destructor Destroy; override;
@@ -59,6 +61,7 @@ type
     property Directories: string read FDirectories write SetDirectories;
     property DirHistory: TStrings read FDirHistory;
     property Modified: Boolean read FModified;
+    property RecurseUnversioned: Boolean read FRecurseUnversioned write SetRecurseUnversioned;
   end;
 
   TSvnIDEClient = class(TDataModule)
@@ -314,10 +317,24 @@ begin
     I := FDirHistory.IndexOf(Value);
     if I <> -1 then
       FDirHistory.Delete(I);
-    
+
     FModified := True;
   end;
 end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnIDESettings.SetRecurseUnversioned(Value: Boolean);
+
+begin
+  if FRecurseUnversioned <> Value then
+  begin
+    FRecurseUnversioned := Value;
+    FModified := True;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
 
 const
   BlameColors: array[0..25] of TColor = (
@@ -675,6 +692,10 @@ begin
         FConfirmAdd := Registry.ReadBool('ConfirmAdd')
       else
         FConfirmAdd := True;
+      if Registry.ValueExists('RecurseUnversioned') then
+        FRecurseUnversioned := Registry.ReadBool('RecurseUnversioned')
+      else
+        FRecurseUnversioned := False;
     end;
 
     SKey := Format('%s\Subversion\hlDirectories', [Services.GetBaseRegistryKey]);
@@ -714,6 +735,7 @@ begin
       Registry.WriteString('Directories', FDirectories);
       Registry.WriteBool('AllowEmptyCommitMsg', FAllowEmptyCommitMsg);
       Registry.WriteBool('ConfirmAdd', FConfirmAdd);
+      Registry.WriteBool('RecurseUnversioned', FRecurseUnversioned);
     end;
     SKey := Format('%s\Subversion\hlDirectories', [Services.GetBaseRegistryKey]);
     if Registry.OpenKey(SKey, True) then
@@ -1604,7 +1626,7 @@ begin
       if not Assigned(FormSvnTools) then
         FormSvnTools := TFormSvnTools.Create(Application);
       FormSvnTools.Show;
-      FormSvnTools.StartSvnCheckModifications(FSvnClient, Directories);
+      FormSvnTools.StartSvnCheckModifications(FSvnClient, Directories, True, True, False, FSettings.RecurseUnversioned);
     end;
   finally
     Directories.Free;
