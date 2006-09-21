@@ -42,6 +42,7 @@ type
     CheckBoxConfirmAdd: TCheckBox;
     ComboBoxDirs: TComboBox;
     LabelDirs: TLabel;
+    CheckBoxRecurseUnversioned: TCheckBox;
 
     procedure ButtonBrowseClick(Sender: TObject);
     procedure CheckBoxClick(Sender: TObject);
@@ -78,6 +79,7 @@ begin
       Form.ComboBoxDirs.Text := Settings.Directories;
       Form.CheckBoxConfirmAdd.Checked := Settings.ConfirmAdd;
       Form.CheckBoxAllowEmptyCommitMsg.Checked := Settings.AllowEmptyCommitMsg;
+      Form.CheckBoxRecurseUnversioned.Checked := Settings.RecurseUnversioned;
     finally
       Form.FLoading := False;
     end;
@@ -89,6 +91,7 @@ begin
       Settings.Directories := Form.ComboBoxDirs.Text;
       Settings.ConfirmAdd := Form.CheckBoxConfirmAdd.Checked;
       Settings.AllowEmptyCommitMsg := Form.CheckBoxAllowEmptyCommitMsg.Checked;
+      Settings.RecurseUnversioned := Form.CheckBoxRecurseUnversioned.Checked;
     end;
   finally
     Form.Free;
