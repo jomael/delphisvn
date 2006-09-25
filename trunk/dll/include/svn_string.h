@@ -116,55 +116,55 @@ typedef struct svn_stringbuf_t
  */
 
 /** Create a new bytestring containing a C string (null-terminated). */
-LIBSVN_CLIENT_API svn_string_t *svn_string_create (const char *cstring, 
-                                 apr_pool_t *pool);
+LIBSVN_CLIENT_API svn_string_t *svn_string_create(const char *cstring, 
+                                apr_pool_t *pool);
 
 /** Create a new bytestring containing a generic string of bytes 
  * (NOT null-terminated) */
-LIBSVN_CLIENT_API svn_string_t *svn_string_ncreate (const char *bytes,
-                                  apr_size_t size, 
-                                  apr_pool_t *pool);
+LIBSVN_CLIENT_API svn_string_t *svn_string_ncreate(const char *bytes,
+                                 apr_size_t size, 
+                                 apr_pool_t *pool);
 
 /** Create a new string with the contents of the given stringbuf */
-LIBSVN_CLIENT_API svn_string_t *svn_string_create_from_buf (const svn_stringbuf_t *strbuf,
-                                          apr_pool_t *pool);
+LIBSVN_CLIENT_API svn_string_t *svn_string_create_from_buf(const svn_stringbuf_t *strbuf,
+                                         apr_pool_t *pool);
 
 /** Create a new bytestring by formatting @a cstring (null-terminated)
  * from varargs, which are as appropriate for apr_psprintf().
  */
-LIBSVN_CLIENT_API svn_string_t *svn_string_createf (apr_pool_t *pool,
-                                  const char *fmt,
-                                  ...)
-       __attribute__ ((format (printf, 2, 3)));
+LIBSVN_CLIENT_API svn_string_t *svn_string_createf(apr_pool_t *pool,
+                                 const char *fmt,
+                                 ...)
+  __attribute__ ((format(printf, 2, 3)));
 
 /** Create a new bytestring by formatting @a cstring (null-terminated)
  * from a @c va_list (see svn_stringbuf_createf()).
  */
-LIBSVN_CLIENT_API svn_string_t *svn_string_createv (apr_pool_t *pool,
-                                  const char *fmt,
-                                  va_list ap)
-       __attribute__ ((format (printf, 2, 0)));
+LIBSVN_CLIENT_API svn_string_t *svn_string_createv(apr_pool_t *pool,
+                                 const char *fmt,
+                                 va_list ap)
+  __attribute__ ((format(printf, 2, 0)));
 
 /** Return true if a bytestring is empty (has length zero). */
-LIBSVN_CLIENT_API svn_boolean_t svn_string_isempty (const svn_string_t *str);
+LIBSVN_CLIENT_API svn_boolean_t svn_string_isempty(const svn_string_t *str);
 
 /** Return a duplicate of @a original_string. */
-LIBSVN_CLIENT_API svn_string_t *svn_string_dup (const svn_string_t *original_string,
-                              apr_pool_t *pool);
+LIBSVN_CLIENT_API svn_string_t *svn_string_dup(const svn_string_t *original_string,
+                             apr_pool_t *pool);
 
 /** Return @c TRUE iff @a str1 and @c str2 have identical length and data. */
-LIBSVN_CLIENT_API svn_boolean_t svn_string_compare (const svn_string_t *str1, 
-                                  const svn_string_t *str2);
+LIBSVN_CLIENT_API svn_boolean_t svn_string_compare(const svn_string_t *str1, 
+                                 const svn_string_t *str2);
 
 /** Return offset of first non-whitespace character in @a str, or return
  * @a str->len if none.
  */
-LIBSVN_CLIENT_API apr_size_t svn_string_first_non_whitespace (const svn_string_t *str);
+LIBSVN_CLIENT_API apr_size_t svn_string_first_non_whitespace(const svn_string_t *str);
 
 /** Return position of last occurrence of @a char in @a str, or return
  * @a str->len if no occurrence.
  */ 
-LIBSVN_CLIENT_API apr_size_t svn_string_find_char_backward (const svn_string_t *str, char ch);
+LIBSVN_CLIENT_API apr_size_t svn_string_find_char_backward(const svn_string_t *str, char ch);
 
 /** @} */
 
@@ -176,106 +176,106 @@ LIBSVN_CLIENT_API apr_size_t svn_string_find_char_backward (const svn_string_t *
  */
 
 /** Create a new bytestring containing a C string (null-terminated). */
-LIBSVN_CLIENT_API svn_stringbuf_t *svn_stringbuf_create (const char *cstring, 
-                                       apr_pool_t *pool);
+LIBSVN_CLIENT_API svn_stringbuf_t *svn_stringbuf_create(const char *cstring, 
+                                      apr_pool_t *pool);
 /** Create a new bytestring containing a generic string of bytes 
  * (NON-null-terminated)
  */
-LIBSVN_CLIENT_API svn_stringbuf_t *svn_stringbuf_ncreate (const char *bytes,
-                                        apr_size_t size, 
-                                        apr_pool_t *pool);
+LIBSVN_CLIENT_API svn_stringbuf_t *svn_stringbuf_ncreate(const char *bytes,
+                                       apr_size_t size, 
+                                       apr_pool_t *pool);
 
 /** Create a new stringbuf with the contents of the given string */
-LIBSVN_CLIENT_API svn_stringbuf_t *svn_stringbuf_create_from_string (const svn_string_t *str,
-                                                   apr_pool_t *pool);
+LIBSVN_CLIENT_API svn_stringbuf_t *svn_stringbuf_create_from_string(const svn_string_t *str,
+                                                  apr_pool_t *pool);
 
 /** Create a new bytestring by formatting @a cstring (null-terminated)
  * from varargs, which are as appropriate for apr_psprintf().
  */
-LIBSVN_CLIENT_API svn_stringbuf_t *svn_stringbuf_createf (apr_pool_t *pool,
-                                        const char *fmt,
-                                        ...)
-       __attribute__ ((format (printf, 2, 3)));
+LIBSVN_CLIENT_API svn_stringbuf_t *svn_stringbuf_createf(apr_pool_t *pool,
+                                       const char *fmt,
+                                       ...)
+  __attribute__ ((format(printf, 2, 3)));
 
 /** Create a new bytestring by formatting @a cstring (null-terminated)
  * from a @c va_list (see svn_stringbuf_createf()).
  */
-LIBSVN_CLIENT_API svn_stringbuf_t *svn_stringbuf_createv (apr_pool_t *pool,
-                                        const char *fmt,
-                                        va_list ap)
-       __attribute__ ((format (printf, 2, 0)));
+LIBSVN_CLIENT_API svn_stringbuf_t *svn_stringbuf_createv(apr_pool_t *pool,
+                                       const char *fmt,
+                                       va_list ap)
+  __attribute__ ((format(printf, 2, 0)));
 
 /** Make sure that the string @a str has at least @a minimum_size bytes of
  * space available in the memory block.
  *
  * (@a minimum_size should include space for the terminating null character.)
  */
-LIBSVN_CLIENT_API void svn_stringbuf_ensure (svn_stringbuf_t *str,
-                           apr_size_t minimum_size);
+LIBSVN_CLIENT_API void svn_stringbuf_ensure(svn_stringbuf_t *str,
+                          apr_size_t minimum_size);
 
 /** Set a bytestring @a str to @a value */
-LIBSVN_CLIENT_API void svn_stringbuf_set (svn_stringbuf_t *str, const char *value);
+LIBSVN_CLIENT_API void svn_stringbuf_set(svn_stringbuf_t *str, const char *value);
 
 /** Set a bytestring @a str to empty (0 length). */
-LIBSVN_CLIENT_API void svn_stringbuf_setempty (svn_stringbuf_t *str);
+LIBSVN_CLIENT_API void svn_stringbuf_setempty(svn_stringbuf_t *str);
 
 /** Return @c TRUE if a bytestring is empty (has length zero). */
-LIBSVN_CLIENT_API svn_boolean_t svn_stringbuf_isempty (const svn_stringbuf_t *str);
+LIBSVN_CLIENT_API svn_boolean_t svn_stringbuf_isempty(const svn_stringbuf_t *str);
 
 /** Chop @a nbytes bytes off end of @a str, but not more than @a str->len. */
-LIBSVN_CLIENT_API void svn_stringbuf_chop (svn_stringbuf_t *str, apr_size_t bytes);
+LIBSVN_CLIENT_API void svn_stringbuf_chop(svn_stringbuf_t *str, apr_size_t bytes);
 
 /** Fill bytestring @a str with character @a c. */
-LIBSVN_CLIENT_API void svn_stringbuf_fillchar (svn_stringbuf_t *str, unsigned char c);
+LIBSVN_CLIENT_API void svn_stringbuf_fillchar(svn_stringbuf_t *str, unsigned char c);
 
 /** Append an array of bytes onto @a targetstr.
  *
  * reallocs if necessary. @a targetstr is affected, nothing else is.
  */
-LIBSVN_CLIENT_API void svn_stringbuf_appendbytes (svn_stringbuf_t *targetstr,
-                                const char *bytes, 
-                                apr_size_t count);
+LIBSVN_CLIENT_API void svn_stringbuf_appendbytes(svn_stringbuf_t *targetstr,
+                               const char *bytes, 
+                               apr_size_t count);
 
 /** Append an @c svn_stringbuf_t onto @a targetstr.
  *
  * reallocs if necessary. @a targetstr is affected, nothing else is.
  */
-LIBSVN_CLIENT_API void svn_stringbuf_appendstr (svn_stringbuf_t *targetstr, 
-                              const svn_stringbuf_t *appendstr);
+LIBSVN_CLIENT_API void svn_stringbuf_appendstr(svn_stringbuf_t *targetstr, 
+                             const svn_stringbuf_t *appendstr);
 
 /** Append a C string onto @a targetstr.
  *
  * reallocs if necessary. @a targetstr is affected, nothing else is.
  */
-LIBSVN_CLIENT_API void svn_stringbuf_appendcstr (svn_stringbuf_t *targetstr,
-                               const char *cstr);
+LIBSVN_CLIENT_API void svn_stringbuf_appendcstr(svn_stringbuf_t *targetstr,
+                              const char *cstr);
 
 /** Return a duplicate of @a original_string. */
-LIBSVN_CLIENT_API svn_stringbuf_t *svn_stringbuf_dup (const svn_stringbuf_t *original_string,
-                                    apr_pool_t *pool);
+LIBSVN_CLIENT_API svn_stringbuf_t *svn_stringbuf_dup(const svn_stringbuf_t *original_string,
+                                   apr_pool_t *pool);
 
 
 /** Return @c TRUE iff @a str1 and @a str2 have identical length and data. */
-LIBSVN_CLIENT_API svn_boolean_t svn_stringbuf_compare (const svn_stringbuf_t *str1, 
-                                     const svn_stringbuf_t *str2);
+LIBSVN_CLIENT_API svn_boolean_t svn_stringbuf_compare(const svn_stringbuf_t *str1, 
+                                    const svn_stringbuf_t *str2);
 
 /** Return offset of first non-whitespace character in @a str, or return
  * @a str->len if none.
  */
-LIBSVN_CLIENT_API apr_size_t svn_stringbuf_first_non_whitespace (const svn_stringbuf_t *str);
+LIBSVN_CLIENT_API apr_size_t svn_stringbuf_first_non_whitespace(const svn_stringbuf_t *str);
 
 /** Strip whitespace from both sides of @a str (modified in place). */
-LIBSVN_CLIENT_API void svn_stringbuf_strip_whitespace (svn_stringbuf_t *str);
+LIBSVN_CLIENT_API void svn_stringbuf_strip_whitespace(svn_stringbuf_t *str);
 
 /** Return position of last occurrence of @a ch in @a str, or return
  * @a str->len if no occurrence.
  */ 
-LIBSVN_CLIENT_API apr_size_t svn_stringbuf_find_char_backward (const svn_stringbuf_t *str, 
-                                             char ch);
+LIBSVN_CLIENT_API apr_size_t svn_stringbuf_find_char_backward(const svn_stringbuf_t *str, 
+                                            char ch);
 
 /** Return @c TRUE iff @a str1 and @a str2 have identical length and data. */
-LIBSVN_CLIENT_API svn_boolean_t svn_string_compare_stringbuf (const svn_string_t *str1,
-                                            const svn_stringbuf_t *str2);
+LIBSVN_CLIENT_API svn_boolean_t svn_string_compare_stringbuf(const svn_string_t *str1,
+                                           const svn_stringbuf_t *str2);
 
 /** @} */
 
@@ -298,20 +298,20 @@ LIBSVN_CLIENT_API svn_boolean_t svn_string_compare_stringbuf (const svn_string_t
  * If @a chop_whitespace is true, then remove leading and trailing
  * whitespace from the returned strings.
  */
-LIBSVN_CLIENT_API apr_array_header_t *svn_cstring_split (const char *input,
-                                       const char *sep_chars,
-                                       svn_boolean_t chop_whitespace,
-                                       apr_pool_t *pool);
+LIBSVN_CLIENT_API apr_array_header_t *svn_cstring_split(const char *input,
+                                      const char *sep_chars,
+                                      svn_boolean_t chop_whitespace,
+                                      apr_pool_t *pool);
 
 /** Like svn_cstring_split(), but append to existing @a array instead of
  * creating a new one.  Allocate the copied substrings in @a pool
  * (i.e., caller decides whether or not to pass @a array->pool as @a pool).
  */
-LIBSVN_CLIENT_API void svn_cstring_split_append (apr_array_header_t *array,
-                               const char *input,
-                               const char *sep_chars,
-                               svn_boolean_t chop_whitespace,
-                               apr_pool_t *pool);
+LIBSVN_CLIENT_API void svn_cstring_split_append(apr_array_header_t *array,
+                              const char *input,
+                              const char *sep_chars,
+                              svn_boolean_t chop_whitespace,
+                              apr_pool_t *pool);
 
 
 /** Return @c TRUE iff @a str matches any of the elements of @a list, a list 
@@ -319,8 +319,8 @@ LIBSVN_CLIENT_API void svn_cstring_split_append (apr_array_header_t *array,
  *
  * Use @a pool for temporary allocation.
  */
-LIBSVN_CLIENT_API svn_boolean_t svn_cstring_match_glob_list (const char *str,
-                                           apr_array_header_t *list);
+LIBSVN_CLIENT_API svn_boolean_t svn_cstring_match_glob_list(const char *str,
+                                          apr_array_header_t *list);
 
 /**
  * Return the number of line breaks in @a msg, allowing any kind of newline
@@ -328,7 +328,7 @@ LIBSVN_CLIENT_API svn_boolean_t svn_cstring_match_glob_list (const char *str,
  *
  * @since New in 1.2.
  */
-LIBSVN_CLIENT_API int svn_cstring_count_newlines (const char *msg);
+LIBSVN_CLIENT_API int svn_cstring_count_newlines(const char *msg);
 
 /**
  * Return a cstring which is the concatenation of @a strings (an array
@@ -338,9 +338,9 @@ LIBSVN_CLIENT_API int svn_cstring_count_newlines (const char *msg);
  * @since New in 1.2.
  */
 LIBSVN_CLIENT_API char *
-svn_cstring_join (apr_array_header_t *strings,
-                  const char *separator,
-                  apr_pool_t *pool);
+svn_cstring_join(apr_array_header_t *strings,
+                 const char *separator,
+                 apr_pool_t *pool);
 
 /** @} */
 

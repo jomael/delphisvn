@@ -59,7 +59,7 @@ extern "C" {
  * Modify when new functionality is added or new interfaces are
  * defined, but all changes are backward compatible.
  */
-#define SVN_VER_MINOR      3
+#define SVN_VER_MINOR      4
 
 /**
  * Patch number.
@@ -68,7 +68,7 @@ extern "C" {
  * 
  * @since New in 1.1.
  */
-#define SVN_VER_PATCH      2
+#define SVN_VER_PATCH      1
 
 
 /** @deprecated Provided for backward compatibility with the 1.0 API. */
@@ -91,7 +91,7 @@ extern "C" {
  *
  * Always change this at the same time as SVN_VER_NUMTAG.
  */
-#define SVN_VER_TAG        " (r19776)"
+#define SVN_VER_TAG        " (dev build)"
 
 
 /** Number tag: a string describing the version.
@@ -106,7 +106,7 @@ extern "C" {
  *
  * Always change this at the same time as SVN_VER_TAG.
  */
-#define SVN_VER_NUMTAG     ""
+#define SVN_VER_NUMTAG     "-dev"
 
 
 /** Revision number: The repository revision number of this release.
@@ -117,7 +117,7 @@ extern "C" {
  * When rolling a tarball, we automatically replace it with what we
  * guess to be the correct revision number.
  */
-#define SVN_VER_REVISION   19776
+#define SVN_VER_REVISION   0
 
 
 /* Version strings composed from the above definitions. */
@@ -177,7 +177,7 @@ typedef struct svn_version_t
  * @since New in 1.1.
  */
 #define SVN_VERSION_BODY \
-  SVN_VERSION_DEFINE (versioninfo); \
+  SVN_VERSION_DEFINE(versioninfo);              \
   return &versioninfo
 
 /**
@@ -192,16 +192,16 @@ typedef struct svn_version_t
  *
  * @since New in 1.1.
  */
-LIBSVN_CLIENT_API svn_boolean_t svn_ver_compatible (const svn_version_t *my_version,
-                                  const svn_version_t *lib_version);
+LIBSVN_CLIENT_API svn_boolean_t svn_ver_compatible(const svn_version_t *my_version,
+                                 const svn_version_t *lib_version);
 
 /**
  * Check if @a my_version and @a lib_version encode the same version number.
  *
  * @since New in 1.2.
  */
-LIBSVN_CLIENT_API svn_boolean_t svn_ver_equal (const svn_version_t *my_version,
-                             const svn_version_t *lib_version);
+LIBSVN_CLIENT_API svn_boolean_t svn_ver_equal(const svn_version_t *my_version,
+                            const svn_version_t *lib_version);
 
 
 /**
@@ -215,7 +215,7 @@ typedef struct svn_version_checklist_t
   const char *label;            /**< Entry label */
 
   /** Version query function for this entry */
-  const svn_version_t *(*version_query) (void);
+  const svn_version_t *(*version_query)(void);
 } svn_version_checklist_t;
 
 
@@ -228,8 +228,8 @@ typedef struct svn_version_checklist_t
  *
  * @since New in 1.1.
  */
-LIBSVN_CLIENT_API svn_error_t *svn_ver_check_list (const svn_version_t *my_version,
-                                 const svn_version_checklist_t *checklist);
+LIBSVN_CLIENT_API svn_error_t *svn_ver_check_list(const svn_version_t *my_version,
+                                const svn_version_checklist_t *checklist);
 
 
 /* libsvn_subr doesn't have an svn_subr header, so put the prototype here. */
@@ -238,7 +238,7 @@ LIBSVN_CLIENT_API svn_error_t *svn_ver_check_list (const svn_version_t *my_versi
  *
  * @since New in 1.1.
  */
-LIBSVN_CLIENT_API const svn_version_t *svn_subr_version (void);
+LIBSVN_CLIENT_API const svn_version_t *svn_subr_version(void);
 
 
 #ifdef __cplusplus

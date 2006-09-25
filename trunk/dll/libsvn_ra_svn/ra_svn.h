@@ -28,7 +28,7 @@ extern "C" {
 #include <apr_network_io.h>
 #include <apr_file_io.h>
 #include <apr_thread_proc.h>
-#include <svn_ra_svn.h>
+#include "svn_ra_svn.h"
 
 /* Handler for blocked writes. */
 typedef svn_error_t *(*ra_svn_block_handler_t)(svn_ra_svn_conn_t *conn,
@@ -76,11 +76,13 @@ void svn_ra_svn__get_editorp(const svn_delta_editor_t **editor,
                              apr_pool_t *pool,
                              svn_ra_svn_edit_callback callback,
                              void *callback_baton);
+
 svn_error_t *svn_ra_svn__drive_editorp(svn_ra_svn_conn_t *conn,
                                        apr_pool_t *pool,
                                        const svn_delta_editor_t *editor,
                                        void *edit_baton,
-                                       svn_boolean_t *aborted);
+                                       svn_boolean_t *aborted,
+                                       svn_boolean_t for_replay);
 
 /* CRAM-MD5 client implementation. */
 svn_error_t *svn_ra_svn__cram_client(svn_ra_svn_conn_t *conn, apr_pool_t *pool,

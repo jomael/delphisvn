@@ -37,13 +37,13 @@ extern "C" {
  * close the stream when done writing in order to squeeze out the last
  * bit of encoded data.  The stream is allocated in @c pool.
  */
-LIBSVN_CLIENT_API svn_stream_t *svn_base64_encode (svn_stream_t *output, apr_pool_t *pool);
+LIBSVN_CLIENT_API svn_stream_t *svn_base64_encode(svn_stream_t *output, apr_pool_t *pool);
 
 /** Return a writable generic stream which will decode base64-encoded
  * data and write the decoded data to @c output.  The stream is allocated 
  * in @c pool.
  */
-LIBSVN_CLIENT_API svn_stream_t *svn_base64_decode (svn_stream_t *output, apr_pool_t *pool);
+LIBSVN_CLIENT_API svn_stream_t *svn_base64_decode(svn_stream_t *output, apr_pool_t *pool);
 
 
 /** Encode an @c svn_stringbuf_t into base64.
@@ -51,16 +51,16 @@ LIBSVN_CLIENT_API svn_stream_t *svn_base64_decode (svn_stream_t *output, apr_poo
  * A simple interface for encoding base64 data assuming we have all of 
  * it present at once.  The returned string will be allocated from @c pool.
  */
-LIBSVN_CLIENT_API const svn_string_t *svn_base64_encode_string (const svn_string_t *str,
-                                              apr_pool_t *pool);
+LIBSVN_CLIENT_API const svn_string_t *svn_base64_encode_string(const svn_string_t *str,
+                                             apr_pool_t *pool);
 
 /** Decode an @c svn_stringbuf_t from base64.
  *
  * A simple interface for decoding base64 data assuming we have all of 
  * it present at once.  The returned string will be allocated from @c pool.
  */
-LIBSVN_CLIENT_API const svn_string_t *svn_base64_decode_string (const svn_string_t *str,
-                                              apr_pool_t *pool);
+LIBSVN_CLIENT_API const svn_string_t *svn_base64_decode_string(const svn_string_t *str,
+                                             apr_pool_t *pool);
 
 
 /** Return a base64-encoded checksum for finalized @c digest.
@@ -68,8 +68,8 @@ LIBSVN_CLIENT_API const svn_string_t *svn_base64_decode_string (const svn_string
  * @c digest contains @c APR_MD5_DIGESTSIZE bytes of finalized data.
  * Allocate the returned checksum in @c pool.
  */
-LIBSVN_CLIENT_API svn_stringbuf_t *svn_base64_from_md5 (unsigned char digest[],
-                                      apr_pool_t *pool);
+LIBSVN_CLIENT_API svn_stringbuf_t *svn_base64_from_md5(unsigned char digest[],
+                                     apr_pool_t *pool);
 
 
 #ifdef __cplusplus

@@ -68,10 +68,10 @@ extern "C" {
  *
  * @since New in 1.1.
  */
-LIBSVN_CLIENT_API svn_error_t *svn_hash_read2 (apr_hash_t *hash,
-                             svn_stream_t *stream,
-                             const char *terminator,
-                             apr_pool_t *pool);
+LIBSVN_CLIENT_API svn_error_t *svn_hash_read2(apr_hash_t *hash,
+                            svn_stream_t *stream,
+                            const char *terminator,
+                            apr_pool_t *pool);
 
 /**
  * Dump @a hash to @a stream.  Use @a pool for all allocations.  @a
@@ -81,10 +81,10 @@ LIBSVN_CLIENT_API svn_error_t *svn_hash_read2 (apr_hash_t *hash,
  *
  * @since New in 1.1.
  */
-LIBSVN_CLIENT_API svn_error_t *svn_hash_write2 (apr_hash_t *hash, 
-                              svn_stream_t *stream,
-                              const char *terminator,
-                              apr_pool_t *pool);
+LIBSVN_CLIENT_API svn_error_t *svn_hash_write2(apr_hash_t *hash, 
+                             svn_stream_t *stream,
+                             const char *terminator,
+                             apr_pool_t *pool);
 
 /**
  * Similar to svn_hash_read2(), but allows @a stream to contain
@@ -93,10 +93,10 @@ LIBSVN_CLIENT_API svn_error_t *svn_hash_write2 (apr_hash_t *hash,
  *
  * @since New in 1.1.
  */
-LIBSVN_CLIENT_API svn_error_t *svn_hash_read_incremental (apr_hash_t *hash,
-                                        svn_stream_t *stream,
-                                        const char *terminator,
-                                        apr_pool_t *pool);
+LIBSVN_CLIENT_API svn_error_t *svn_hash_read_incremental(apr_hash_t *hash,
+                                       svn_stream_t *stream,
+                                       const char *terminator,
+                                       apr_pool_t *pool);
 
 /**
  * Similar to svn_hash_write2(), but only writes out entries for
@@ -106,11 +106,11 @@ LIBSVN_CLIENT_API svn_error_t *svn_hash_read_incremental (apr_hash_t *hash,
  *
  * @since New in 1.1.
  */
-LIBSVN_CLIENT_API svn_error_t *svn_hash_write_incremental (apr_hash_t *hash,
-                                         apr_hash_t *oldhash,
-                                         svn_stream_t *stream,
-                                         const char *terminator,
-                                         apr_pool_t *pool);
+LIBSVN_CLIENT_API svn_error_t *svn_hash_write_incremental(apr_hash_t *hash,
+                                        apr_hash_t *oldhash,
+                                        svn_stream_t *stream,
+                                        const char *terminator,
+                                        apr_pool_t *pool);
 
 /**
  * This function behaves like svn_hash_read2(), but it only works
@@ -120,9 +120,9 @@ LIBSVN_CLIENT_API svn_error_t *svn_hash_write_incremental (apr_hash_t *hash,
  *
  * @deprecated Provided for backward compatibility with the 1.0 API.
  */
-LIBSVN_CLIENT_API svn_error_t *svn_hash_read (apr_hash_t *hash, 
-                            apr_file_t *srcfile,
-                            apr_pool_t *pool);
+LIBSVN_CLIENT_API svn_error_t *svn_hash_read(apr_hash_t *hash, 
+                           apr_file_t *srcfile,
+                           apr_pool_t *pool);
 
 /**
  * This function behaves like svn_hash_write2(), but it only works
@@ -130,9 +130,9 @@ LIBSVN_CLIENT_API svn_error_t *svn_hash_read (apr_hash_t *hash,
  *
  * @deprecated Provided for backward compatibility with the 1.0 API.
  */
-LIBSVN_CLIENT_API svn_error_t *svn_hash_write (apr_hash_t *hash, 
-                             apr_file_t *destfile,
-                             apr_pool_t *pool);
+LIBSVN_CLIENT_API svn_error_t *svn_hash_write(apr_hash_t *hash, 
+                            apr_file_t *destfile,
+                            apr_pool_t *pool);
 
 /** @} */
 
@@ -159,9 +159,9 @@ enum svn_hash_diff_key_status
 
 /** Function type for expressing a key's status between two hash tables. */
 typedef svn_error_t *(*svn_hash_diff_func_t)
-       (const void *key, apr_ssize_t klen,
-        enum svn_hash_diff_key_status status,
-        void *baton);
+  (const void *key, apr_ssize_t klen,
+   enum svn_hash_diff_key_status status,
+   void *baton);
 
 
 /** Take the diff of two hashtables.
@@ -181,11 +181,11 @@ typedef svn_error_t *(*svn_hash_diff_func_t)
  *
  * Use @a pool for temporary allocation.
  */
-LIBSVN_CLIENT_API svn_error_t *svn_hash_diff (apr_hash_t *hash_a,
-                            apr_hash_t *hash_b,
-                            svn_hash_diff_func_t diff_func,
-                            void *diff_func_baton,
-                            apr_pool_t *pool);
+LIBSVN_CLIENT_API svn_error_t *svn_hash_diff(apr_hash_t *hash_a,
+                           apr_hash_t *hash_b,
+                           svn_hash_diff_func_t diff_func,
+                           void *diff_func_baton,
+                           apr_pool_t *pool);
 
 /** @} */
 

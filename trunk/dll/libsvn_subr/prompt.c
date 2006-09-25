@@ -26,11 +26,9 @@
 #include <apr_poll.h>
 
 #include "svn_cmdline.h"
-#include "svn_client.h"
 #include "svn_string.h"
 #include "svn_auth.h"
 #include "svn_error.h"
-#include "cl.h"
 
 #include "svn_private_config.h"
 
@@ -41,8 +39,8 @@
  * Note that this will return an EINTR on a signal.
  *
  * ### FIX: When APR gives us a better way of doing this use it. */
-static apr_status_t wait_for_input (apr_file_t *f,
-                                    apr_pool_t *pool)
+static apr_status_t wait_for_input(apr_file_t *f,
+                                   apr_pool_t *pool)
 {
   apr_pollfd_t pollset;
   int srv, n;
@@ -61,7 +59,12 @@ static apr_status_t wait_for_input (apr_file_t *f,
   pollset.p = pool;
   pollset.reqevents = APR_POLLIN;
 
+#ifndef AS400
   srv = apr_poll(&pollset, 1, &n, -1);
+#else
+  /* OS400 requires a pool argument for apr_poll(). */
+  srv = apr_poll(&pollset, 1, &n, -1, pool);
+#endif
 
   if (n == 1 && pollset.rtnevents & APR_POLLIN)
     return APR_SUCCESS;
@@ -70,50 +73,50 @@ static apr_status_t wait_for_input (apr_file_t *f,
 }
 
 /* Set @a *result to the result of prompting the user with @a
- * prompt_msg.  Use @ *ctx to get the cancel_func and cancel_baton.
- * Do not call the cancel_func if @a *ctx is NULL.
+ * prompt_msg.  Use @ *pb to get the cancel_func and cancel_baton.
+ * Do not call the cancel_func if @a *pb is NULL.
  * Allocate @a *result in @a pool.
  *
  * If @a hide is true, then try to avoid displaying the user's input.
  */
 static svn_error_t *
-prompt (const char **result,
-        const char *prompt_msg,
-        svn_boolean_t hide,
-        svn_client_ctx_t *ctx,
-        apr_pool_t *pool)
+prompt(const char **result,
+       const char *prompt_msg,
+       svn_boolean_t hide,
+       svn_cmdline_prompt_baton_t *pb,
+       apr_pool_t *pool)
 {
   apr_status_t status;
   apr_file_t *fp;
   char c;
 
-  svn_stringbuf_t *strbuf = svn_stringbuf_create ("", pool);
+  svn_stringbuf_t *strbuf = svn_stringbuf_create("", pool);
 
-  status = apr_file_open_stdin (&fp, pool);
+  status = apr_file_open_stdin(&fp, pool);
   if (status)
-    return svn_error_wrap_apr (status, _("Can't open stdin"));
+    return svn_error_wrap_apr(status, _("Can't open stdin"));
 
   if (! hide)
     {
       svn_boolean_t saw_first_half_of_eol = FALSE;
-      SVN_ERR (svn_cmdline_fputs (prompt_msg, stderr, pool));
-      fflush (stderr);
+      SVN_ERR(svn_cmdline_fputs(prompt_msg, stderr, pool));
+      fflush(stderr);
 
       while (1)
         {
           /* Hack to allow us to not block for io on the prompt, so
            * we can cancel. */
-          if (ctx)
-            SVN_ERR (ctx->cancel_func (ctx->cancel_baton));
-          status = wait_for_input (fp, pool);
-          if (APR_STATUS_IS_EINTR (status))
+          if (pb)
+            SVN_ERR(pb->cancel_func(pb->cancel_baton));
+          status = wait_for_input(fp, pool);
+          if (APR_STATUS_IS_EINTR(status))
             continue;
           else if (status && status != APR_ENOTIMPL)
-            return svn_error_wrap_apr (status, _("Can't read stdin"));
+            return svn_error_wrap_apr(status, _("Can't read stdin"));
              
-          status = apr_file_getc (&c, fp);
+          status = apr_file_getc(&c, fp);
           if (status)
-            return svn_error_wrap_apr (status, _("Can't read stdin"));
+            return svn_error_wrap_apr(status, _("Can't read stdin"));
 
           if (saw_first_half_of_eol)
             {
@@ -134,26 +137,26 @@ prompt (const char **result,
               else
                 /* ### APR_EOL_STR holds more than two chars?  Who
                    ever heard of such a thing? */
-                abort ();
+                abort();
             }
           
-          svn_stringbuf_appendbytes (strbuf, &c, 1);
+          svn_stringbuf_appendbytes(strbuf, &c, 1);
         }
     }
   else
     {
       const char *prompt_stdout;
       size_t bufsize = 300;
-      SVN_ERR (svn_cmdline_cstring_from_utf8 (&prompt_stdout, prompt_msg,
-                                              pool));
-      svn_stringbuf_ensure (strbuf, bufsize);
+      SVN_ERR(svn_cmdline_cstring_from_utf8(&prompt_stdout, prompt_msg,
+                                            pool));
+      svn_stringbuf_ensure(strbuf, bufsize);
 
-      status = apr_password_get (prompt_stdout, strbuf->data, &bufsize);
+      status = apr_password_get(prompt_stdout, strbuf->data, &bufsize);
       if (status)
-        return svn_error_wrap_apr (status, _("Can't get password"));
+        return svn_error_wrap_apr(status, _("Can't get password"));
     }
 
-  SVN_ERR (svn_cmdline_cstring_to_utf8 (result, strbuf->data, pool));
+  SVN_ERR(svn_cmdline_cstring_to_utf8(result, strbuf->data, pool));
 
   return SVN_NO_ERROR;
 }
@@ -167,13 +170,13 @@ prompt (const char **result,
  * preceding a prompt; or if @a realm is null, then do nothing.
  */
 static svn_error_t *
-maybe_print_realm (const char *realm, apr_pool_t *pool)
+maybe_print_realm(const char *realm, apr_pool_t *pool)
 {
   if (realm)
     {
-      SVN_ERR (svn_cmdline_fprintf (stderr, pool,
-                                    _("Authentication realm: %s\n"), realm));
-      fflush (stderr);
+      SVN_ERR(svn_cmdline_fprintf(stderr, pool,
+                                  _("Authentication realm: %s\n"), realm));
+      fflush(stderr);
     }
 
   return SVN_NO_ERROR;
@@ -182,26 +185,26 @@ maybe_print_realm (const char *realm, apr_pool_t *pool)
 
 /* This implements 'svn_auth_simple_prompt_func_t'. */
 svn_error_t *
-svn_cl__auth_simple_prompt (svn_auth_cred_simple_t **cred_p,
-                            void *baton,
-                            const char *realm,
-                            const char *username,
-                            svn_boolean_t may_save,
-                            apr_pool_t *pool)
+svn_cmdline_auth_simple_prompt(svn_auth_cred_simple_t **cred_p,
+                               void *baton,
+                               const char *realm,
+                               const char *username,
+                               svn_boolean_t may_save,
+                               apr_pool_t *pool)
 {
-  svn_auth_cred_simple_t *ret = apr_pcalloc (pool, sizeof (*ret));
+  svn_auth_cred_simple_t *ret = apr_pcalloc(pool, sizeof(*ret));
   const char *pass_prompt;
-  svn_client_ctx_t *ctx = (svn_client_ctx_t *) baton;
+  svn_cmdline_prompt_baton_t *pb = baton;
 
-  SVN_ERR (maybe_print_realm (realm, pool));
+  SVN_ERR(maybe_print_realm(realm, pool));
 
   if (username)
-    ret->username = apr_pstrdup (pool, username);
+    ret->username = apr_pstrdup(pool, username);
   else
-    SVN_ERR (prompt (&(ret->username), _("Username: "), FALSE, ctx, pool));
+    SVN_ERR(prompt(&(ret->username), _("Username: "), FALSE, pb, pool));
 
-  pass_prompt = apr_psprintf (pool, _("Password for '%s': "), ret->username);
-  SVN_ERR (prompt (&(ret->password), pass_prompt, TRUE, ctx, pool));
+  pass_prompt = apr_psprintf(pool, _("Password for '%s': "), ret->username);
+  SVN_ERR(prompt(&(ret->password), pass_prompt, TRUE, pb, pool));
   ret->may_save = may_save;
   *cred_p = ret;
   return SVN_NO_ERROR;
@@ -210,18 +213,18 @@ svn_cl__auth_simple_prompt (svn_auth_cred_simple_t **cred_p,
 
 /* This implements 'svn_auth_username_prompt_func_t'. */
 svn_error_t *
-svn_cl__auth_username_prompt (svn_auth_cred_username_t **cred_p,
-                              void *baton,
-                              const char *realm,
-                              svn_boolean_t may_save,
-                              apr_pool_t *pool)
+svn_cmdline_auth_username_prompt(svn_auth_cred_username_t **cred_p,
+                                 void *baton,
+                                 const char *realm,
+                                 svn_boolean_t may_save,
+                                 apr_pool_t *pool)
 {
-  svn_auth_cred_username_t *ret = apr_pcalloc (pool, sizeof (*ret));
-  svn_client_ctx_t *ctx = (svn_client_ctx_t *) baton;
+  svn_auth_cred_username_t *ret = apr_pcalloc(pool, sizeof(*ret));
+  svn_cmdline_prompt_baton_t *pb = baton;
 
-  SVN_ERR (maybe_print_realm (realm, pool));
+  SVN_ERR(maybe_print_realm(realm, pool));
 
-  SVN_ERR (prompt (&(ret->username), _("Username: "), FALSE, ctx, pool));
+  SVN_ERR(prompt(&(ret->username), _("Username: "), FALSE, pb, pool));
   ret->may_save = may_save;
   *cred_p = ret;
   return SVN_NO_ERROR;
@@ -230,18 +233,18 @@ svn_cl__auth_username_prompt (svn_auth_cred_username_t **cred_p,
 
 /* This implements 'svn_auth_ssl_server_trust_prompt_func_t'. */
 svn_error_t *
-svn_cl__auth_ssl_server_trust_prompt (
-  svn_auth_cred_ssl_server_trust_t **cred_p,
-  void *baton,
-  const char *realm,
-  apr_uint32_t failures,
-  const svn_auth_ssl_server_cert_info_t *cert_info,
-  svn_boolean_t may_save,
-  apr_pool_t *pool)
+svn_cmdline_auth_ssl_server_trust_prompt
+  (svn_auth_cred_ssl_server_trust_t **cred_p,
+   void *baton,
+   const char *realm,
+   apr_uint32_t failures,
+   const svn_auth_ssl_server_cert_info_t *cert_info,
+   svn_boolean_t may_save,
+   apr_pool_t *pool)
 {
   const char *choice;
   svn_stringbuf_t *msg;
-  svn_client_ctx_t *ctx = (svn_client_ctx_t *) baton;
+  svn_cmdline_prompt_baton_t *pb = baton;
   svn_stringbuf_t *buf = svn_stringbuf_createf
     (pool, _("Error validating server certificate for '%s':\n"), realm);
 
@@ -289,7 +292,7 @@ svn_cl__auth_ssl_server_trust_prompt (
      cert_info->valid_until,
      cert_info->issuer_dname,
      cert_info->fingerprint);
-  svn_stringbuf_appendstr (buf, msg);
+  svn_stringbuf_appendstr(buf, msg);
 
   if (may_save)
     {
@@ -298,19 +301,19 @@ svn_cl__auth_ssl_server_trust_prompt (
     }
   else
     {
-      svn_stringbuf_appendcstr (buf, _("(R)eject or accept (t)emporarily? "));
+      svn_stringbuf_appendcstr(buf, _("(R)eject or accept (t)emporarily? "));
     }
-  SVN_ERR (prompt (&choice, buf->data, FALSE, ctx, pool));
+  SVN_ERR(prompt(&choice, buf->data, FALSE, pb, pool));
 
   if (choice && (choice[0] == 't' || choice[0] == 'T'))
     {
-      *cred_p = apr_pcalloc (pool, sizeof (**cred_p));
+      *cred_p = apr_pcalloc(pool, sizeof(**cred_p));
       (*cred_p)->may_save = FALSE;
       (*cred_p)->accepted_failures = failures;
     }
   else if (may_save && choice && (choice[0] == 'p' || choice[0] == 'P'))
     {
-      *cred_p = apr_pcalloc (pool, sizeof (**cred_p));
+      *cred_p = apr_pcalloc(pool, sizeof(**cred_p));
       (*cred_p)->may_save = TRUE;
       (*cred_p)->accepted_failures = failures;
     }
@@ -325,21 +328,22 @@ svn_cl__auth_ssl_server_trust_prompt (
 
 /* This implements 'svn_auth_ssl_client_cert_prompt_func_t'. */
 svn_error_t *
-svn_cl__auth_ssl_client_cert_prompt (svn_auth_cred_ssl_client_cert_t **cred_p,
-                                     void *baton,
-                                     const char *realm,
-                                     svn_boolean_t may_save,
-                                     apr_pool_t *pool)
+svn_cmdline_auth_ssl_client_cert_prompt
+  (svn_auth_cred_ssl_client_cert_t **cred_p,
+   void *baton,
+   const char *realm,
+   svn_boolean_t may_save,
+   apr_pool_t *pool)
 {
   svn_auth_cred_ssl_client_cert_t *cred = NULL;
   const char *cert_file = NULL;
-  svn_client_ctx_t *ctx = (svn_client_ctx_t *) baton;
+  svn_cmdline_prompt_baton_t *pb = baton;
 
-  SVN_ERR (maybe_print_realm (realm, pool));
-  SVN_ERR (prompt (&cert_file, _("Client certificate filename: "), 
-                   FALSE, ctx, pool));
+  SVN_ERR(maybe_print_realm(realm, pool));
+  SVN_ERR(prompt(&cert_file, _("Client certificate filename: "), 
+                 FALSE, pb, pool));
 
-  cred = apr_palloc (pool, sizeof(*cred));
+  cred = apr_palloc(pool, sizeof(*cred));
   cred->cert_file = cert_file;
   cred->may_save = may_save;
   *cred_p = cred;
@@ -350,21 +354,21 @@ svn_cl__auth_ssl_client_cert_prompt (svn_auth_cred_ssl_client_cert_t **cred_p,
 
 /* This implements 'svn_auth_ssl_client_cert_pw_prompt_func_t'. */
 svn_error_t *
-svn_cl__auth_ssl_client_cert_pw_prompt (
-  svn_auth_cred_ssl_client_cert_pw_t **cred_p,
-  void *baton,
-  const char *realm,
-  svn_boolean_t may_save,
-  apr_pool_t *pool)
+svn_cmdline_auth_ssl_client_cert_pw_prompt
+  (svn_auth_cred_ssl_client_cert_pw_t **cred_p,
+   void *baton,
+   const char *realm,
+   svn_boolean_t may_save,
+   apr_pool_t *pool)
 {
   svn_auth_cred_ssl_client_cert_pw_t *cred = NULL;
   const char *result;
-  const char *text = apr_psprintf (pool, _("Passphrase for '%s': "), realm);
-  svn_client_ctx_t *ctx = (svn_client_ctx_t *) baton;
+  const char *text = apr_psprintf(pool, _("Passphrase for '%s': "), realm);
+  svn_cmdline_prompt_baton_t *pb = baton;
 
-  SVN_ERR (prompt (&result, text, TRUE, ctx, pool));
+  SVN_ERR(prompt(&result, text, TRUE, pb, pool));
 
-  cred = apr_pcalloc (pool, sizeof (*cred));
+  cred = apr_pcalloc(pool, sizeof(*cred));
   cred->password = result;
   cred->may_save = may_save;
   *cred_p = cred;
@@ -377,9 +381,9 @@ svn_cl__auth_ssl_client_cert_pw_prompt (
 /** Generic prompting. **/
 
 svn_error_t *
-svn_cl__prompt_user (const char **result,
-                     const char *prompt_str,
-                     apr_pool_t *pool)
+svn_cmdline_prompt_user(const char **result,
+                        const char *prompt_str,
+                        apr_pool_t *pool)
 {
-  return prompt (result, prompt_str, FALSE /* don't hide input */, NULL, pool);
+  return prompt(result, prompt_str, FALSE /* don't hide input */, NULL, pool);
 }

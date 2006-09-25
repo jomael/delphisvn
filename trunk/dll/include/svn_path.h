@@ -48,10 +48,10 @@ extern "C" {
 
 
 /** Convert @a path from the local style to the canonical internal style. */
-LIBSVN_CLIENT_API const char *svn_path_internal_style (const char *path, apr_pool_t *pool);
+LIBSVN_CLIENT_API const char *svn_path_internal_style(const char *path, apr_pool_t *pool);
 
 /** Convert @a path from the canonical internal style to the local style. */
-LIBSVN_CLIENT_API const char *svn_path_local_style (const char *path, apr_pool_t *pool);
+LIBSVN_CLIENT_API const char *svn_path_local_style(const char *path, apr_pool_t *pool);
 
 
 /** Join a base path (@a base) with a component (@a component), allocated in 
@@ -76,9 +76,9 @@ LIBSVN_CLIENT_API const char *svn_path_local_style (const char *path, apr_pool_t
  * @a component won't be detected. An absolute URI can only be used
  * for the base.
  */
-LIBSVN_CLIENT_API char *svn_path_join (const char *base,
-                     const char *component,
-                     apr_pool_t *pool);
+LIBSVN_CLIENT_API char *svn_path_join(const char *base,
+                    const char *component,
+                    apr_pool_t *pool);
 
 /** Join multiple components onto a @a base path, allocated in @a pool. The
  * components are terminated by a @c NULL.
@@ -90,7 +90,7 @@ LIBSVN_CLIENT_API char *svn_path_join (const char *base,
  *
  * See svn_path_join() for further notes about joining paths.
  */
-LIBSVN_CLIENT_API char *svn_path_join_many (apr_pool_t *pool, const char *base, ...);
+LIBSVN_CLIENT_API char *svn_path_join_many(apr_pool_t *pool, const char *base, ...);
 
 
 /** Get the basename of the specified canonicalized @a path.  The
@@ -105,7 +105,7 @@ LIBSVN_CLIENT_API char *svn_path_join_many (apr_pool_t *pool, const char *base, 
  *
  * @note If an empty string is passed, then an empty string will be returned.
  */
-LIBSVN_CLIENT_API char *svn_path_basename (const char *path, apr_pool_t *pool);
+LIBSVN_CLIENT_API char *svn_path_basename(const char *path, apr_pool_t *pool);
 
 /** Get the dirname of the specified canonicalized @a path, defined as
  * the path with its basename removed.
@@ -115,14 +115,14 @@ LIBSVN_CLIENT_API char *svn_path_basename (const char *path, apr_pool_t *pool);
  *
  * The returned dirname will be allocated in @a pool.
  */
-LIBSVN_CLIENT_API char *svn_path_dirname (const char *path, apr_pool_t *pool);
+LIBSVN_CLIENT_API char *svn_path_dirname(const char *path, apr_pool_t *pool);
 
 /** Return the number of components in the canonicalized @a path.
  *
  * @since New in 1.1.
 */
 LIBSVN_CLIENT_API apr_size_t
-svn_path_component_count (const char *path);
+svn_path_component_count(const char *path);
 
 /** Add a @a component (a null-terminated C-string) to the
  * canonicalized @a path.  @a component is allowed to contain
@@ -134,18 +134,18 @@ svn_path_component_count (const char *path);
  *
  * If the result ends in a separator character, then remove the separator.
  */
-LIBSVN_CLIENT_API void svn_path_add_component (svn_stringbuf_t *path, 
-                             const char *component);
+LIBSVN_CLIENT_API void svn_path_add_component(svn_stringbuf_t *path, 
+                            const char *component);
 
 /** Remove one component off the end of the canonicalized @a path. */
-LIBSVN_CLIENT_API void svn_path_remove_component (svn_stringbuf_t *path);
+LIBSVN_CLIENT_API void svn_path_remove_component(svn_stringbuf_t *path);
 
 /** Remove @a n components off the end of the canonicalized @a path.
  * Equivalent to calling svn_path_remove_component() @a n times.
  *
  * @since New in 1.1.
  */
-LIBSVN_CLIENT_API void svn_path_remove_components (svn_stringbuf_t *path, apr_size_t n);
+LIBSVN_CLIENT_API void svn_path_remove_components(svn_stringbuf_t *path, apr_size_t n);
 
 /** Divide the canonicalized @a path into @a *dirpath and @a
  * *base_name, allocated in @a pool.
@@ -165,17 +165,17 @@ LIBSVN_CLIENT_API void svn_path_remove_components (svn_stringbuf_t *path, apr_si
  *             - <pre>"bar"           ==>  ""   and "bar"</pre>
  *             - <pre>""              ==>  ""   and ""</pre>
  */
-LIBSVN_CLIENT_API void svn_path_split (const char *path, 
-                     const char **dirpath,
-                     const char **base_name,
-                     apr_pool_t *pool);
+LIBSVN_CLIENT_API void svn_path_split(const char *path, 
+                    const char **dirpath,
+                    const char **base_name,
+                    apr_pool_t *pool);
 
 
 /** Return non-zero iff @a path is empty ("") or represents the current
  * directory -- that is, if prepending it as a component to an existing
  * path would result in no meaningful change.
  */
-LIBSVN_CLIENT_API int svn_path_is_empty (const char *path);
+LIBSVN_CLIENT_API int svn_path_is_empty(const char *path);
 
 
 /** Return a new path (or URL) like @a path, but transformed such that
@@ -189,13 +189,13 @@ LIBSVN_CLIENT_API int svn_path_is_empty (const char *path);
  * The returned path may be statically allocated, equal to @a path, or
  * allocated from @a pool.
  */
-LIBSVN_CLIENT_API const char *svn_path_canonicalize (const char *path, apr_pool_t *pool);
+LIBSVN_CLIENT_API const char *svn_path_canonicalize(const char *path, apr_pool_t *pool);
 
 
 /** Return an integer greater than, equal to, or less than 0, according
  * as @a path1 is greater than, equal to, or less than @a path2.
  */
-LIBSVN_CLIENT_API int svn_path_compare_paths (const char *path1, const char *path2);
+LIBSVN_CLIENT_API int svn_path_compare_paths(const char *path1, const char *path2);
 
 
 /** Return the longest common path shared by two canonicalized paths,
@@ -208,9 +208,9 @@ LIBSVN_CLIENT_API int svn_path_compare_paths (const char *path1, const char *pat
  * different resources), and (b) share a common ancestor in their path 
  * component, i.e. 'protocol://' is not a sufficient ancestor.
  */
-LIBSVN_CLIENT_API char *svn_path_get_longest_ancestor (const char *path1,
-                                     const char *path2,
-                                     apr_pool_t *pool);
+LIBSVN_CLIENT_API char *svn_path_get_longest_ancestor(const char *path1,
+                                    const char *path2,
+                                    apr_pool_t *pool);
 
 /** Convert @a relative canonicalized path to an absolute path and
  * return the results in @a *pabsolute, allocated in @a pool.
@@ -219,9 +219,9 @@ LIBSVN_CLIENT_API char *svn_path_get_longest_ancestor (const char *path1,
  * and a copy of the URL is returned. 
  */
 LIBSVN_CLIENT_API svn_error_t *
-svn_path_get_absolute (const char **pabsolute,
-                       const char *relative,
-                       apr_pool_t *pool);
+svn_path_get_absolute(const char **pabsolute,
+                      const char *relative,
+                      apr_pool_t *pool);
 
 /** Return the path part of the canonicalized @a path in @a
  * *pdirectory, and the file part in @a *pfile.  If @a path is a
@@ -266,11 +266,11 @@ svn_path_split_if_file(const char *path,
  * @note There is no guarantee that @a *pcommon is within a working
  * copy.  */
 LIBSVN_CLIENT_API svn_error_t *
-svn_path_condense_targets (const char **pcommon,
-                           apr_array_header_t **pcondensed_targets,
-                           const apr_array_header_t *targets,
-                           svn_boolean_t remove_redundancies,
-                           apr_pool_t *pool);
+svn_path_condense_targets(const char **pcommon,
+                          apr_array_header_t **pcondensed_targets,
+                          const apr_array_header_t *targets,
+                          svn_boolean_t remove_redundancies,
+                          apr_pool_t *pool);
 
 
 /** Copy a list of canonicalized @a targets, one at a time, into @a
@@ -311,9 +311,9 @@ svn_path_condense_targets (const char **pcommon,
  *     update '.'"
  */
 LIBSVN_CLIENT_API svn_error_t *
-svn_path_remove_redundancies (apr_array_header_t **pcondensed_targets,
-                              const apr_array_header_t *targets,
-                              apr_pool_t *pool);
+svn_path_remove_redundancies(apr_array_header_t **pcondensed_targets,
+                             const apr_array_header_t *targets,
+                             apr_pool_t *pool);
 
 
 /** Decompose the canonicalized @a path into an array of <tt>const
@@ -321,8 +321,8 @@ svn_path_remove_redundancies (apr_array_header_t **pcondensed_targets,
  * absolute, the first component will be a lone dir separator (the
  * root directory).
  */
-LIBSVN_CLIENT_API apr_array_header_t *svn_path_decompose (const char *path,
-                                        apr_pool_t *pool);
+LIBSVN_CLIENT_API apr_array_header_t *svn_path_decompose(const char *path,
+                                       apr_pool_t *pool);
 
 
 /** Test that @a name is a single path component, that is:
@@ -330,7 +330,7 @@ LIBSVN_CLIENT_API apr_array_header_t *svn_path_decompose (const char *path,
  *   - not a `/'-separated directory path
  *   - not empty or `..'  
  */
-LIBSVN_CLIENT_API svn_boolean_t svn_path_is_single_path_component (const char *name);
+LIBSVN_CLIENT_API svn_boolean_t svn_path_is_single_path_component(const char *name);
 
 
 /**
@@ -340,7 +340,7 @@ LIBSVN_CLIENT_API svn_boolean_t svn_path_is_single_path_component (const char *n
  *
  * @since New in 1.1.
  */
-LIBSVN_CLIENT_API svn_boolean_t svn_path_is_backpath_present (const char *path);
+LIBSVN_CLIENT_API svn_boolean_t svn_path_is_backpath_present(const char *path);
 
 
 /** Test if @a path2 is a child of @a path1.
@@ -360,9 +360,9 @@ LIBSVN_CLIENT_API svn_boolean_t svn_path_is_backpath_present (const char *path);
  * trivial: if the path is "../foo", how do you know whether or not
  * the current directory is named "foo" in its parent?
  */
-LIBSVN_CLIENT_API const char *svn_path_is_child (const char *path1,
-                               const char *path2,
-                               apr_pool_t *pool);
+LIBSVN_CLIENT_API const char *svn_path_is_child(const char *path1,
+                              const char *path2,
+                              apr_pool_t *pool);
 
 /** Return true if @a path1 is an ancestor of @a path2 or the paths are equal
  * and false otherwise.
@@ -370,7 +370,7 @@ LIBSVN_CLIENT_API const char *svn_path_is_child (const char *path1,
  * @since New in 1.3.
  */
 LIBSVN_CLIENT_API svn_boolean_t
-svn_path_is_ancestor (const char *path1, const char *path2);
+svn_path_is_ancestor(const char *path1, const char *path2);
 
 /**
  * Check whether @a path is a valid Subversion path.
@@ -388,7 +388,7 @@ svn_path_is_ancestor (const char *path1, const char *path2);
  * 
  * @since New in 1.2.
  */
-LIBSVN_CLIENT_API svn_error_t *svn_path_check_valid (const char *path, apr_pool_t *pool);
+LIBSVN_CLIENT_API svn_error_t *svn_path_check_valid(const char *path, apr_pool_t *pool);
 
 
 /** URI/URL stuff
@@ -398,16 +398,16 @@ LIBSVN_CLIENT_API svn_error_t *svn_path_check_valid (const char *path, apr_pool_
  */
 
 /** Return @c TRUE iff @a path looks like a valid URL, @c FALSE otherwise. */
-LIBSVN_CLIENT_API svn_boolean_t svn_path_is_url (const char *path);
+LIBSVN_CLIENT_API svn_boolean_t svn_path_is_url(const char *path);
 
 /** Return @c TRUE iff @a path is URI-safe, @c FALSE otherwise. */
-LIBSVN_CLIENT_API svn_boolean_t svn_path_is_uri_safe (const char *path);
+LIBSVN_CLIENT_API svn_boolean_t svn_path_is_uri_safe(const char *path);
 
 /** Return a URI-encoded copy of @a path, allocated in @a pool. */
-LIBSVN_CLIENT_API const char *svn_path_uri_encode (const char *path, apr_pool_t *pool);
+LIBSVN_CLIENT_API const char *svn_path_uri_encode(const char *path, apr_pool_t *pool);
 
 /** Return a URI-decoded copy of @a path, allocated in @a pool. */
-LIBSVN_CLIENT_API const char *svn_path_uri_decode (const char *path, apr_pool_t *pool);
+LIBSVN_CLIENT_API const char *svn_path_uri_decode(const char *path, apr_pool_t *pool);
 
 /** Extend @a url by a single @a component, URI-encoding that @a component
  * before adding it to the @a url.  Return the new @a url, allocated in
@@ -416,9 +416,9 @@ LIBSVN_CLIENT_API const char *svn_path_uri_decode (const char *path, apr_pool_t 
  * code should just use <tt>svn_path_join (url, component, pool)</tt>.  @a url
  * does not need to be a canonical path, it may have trailing '/'.
  */
-LIBSVN_CLIENT_API const char *svn_path_url_add_component (const char *url,
-                                        const char *component,
-                                        apr_pool_t *pool);
+LIBSVN_CLIENT_API const char *svn_path_url_add_component(const char *url,
+                                       const char *component,
+                                       apr_pool_t *pool);
 
 /**
  * Convert @a iri (Internationalized URI) to an URI.
@@ -427,8 +427,8 @@ LIBSVN_CLIENT_API const char *svn_path_url_add_component (const char *url,
  *
  * @since New in 1.1.
  */
-LIBSVN_CLIENT_API const char *svn_path_uri_from_iri (const char *iri,
-                                   apr_pool_t *pool);
+LIBSVN_CLIENT_API const char *svn_path_uri_from_iri(const char *iri,
+                                  apr_pool_t *pool);
 
 /**
  * URI-encode certain characters in @a uri that are not valid in an URI, but
@@ -440,8 +440,8 @@ LIBSVN_CLIENT_API const char *svn_path_uri_from_iri (const char *iri,
  *
  * @since New in 1.1.
  */
-LIBSVN_CLIENT_API const char *svn_path_uri_autoescape (const char *uri,
-                                     apr_pool_t *pool);
+LIBSVN_CLIENT_API const char *svn_path_uri_autoescape(const char *uri,
+                                    apr_pool_t *pool);
 
 /** @} */
 
@@ -452,14 +452,14 @@ LIBSVN_CLIENT_API const char *svn_path_uri_autoescape (const char *uri,
  */
 
 /** Convert @a path_utf8 from UTF-8 to the internal encoding used by APR. */
-LIBSVN_CLIENT_API svn_error_t *svn_path_cstring_from_utf8 (const char **path_apr,
-                                         const char *path_utf8,
-                                         apr_pool_t *pool);
+LIBSVN_CLIENT_API svn_error_t *svn_path_cstring_from_utf8(const char **path_apr,
+                                        const char *path_utf8,
+                                        apr_pool_t *pool);
 
 /** Convert @a path_apr from the internal encoding used by APR to UTF-8. */
-LIBSVN_CLIENT_API svn_error_t *svn_path_cstring_to_utf8 (const char **path_utf8,
-                                       const char *path_apr,
-                                       apr_pool_t *pool);
+LIBSVN_CLIENT_API svn_error_t *svn_path_cstring_to_utf8(const char **path_utf8,
+                                      const char *path_apr,
+                                      apr_pool_t *pool);
 
 
 /** @} */

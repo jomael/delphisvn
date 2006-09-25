@@ -145,7 +145,7 @@ const
 const
   AprMajorVersion = 0;
   AprMinorVersion = 9;
-  AprPatchVersion = 6;
+  AprPatchVersion = 12;
 
 type
   TAprVersion = packed record

@@ -36,27 +36,27 @@ extern "C" {
  * sure to close the stream when done writing in order to squeeze out
  * the last bit of encoded data.
  */
-LIBSVN_CLIENT_API svn_stream_t *svn_quoprint_encode (svn_stream_t *output, apr_pool_t *pool);
+LIBSVN_CLIENT_API svn_stream_t *svn_quoprint_encode(svn_stream_t *output, apr_pool_t *pool);
 
 /** Return a writable generic stream which will decode binary data in
  * quoted-printable format and write the decoded data to @a output.  Be
  * sure to close the stream when done writing in order to squeeze out
  * the last bit of encoded data.
  */
-LIBSVN_CLIENT_API svn_stream_t *svn_quoprint_decode (svn_stream_t *output, apr_pool_t *pool);
+LIBSVN_CLIENT_API svn_stream_t *svn_quoprint_decode(svn_stream_t *output, apr_pool_t *pool);
 
 
 /** Simpler interface for encoding quoted-printable data assuming we have all 
  * of it present at once.  The returned string will be allocated from @a pool.
  */
-LIBSVN_CLIENT_API svn_stringbuf_t *svn_quoprint_encode_string (svn_stringbuf_t *str,
-                                             apr_pool_t *pool);
+LIBSVN_CLIENT_API svn_stringbuf_t *svn_quoprint_encode_string(svn_stringbuf_t *str,
+                                            apr_pool_t *pool);
 
 /** Simpler interface for decoding quoted-printable data assuming we have all 
  * of it present at once.  The returned string will be allocated from @a pool.
  */
-LIBSVN_CLIENT_API svn_stringbuf_t *svn_quoprint_decode_string (svn_stringbuf_t *str,
-                                             apr_pool_t *pool);
+LIBSVN_CLIENT_API svn_stringbuf_t *svn_quoprint_decode_string(svn_stringbuf_t *str,
+                                            apr_pool_t *pool);
 
 
 #ifdef __cplusplus

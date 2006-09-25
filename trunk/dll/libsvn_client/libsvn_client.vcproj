@@ -119,7 +119,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				AdditionalIncludeDirectories="..\libsvn_client;..\include;..\include\apr;&quot;..\include\apr-util&quot;;&quot;..\include\apr-iconv&quot;;..\include\neon;..\include\expat"
-				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;SVN_NEON_0_25;_CRT_SECURE_NO_DEPRECATE;LIBSVN_CLIENT_EXPORTS"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;SVN_NEON_0_25;LIBSVN_CLIENT_EXPORTS"
 				RuntimeLibrary="2"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
@@ -138,7 +138,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="Ws2_32.lib zlibstat.lib libdb43.lib libapr.lib libapriconv.lib libaprutil.lib libneon.lib xml.lib intl3_svn.lib libsvn_client-1.lib libsvn_delta-1.lib libsvn_diff-1.lib libsvn_fs-1.lib libsvn_fs_base-1.lib libsvn_fs_fs-1.lib libsvn_ra-1.lib libsvn_ra_dav-1.lib libsvn_ra_local-1.lib libsvn_ra_svn-1.lib libsvn_repos-1.lib libsvn_subr-1.lib libsvn_wc-1.lib"
+				AdditionalDependencies="Ws2_32.lib zlibstat.lib libdb44.lib libapr.lib libapriconv.lib libaprutil.lib libneon.lib xml.lib intl3_svn.lib libsvn_client-1.lib libsvn_delta-1.lib libsvn_diff-1.lib libsvn_fs-1.lib libsvn_fs_base-1.lib libsvn_fs_fs-1.lib libsvn_ra-1.lib libsvn_ra_dav-1.lib libsvn_ra_local-1.lib libsvn_ra_svn-1.lib libsvn_repos-1.lib libsvn_subr-1.lib libsvn_wc-1.lib"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="..\lib"
 				IgnoreAllDefaultLibraries="false"
@@ -239,28 +239,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\libsvn_repos\commit.c"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						ObjectFile="$(IntDir)\$(InputName)2.obj"
-						XMLDocumentationFileName="$(IntDir)\$(InputName)2.xdc"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						ObjectFile="$(IntDir)\$(InputName)2.obj"
-						XMLDocumentationFileName="$(IntDir)\$(InputName)2.xdc"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
 				RelativePath=".\commit.c"
 				>
 			</File>
@@ -287,7 +265,33 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath="..\libsvn_repos\commit.c"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						ObjectFile="$(IntDir)\$(InputName)2.obj"
+						XMLDocumentationFileName="$(IntDir)\$(InputName)2.xdc"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						ObjectFile="$(IntDir)\$(InputName)2.obj"
+						XMLDocumentationFileName="$(IntDir)\$(InputName)2.xdc"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
 				RelativePath=".\commit_util.c"
+				>
+			</File>
+			<File
+				RelativePath=".\compat_providers.c"
 				>
 			</File>
 			<File
@@ -315,10 +319,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\copy.c"
-				>
-			</File>
-			<File
 				RelativePath="..\libsvn_wc\copy.c"
 				>
 				<FileConfiguration
@@ -339,6 +339,10 @@
 						XMLDocumentationFileName="$(IntDir)\$(InputName)1.xdc"
 					/>
 				</FileConfiguration>
+			</File>
+			<File
+				RelativePath=".\copy.c"
+				>
 			</File>
 			<File
 				RelativePath="..\libsvn_ra_svn\cram.c"
@@ -369,10 +373,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\diff.c"
-				>
-			</File>
-			<File
 				RelativePath="..\libsvn_diff\diff.c"
 				>
 				<FileConfiguration
@@ -393,6 +393,10 @@
 						XMLDocumentationFileName="$(IntDir)\$(InputName)1.xdc"
 					/>
 				</FileConfiguration>
+			</File>
+			<File
+				RelativePath=".\diff.c"
+				>
 			</File>
 			<File
 				RelativePath="..\libsvn_wc\diff.c"
@@ -497,6 +501,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\list.c"
+				>
+			</File>
+			<File
 				RelativePath="..\libsvn_repos\load.c"
 				>
 			</File>
@@ -553,26 +561,8 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\libsvn_ra_dav\log.c"
+				RelativePath=".\log.c"
 				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						ObjectFile="$(IntDir)\$(InputName)1.obj"
-						XMLDocumentationFileName="$(IntDir)\$(InputName)1.xdc"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						ObjectFile="$(IntDir)\$(InputName)1.obj"
-						XMLDocumentationFileName="$(IntDir)\$(InputName)1.xdc"
-					/>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\libsvn_repos\log.c"
@@ -597,12 +587,26 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath=".\log.c"
+				RelativePath="..\libsvn_ra_dav\log.c"
 				>
-			</File>
-			<File
-				RelativePath=".\ls.c"
-				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						ObjectFile="$(IntDir)\$(InputName)1.obj"
+						XMLDocumentationFileName="$(IntDir)\$(InputName)1.xdc"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						ObjectFile="$(IntDir)\$(InputName)1.obj"
+						XMLDocumentationFileName="$(IntDir)\$(InputName)1.xdc"
+					/>
+				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\libsvn_ra_svn\marshal.c"
@@ -610,6 +614,10 @@
 			</File>
 			<File
 				RelativePath="..\libsvn_subr\md5.c"
+				>
+			</File>
+			<File
+				RelativePath="..\libsvn_ra_dav\merge.c"
 				>
 			</File>
 			<File
@@ -633,10 +641,6 @@
 						XMLDocumentationFileName="$(IntDir)\$(InputName)1.xdc"
 					/>
 				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="..\libsvn_ra_dav\merge.c"
-				>
 			</File>
 			<File
 				RelativePath="..\libsvn_subr\nls.c"
@@ -667,11 +671,11 @@
 				>
 			</File>
 			<File
-				RelativePath=".\prop_commands.c"
+				RelativePath="..\libsvn_subr\prompt.c"
 				>
 			</File>
 			<File
-				RelativePath="..\libsvn_ra_dav\props.c"
+				RelativePath=".\prop_commands.c"
 				>
 			</File>
 			<File
@@ -697,6 +701,10 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath="..\libsvn_ra_dav\props.c"
+				>
+			</File>
+			<File
 				RelativePath="..\libsvn_wc\questions.c"
 				>
 			</File>
@@ -714,10 +722,6 @@
 			</File>
 			<File
 				RelativePath="..\libsvn_ra_local\ra_plugin.c"
-				>
-			</File>
-			<File
-				RelativePath=".\relocate.c"
 				>
 			</File>
 			<File
@@ -743,6 +747,10 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath=".\relocate.c"
+				>
+			</File>
+			<File
 				RelativePath="..\libsvn_repos\replay.c"
 				>
 			</File>
@@ -756,6 +764,10 @@
 			</File>
 			<File
 				RelativePath=".\repos_diff.c"
+				>
+			</File>
+			<File
+				RelativePath=".\repos_diff_summarize.c"
 				>
 			</File>
 			<File
@@ -779,10 +791,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\simple_providers.c"
-				>
-			</File>
-			<File
 				RelativePath="..\libsvn_subr\sorts.c"
 				>
 			</File>
@@ -791,15 +799,7 @@
 				>
 			</File>
 			<File
-				RelativePath=".\ssl_client_cert_providers.c"
-				>
-			</File>
-			<File
-				RelativePath=".\ssl_client_cert_pw_providers.c"
-				>
-			</File>
-			<File
-				RelativePath=".\ssl_server_trust_providers.c"
+				RelativePath=".\status.c"
 				>
 			</File>
 			<File
@@ -823,10 +823,6 @@
 						XMLDocumentationFileName="$(IntDir)\$(InputName)1.xdc"
 					/>
 				</FileConfiguration>
-			</File>
-			<File
-				RelativePath=".\status.c"
-				>
 			</File>
 			<File
 				RelativePath=".\stdafx.cpp"
@@ -905,15 +901,59 @@
 				>
 			</File>
 			<File
-				RelativePath=".\username_providers.c"
-				>
-			</File>
-			<File
 				RelativePath="..\libsvn_subr\utf.c"
 				>
 			</File>
 			<File
 				RelativePath="..\libsvn_subr\utf_validate.c"
+				>
+			</File>
+			<File
+				RelativePath="..\libsvn_wc\util.c"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						ObjectFile="$(IntDir)\$(InputName)3.obj"
+						XMLDocumentationFileName="$(IntDir)\$(InputName)3.xdc"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						ObjectFile="$(IntDir)\$(InputName)3.obj"
+						XMLDocumentationFileName="$(IntDir)\$(InputName)3.xdc"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\libsvn_ra_dav\util.c"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						ObjectFile="$(IntDir)\$(InputName)2.obj"
+						XMLDocumentationFileName="$(IntDir)\$(InputName)2.xdc"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						ObjectFile="$(IntDir)\$(InputName)2.obj"
+						XMLDocumentationFileName="$(IntDir)\$(InputName)2.xdc"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath=".\util.c"
 				>
 			</File>
 			<File
@@ -939,85 +979,11 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath=".\util.c"
-				>
-			</File>
-			<File
-				RelativePath="..\libsvn_ra_dav\util.c"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						ObjectFile="$(IntDir)\$(InputName)2.obj"
-						XMLDocumentationFileName="$(IntDir)\$(InputName)2.xdc"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						ObjectFile="$(IntDir)\$(InputName)2.obj"
-						XMLDocumentationFileName="$(IntDir)\$(InputName)2.xdc"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="..\libsvn_wc\util.c"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						ObjectFile="$(IntDir)\$(InputName)3.obj"
-						XMLDocumentationFileName="$(IntDir)\$(InputName)3.xdc"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						ObjectFile="$(IntDir)\$(InputName)3.obj"
-						XMLDocumentationFileName="$(IntDir)\$(InputName)3.xdc"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
 				RelativePath="..\libsvn_subr\validate.c"
 				>
 			</File>
 			<File
 				RelativePath="..\libsvn_delta\vdelta.c"
-				>
-			</File>
-			<File
-				RelativePath="..\libsvn_delta\version.c"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						ObjectFile="$(IntDir)\$(InputName)1.obj"
-						XMLDocumentationFileName="$(IntDir)\$(InputName)1.xdc"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						ObjectFile="$(IntDir)\$(InputName)1.obj"
-						XMLDocumentationFileName="$(IntDir)\$(InputName)1.xdc"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath=".\version.c"
 				>
 			</File>
 			<File
@@ -1039,6 +1005,32 @@
 						Name="VCCLCompilerTool"
 						ObjectFile="$(IntDir)\$(InputName)3.obj"
 						XMLDocumentationFileName="$(IntDir)\$(InputName)3.xdc"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath=".\version.c"
+				>
+			</File>
+			<File
+				RelativePath="..\libsvn_delta\version.c"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						ObjectFile="$(IntDir)\$(InputName)1.obj"
+						XMLDocumentationFileName="$(IntDir)\$(InputName)1.xdc"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						ObjectFile="$(IntDir)\$(InputName)1.obj"
+						XMLDocumentationFileName="$(IntDir)\$(InputName)1.xdc"
 					/>
 				</FileConfiguration>
 			</File>
