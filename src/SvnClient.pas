@@ -636,10 +636,9 @@ begin
   if not TSvnClient(baton).DoLoginPrompt(SRealm, SUserName, SPassword, Save) then // not cancelled
   begin
     cred := apr_pcalloc(pool, SizeOf(TSvnAuthCredSimple));
-    if SUserName <> '' then
-      cred^.username := apr_pstrdup(pool, PChar(SUserName));
-    if SPassword <> '' then
-      cred^.password := apr_pstrdup(pool, PChar(SPassword));
+    // leaving username or password nil would cause A/V
+    cred^.username := apr_pstrdup(pool, PChar(SUserName));
+    cred^.password := apr_pstrdup(pool, PChar(SPassword));
     cred^.may_save := Save;
   end;
 end;
@@ -665,8 +664,7 @@ begin
   if not TSvnClient(baton).DoSSLClientCertPrompt(SRealm, SCertFileName, Save) then
   begin
     cred := apr_pcalloc(pool, SizeOf(TSvnAuthCredSSLClientCert));
-    if SCertFileName <> '' then
-      cred^.cert_file := apr_pstrdup(pool, PChar(SCertFileName));
+    cred^.cert_file := apr_pstrdup(pool, PChar(SCertFileName));
     cred^.may_save := Save;
   end;
 end;
@@ -692,8 +690,7 @@ begin
   if not TSvnClient(baton).DoSSLClientPasswordPrompt(SRealm, SPassword, Save) then
   begin
     cred := apr_pcalloc(pool, SizeOf(TSvnAuthCredSSLClientCertPw));
-    if SPassword <> '' then
-      cred^.password := apr_pstrdup(pool, PChar(SPassword));
+    cred^.password := apr_pstrdup(pool, PChar(SPassword));
     cred^.may_save := Save;
   end;
 end;
@@ -933,8 +930,7 @@ begin
   if not TSvnClient(baton).DoUserNamePrompt(SRealm, SUserName, Save) then // not cancelled
   begin
     cred := apr_pcalloc(pool, SizeOf(TSvnAuthCredUserName));
-    if SUserName <> '' then
-      cred^.username := apr_pstrdup(pool, PChar(SUserName));
+    cred^.username := apr_pstrdup(pool, PChar(SUserName));
     cred^.may_save := Save;
   end;
 end;

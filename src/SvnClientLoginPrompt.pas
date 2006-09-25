@@ -210,8 +210,7 @@ end;
 procedure TFormSvnClientLoginPrompt.EditChange(Sender: TObject);
 
 begin
-  ButtonOK.Enabled := (not (lpoUserName in FOptions) or (EditUserName.Text <> '')) and
-    (not (lpoPassword in FOptions) or (EditPassword.Text <> ''));
+  ButtonOK.Enabled := (not (lpoUserName in FOptions) or (EditUserName.Text <> ''));
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
