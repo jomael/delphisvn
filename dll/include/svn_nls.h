@@ -43,7 +43,7 @@ extern "C" {
  *
  * @since New in 1.3.
  */
-LIBSVN_CLIENT_API svn_error_t *svn_nls_init (void);
+LIBSVN_CLIENT_API svn_error_t *svn_nls_init(void);
 
 #ifdef __cplusplus
 }

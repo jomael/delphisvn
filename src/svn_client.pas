@@ -89,6 +89,15 @@ const
 
 //----- svn_types.h ----------------------------------------------------------------------------------------------------
 
+const
+  SVN_DIRENT_KIND = $00001;
+  SVN_DIRENT_SIZE = $00002;
+  SVN_DIRENT_HAS_PROPS = $00004;
+  SVN_DIRENT_CREATED_REV = $00008;
+  SVN_DIRENT_TIME = $00010;
+  SVN_DIRENT_LAST_AUTHOR = $00020;
+  SVN_DIRENT_ALL = $0FFFF;
+
 type
   PSvnError = ^TSvnError;
   TSvnError = record
@@ -134,6 +143,7 @@ type
 
   TSvnLogMessageReceiver = function(baton: Pointer; changed_paths: PAprHash; revision: TSvnRevNum;
     author, date, message: PChar; pool: PAprPool): PSvnError; cdecl;
+  TSvnCommitCallback2 = function(commit_info: PSvnCommitInfo; baton: Pointer; pool: PAprPool): PSvnError; cdecl;
   TSvnCommitCallback = function(new_revision: TSvnRevNum; date, author: PChar; baton: Pointer): PSvnError; cdecl;
   TSvnCancelFunc = function(cancel_baton: Pointer): PSvnError; cdecl;
 
@@ -165,14 +175,20 @@ const
   SVN_KEYWORD_ID = 'Id';
 
   SVN_STREAM_CHUNK_SIZE = 102400;
+  SVN__STREAM_CHUNK_SIZE = 16384;
 
 var
+  svn_dirent_dup: function(dirent: PSvnDirent; pool: PAprPool): PSvnDirent; cdecl;
   svn_create_commit_info: function(pool: PAprPool): PSvnCommitInfo; cdecl;
+  svn_commit_info_dup: function(src_commit_info: PSvnCommitInfo; pool: PAprPool): PSvnCommitInfo; cdecl;
+  svn_compat_wrap_commit_callback: procedure(out callback2: TSvnCommitCallback2; out callback2_baton: Pointer;
+    callback: TSvnCommitCallback; callback_baton: Pointer; pool: PAprPool); cdecl;
   svn_log_changed_path_dup: function(changed_path: PSvnLogChangedPath; pool: PAprPool): PSvnLogChangedPath; cdecl;
   svn_mime_type_validate: function(mime_type: PChar; pool: PAprPool): PSvnError; cdecl;
   svn_mime_type_is_binary: function(mime_type: PChar): TSvnBoolean; cdecl;
   svn_lock_create: function(pool: PAprPool): PSvnLock; cdecl;
   svn_lock_dup: function(lock: PSvnLock; pool: PAprPool): PSvnLock; cdecl;
+  svn_uuid_generate: function(pool: PAprPool): PChar; cdecl;
 
 //----- svn_types.h ----------------------------------------------------------------------------------------------------
 
@@ -202,13 +218,13 @@ type
 
 const
   SVN_VER_MAJOR = 1;
-  SVN_VER_MINOR = 3;
-  SVN_VER_PATCH = 2;
-  SVN_VER_TAG = ' (r19776)';
-  SVN_VER_NUMTAG = '';
-  SVN_VER_REVISION = 19776;
+  SVN_VER_MINOR = 4;
+  SVN_VER_PATCH = 1;
+  SVN_VER_TAG = ' (dev build)';
+  SVN_VER_NUMTAG = '-dev';
+  SVN_VER_REVISION = 0;
 
-  SVN_VER_NUM = '1.3.2';
+  SVN_VER_NUM = '1.4.1';
   SVN_VER_NUMBER = SVN_VER_NUM + SVN_VER_NUMTAG;
   SVN_VERSION = SVN_VER_NUM + SVN_VER_TAG;
 
@@ -231,6 +247,14 @@ var
   svn_sleep_for_timestamps: procedure; cdecl;
 
 //----- svn_time.h -----------------------------------------------------------------------------------------------------
+
+//----- svn_user.h -----------------------------------------------------------------------------------------------------
+
+var
+  svn_user_get_name: function(pool: PAprPool): PChar; cdecl;
+  svn_user_get_homedir: function(pool: PAprPool): PChar; cdecl;
+
+//----- svn_user.h -----------------------------------------------------------------------------------------------------
 
 //----- svn_sorts.h ----------------------------------------------------------------------------------------------------
 
@@ -375,24 +399,6 @@ var
 
 //----- svn_xml.h ------------------------------------------------------------------------------------------------------
 
-//----- svn_cmdline.h --------------------------------------------------------------------------------------------------
-
-var
-  svn_cmdline_init: function(progname: PChar; error_stream: THandle): Integer; cdecl;
-  svn_cmdline_cstring_from_utf8: function(out dest: PChar; src: PChar; pool: PAprPool): PSvnError; cdecl;
-  svn_cmdline_cstring_from_utf8_fuzzy: function(src: PChar; pool: PAprPool): PChar; cdecl;
-  svn_cmdline_cstring_to_utf8: function(out dest: PChar; src: PChar; pool: PAprPool): PSvnError; cdecl;
-  svn_cmdline_path_local_style_from_utf8: function(out dest: PChar; src: PChar; pool: PAprPool): PSvnError; cdecl;
-  svn_cmdline_printf: function(pool: PAprPool; fmt: PChar; const args: array of const): PSvnError; cdecl;
-  svn_cmdline_fprintf: function(stream: THandle; pool: PAprPool; fmt: PChar; const args: array of const): PSvnError;
-    cdecl;
-  svn_cmdline_fputs: function(str: PChar; stream: THandle; pool: PAprPool): PSvnError; cdecl;
-  svn_cmdline_fflush: function(stream: THandle): PSvnError; cdecl;
-  svn_cmdline_output_encoding: function(pool: PAprPool): PChar; cdecl;
-  svn_cmdline_handle_exit_error: function(error: PSvnError; pool: PAprPool; prefix: PChar): Integer; cdecl;
-
-//----- svn_cmdline.h --------------------------------------------------------------------------------------------------
-
 //----- svn_utf.h ------------------------------------------------------------------------------------------------------
 
 var
@@ -400,12 +406,14 @@ var
   svn_utf_stringbuf_to_utf8: function(out dest: PSvnStringBuf; src: PSvnStringBuf; pool: PAprPool): PSvnError; cdecl;
   svn_utf_string_to_utf8: function(out dest: PSvnString; src: PSvnString; pool: PAprPool): PSvnError; cdecl;
   svn_utf_cstring_to_utf8: function(dest: PPChar; src: PChar; pool: PAprPool): PSvnError; cdecl;
+  svn_utf_cstring_to_utf8_ex2: function(dest: PPChar; src, frompage: PChar; pool: PAprPool): PSvnError; cdecl;
   svn_utf_cstring_to_utf8_ex: function(dest: PPChar; src, frompage, convset_key: PChar; pool: PAprPool): PSvnError;
     cdecl;
   svn_utf_stringbuf_from_utf8: function(out dest: PSvnStringBuf; src: PSvnStringBuf; pool: PAprPool): PSvnError;
     cdecl;
   svn_utf_string_from_utf8: function(out dest: PSvnString; src: PSvnString; pool: PAprPool): PSvnError; cdecl;
   svn_utf_cstring_from_utf8: function(out dest: PChar; src: PChar; pool: PAprPool): PSvnError; cdecl;
+  svn_utf_cstring_from_utf8_ex2: function(out dest: PChar; src, topage: PChar; pool: PAprPool): PSvnError; cdecl;
   svn_utf_cstring_from_utf8_ex: function(out dest: PChar; src, topage, convset_key: PChar; pool: PAprPool): PSvnError;
     cdecl;
   svn_utf_cstring_from_utf8_fuzzy: function(src: PChar; pool: PAprPool): PChar; cdecl;
@@ -464,8 +472,15 @@ const
   SVN_PROP_REVISION_DATE = SVN_PROP_PREFIX + 'date';
   SVN_PROP_REVISION_ORIG_DATE = SVN_PROP_PREFIX + 'original-date';
   SVN_PROP_REVISION_AUTOVERSIONED = SVN_PROP_PREFIX + 'autoversioned';
-  SVN_PROP_REVISION_ALL_PROPS: array[0..4] of string = (SVN_PROP_REVISION_AUTHOR, SVN_PROP_REVISION_LOG,
-    SVN_PROP_REVISION_DATE, SVN_PROP_REVISION_AUTOVERSIONED, SVN_PROP_REVISION_ORIG_DATE);
+  SVNSYNC_PROP_PREFIX = SVN_PROP_PREFIX + 'sync-';
+  SVNSYNC_PROP_LOCK = SVNSYNC_PROP_PREFIX + 'lock';
+  SVNSYNC_PROP_FROM_URL = SVNSYNC_PROP_PREFIX + 'from-url';
+  SVNSYNC_PROP_FROM_UUID = SVNSYNC_PROP_PREFIX + 'from-uuid';
+  SVNSYNC_PROP_LAST_MERGED_REV = SVNSYNC_PROP_PREFIX + 'last-merged-rev';
+  SVNSYNC_PROP_CURRENTLY_COPYING = SVNSYNC_PROP_PREFIX + 'currently-copying';
+  SVN_PROP_REVISION_ALL_PROPS: array[0..9] of string = (SVN_PROP_REVISION_AUTHOR, SVN_PROP_REVISION_LOG,
+    SVN_PROP_REVISION_DATE, SVN_PROP_REVISION_ORIG_DATE, SVN_PROP_REVISION_AUTOVERSIONED, SVNSYNC_PROP_LOCK,
+    SVNSYNC_PROP_FROM_URL, SVNSYNC_PROP_FROM_UUID, SVNSYNC_PROP_LAST_MERGED_REV, SVNSYNC_PROP_CURRENTLY_COPYING);
 
 //----- svn_props.h ----------------------------------------------------------------------------------------------------
 
@@ -493,6 +508,7 @@ const
   SVN_ERR_RA_SVN_CATEGORY_START                   = APR_OS_START_USERERR + 18 * SVN_ERR_CATEGORY_SIZE;
   SVN_ERR_AUTHN_CATEGORY_START                    = APR_OS_START_USERERR + 19 * SVN_ERR_CATEGORY_SIZE;
   SVN_ERR_AUTHZ_CATEGORY_START                    = APR_OS_START_USERERR + 20 * SVN_ERR_CATEGORY_SIZE;
+  SVN_ERR_DIFF_CATEGORY_START                     = APR_OS_START_USERERR + 21 * SVN_ERR_CATEGORY_SIZE;
 
   SVN_ERR_BAD_CONTAINING_POOL                     = SVN_ERR_BAD_CATEGORY_START + 0;
   SVN_ERR_BAD_FILENAME                            = SVN_ERR_BAD_CATEGORY_START + 1;
@@ -659,6 +675,9 @@ const
   SVN_ERR_SVNDIFF_BACKWARD_VIEW                   = SVN_ERR_SVNDIFF_CATEGORY_START + 2;
   SVN_ERR_SVNDIFF_INVALID_OPS                     = SVN_ERR_SVNDIFF_CATEGORY_START + 3;
   SVN_ERR_SVNDIFF_UNEXPECTED_END                  = SVN_ERR_SVNDIFF_CATEGORY_START + 4;
+  SVN_ERR_SVNDIFF_INVALID_COMPRESSED_DATA         = SVN_ERR_SVNDIFF_CATEGORY_START + 5;
+
+  SVN_ERR_DIFF_DATASOURCE_MODIFIED                = SVN_ERR_DIFF_CATEGORY_START + 0;
 
   SVN_ERR_APMOD_MISSING_PATH_TO_FS                = SVN_ERR_APMOD_CATEGORY_START + 0;
   SVN_ERR_APMOD_MALFORMED_URI                     = SVN_ERR_APMOD_CATEGORY_START + 1;
@@ -723,6 +742,7 @@ const
 var
   svn_error__locate: procedure(afile: PChar; line: Longint); cdecl;
   svn_strerror: function(statcode: TAprStatus; buf: PChar; bufsize: TAprSize): PChar; cdecl;
+  svn_err_best_message: function(err: PSvnError; buf: PChar; bufsize: TAprSize): PChar; cdecl;
   svn_error_create: function(apr_err: TAprStatus; child: PSvnError; message: PChar): PSvnError; cdecl;
   svn_error_createf: function(apr_err: TAprStatus; child: PSvnError; fmt: PChar;
     const args: array of const): PSvnError; cdecl;
@@ -863,6 +883,7 @@ var
     baton: Pointer): Integer; cdecl;
   svn_config_enumerate2: function(cfg: PSvnConfig; section: PChar; callback: TSvnConfigEnumerator2; baton: Pointer;
     pool: PAprPool): Integer; cdecl;
+  svn_config_has_section: function(cfg: PSvnConfig; section: PChar): TSvnBoolean; cdecl;
   svn_config_find_group: function(cfg: PSvnConfig; key, master_section: PChar; pool: PAprPool): PChar; cdecl;
   svn_config_get_server_setting: function(cfg: PSvnConfig; server_group, option_name, default_value: PChar): PChar;
     cdecl;
@@ -876,9 +897,18 @@ var
 
 //----- svn_config.h ---------------------------------------------------------------------------------------------------
 
+//----- svn_dso.h ------------------------------------------------------------------------------------------------------
+
+var
+  svn_dso_initialize: procedure; cdecl;
+  svn_dso_load: function(out dso: PAprDSOHandle; libname: PChar): PSvnError; cdecl;
+
+//----- svn_dso.h ------------------------------------------------------------------------------------------------------
+
 //----- svn_io.h -------------------------------------------------------------------------------------------------------
 
 type
+  TSvnIOFileDel = (svnFileDelNone, svnFileDelOnClose, svnFileDelOnPoolCleanup);
   PSvnIODirEnt = ^TSvnIODirEnt;
   TSvnIODirEnt = record
     kind: TSvnNodeKind;
@@ -897,6 +927,8 @@ var
   svn_io_check_special_path: function(path: PChar; out kind: TSvnNodeKind; out is_special: TSvnBoolean;
     pool: PAprPool): PSvnError; cdecl;
   svn_io_check_resolved_path: function(path: PChar; out kind: TSvnNodeKind; pool: PAprPool): PSvnError; cdecl;
+  svn_io_open_unique_file2: function(out f: PAprFile; out unique_name_p: PChar; path, suffix: PChar;
+    delete_when: TSvnIOFileDel; pool: PAprPool): PSvnError; cdecl;
   svn_io_open_unique_file: function(out f: PAprFile; out unique_name_p: PChar; path, suffix: PChar;
     delete_on_close: TSvnBoolean; pool: PAprPool): PSvnError; cdecl;
   svn_io_create_unique_link: function(out unique_name_p: PChar; path, dest, suffix: PChar; pool: PAprPool): PSvnError;
@@ -939,10 +971,14 @@ var
   svn_stream_set_write: procedure(stream: PSvnStream; write_fn: TSvnWriteFunc); cdecl;
   svn_stream_set_close: procedure(stream: PSvnStream; close_fn: TSvnCloseFunc); cdecl;
   svn_stream_empty: function(pool: PAprPool): PSvnStream; cdecl;
+  svn_stream_disown: function(stream: PSvnStream; pool: PAprPool): PSvnStream; cdecl;
+  svn_stream_from_aprfile2: function(afile: PAprFile; disown: TSvnBoolean; pool: PAprPool): PSvnStream; cdecl;
   svn_stream_from_aprfile: function(afile: PAprFile; pool: PAprPool): PSvnStream; cdecl;
   svn_stream_for_stdout: function(out stdout: PSvnStream; pool: PAprPool): PSvnError; cdecl;
   svn_stream_from_stringbuf: function(str: PSvnStringBuf; pool: PAprPool): PSvnStream; cdecl;
   svn_stream_compressed: function(stream: PSvnStream; pool: PAprPool): PSvnStream; cdecl;
+  svn_stream_checksummed: function(stream: PSvnStream; read_digest, write_digest: Pointer; read_all: TSvnBoolean;
+    pool: PAprPool): PSvnStream; cdecl;
   svn_stream_read: function(stream: PSvnStream; buffer: PChar; var len: TAprSize): PSvnError; cdecl;
   svn_stream_write: function(stream: PSvnStream; data: PChar; var len: TAprSize): PSvnError; cdecl;
   svn_stream_close: function(stream: PSvnStream): PSvnError; cdecl;
@@ -953,10 +989,13 @@ var
   svn_stream_readline: function(stream: PSvnStream; out stringbuf: PSvnStringBuf; eol: PChar; out eof: TSvnBoolean;
     pool: PAprPool): PSvnError; cdecl;
   svn_stream_copy: function(sfrom, sto: PSvnStream; pool: PAprPool): PSvnError; cdecl;
+  svn_stream_contents_same: function(out same: TSvnBoolean; stream1, stream2: PSvnStream; pool: PAprPool): PSvnError;
+    cdecl;
   svn_stringbuf_from_file: function(out result: PSvnStringBuf; filename: PChar; pool: PAprPool): PSvnError; cdecl;
   svn_stringbuf_from_aprfile: function(out result: PSvnStringBuf; afile: PAprFile; pool: PAprPool): PSvnError; cdecl;
   svn_io_remove_file: function(path: PChar; pool: PAprPool): PSvnError; cdecl;
   svn_io_remove_dir: function(path: PChar; pool: PAprPool): PSvnError; cdecl;
+  svn_io_get_dir_filenames: function(out dirents: PAprHash; path: PChar; pool: PAprPool): PSvnError; cdecl;
   svn_io_get_dirents2: function(out dirents: PAprHash; path: PChar; pool: PAprPool): PSvnError; cdecl;
   svn_io_get_dirents: function(out dirents: PAprHash; path: PChar; pool: PAprPool): PSvnError; cdecl;
   svn_io_dir_walk: function(dirname: PChar; wanted: Integer; walk_func: TSvnIOWalkFunc; walk_baton: Pointer;
@@ -969,6 +1008,9 @@ var
     infile, outfile, errfile: PAprFile; pool: PAprPool): PSvnError; cdecl;
   svn_io_run_diff: function(dir: PChar; user_args: PPChar; num_user_args: Integer; label1, label2, ffrom, fto: PChar;
     exitcode: PInteger; outfile, errfile: PAprFile; diff_cmd: PChar; pool: PAprPool): PSvnError; cdecl;
+  svn_io_run_diff3_2: function(out exitcode: Integer; dir, mine, older, yours, mine_label, older_label,
+    yours_label: PChar; merged: PAprFile; diff3_cmd: PChar; user_args: PAprArrayHeader; pool: PAprPool): PSvnError;
+    cdecl;
   svn_io_run_diff3: function(dir, mine, older, yours, mine_label, older_label, yours_label: PChar; merged: PAprFile;
     exitcode: PInteger; diff3_cmd: PChar; pool: PAprPool): PSvnError; cdecl;
   svn_io_detect_mimetype: function(out mimetype: PChar; afile: PChar; pool: PAprPool): PSvnError; cdecl;
@@ -1050,12 +1092,16 @@ type
 
 var
   svn_subst_eol_style_from_value: procedure(out style: TSvnSubstEOLStyle; out eol: PChar; value: PChar); cdecl;
+  svn_subst_translation_required: function(style: TSvnSubstEOLStyle; eol: PChar; keywords: PAprHash;
+    special, force_eol_check: TSvnBoolean): TSvnBoolean; cdecl;
   svn_subst_build_keywords2: function(out kw: PAprHash; keywords_string, rev, url: PChar; date: TAprTime;
     author: PChar; pool: PAprPool): PSvnError; cdecl;
   svn_subst_build_keywords: function(out kw: TSvnSubstKeywords; keywords_string, rev, url: PChar; date: TAprTime;
     author: PChar; pool: PAprPool): PSvnError; cdecl;
   svn_subst_keywords_differ2: function(a, b: PAprHash; compare_values: TSvnBoolean; pool: PAprPool): TSvnBoolean; cdecl;
   svn_subst_keywords_differ: function(a, b: PSvnSubstKeywords; compare_values: TSvnBoolean): TSvnBoolean; cdecl;
+  svn_subst_stream_translated: function(stream: PSvnStream; eol_str: PChar; repair: TSvnBoolean; keywords: PAprHash;
+    expand: TSvnBoolean; pool: PAprPool): PSvnStream; cdecl;
   svn_subst_translate_stream3: function(src, dst: PSvnStream; eol_str: PChar; repair: TSvnBoolean; keywords: PAprHash;
     expand: TSvnBoolean; pool: PAprPool): PSvnError; cdecl;
   svn_subst_translate_stream2: function(src, dst: PSvnStream; eol_str: PChar; repair: TSvnBoolean;
@@ -1072,6 +1118,11 @@ var
     keywords: PAprHash; expand: TSvnBoolean; pool: PAprPool): PSvnError; cdecl;
   svn_subst_translate_cstring: function(src: PChar; out dst: PChar; eol_str: PChar; repair: TSvnBoolean;
     keywords: PSvnSubstKeywords; expand: TSvnBoolean; pool: PAprPool): PSvnError; cdecl;
+  svn_subst_translate_to_normal_form: function(src, dst: PChar; eol_style: TSvnSubstEOLStyle; eol_str: PChar;
+    always_repair_eols: TSvnBoolean; keywords: PAprHash; special: TSvnBoolean; pool: PAprPool): PSvnError; cdecl;
+  svn_subst_stream_detranslated: function(out stream_p: PSvnStream; src: PChar; eol_style: TSvnSubstEOLStyle;
+    eol_str: PChar; always_repair_eols: TSvnBoolean; keywords: PAprHash; special: TSvnBoolean;
+    pool: PAprPool): PSvnError; cdecl;
   svn_subst_translate_string: function(out new_value: PSvnString; value: PSvnString; encoding: PChar;
     pool: PAprPool): PSvnError; cdecl;
   svn_subst_detranslate_string: function(out new_value: PSvnString; value: PSvnString; for_stdout: TSvnBoolean;
@@ -1109,6 +1160,12 @@ type
     output_conflict: function(output_baton: Pointer; original_start, original_length, modified_start, modified_length,
       latest_start, latest_length: TAprOff; resolved_diff: PSvnDiff): PSvnError; cdecl;
   end;
+  TSvnDiffFileIgnoreSpace = (svnIgnoreSpaceNone, svnIgnoreSpaceChange, svnIgnoreSpaceAll);
+  PSvnDiffFileOptions = ^TSvnDiffFileOptions;
+  TSvnDiffFileOptions = record
+    ignore_space: TSvnDiffFileIgnoreSpace;
+    ignore_eol_style: TSvnBoolean;
+  end;
 
 var
   svn_diff_version: function: PSvnVersion; cdecl;
@@ -1121,9 +1178,15 @@ var
   svn_diff_contains_conflicts: function(diff: PSvnDiff): TSvnBoolean; cdecl;
   svn_diff_contains_diffs: function(diff: PSvnDiff): TSvnBoolean; cdecl;
   svn_diff_output: function(diff: PSvnDiff; output_baton: Pointer; output_fns: PSvnDiffOutputFns): PSvnError; cdecl;
+  svn_diff_file_diff_2: function(out diff: PSvnDiff; original, modified: PChar; options: PSvnDiffFileOptions;
+    pool: PAprPool): PSvnError; cdecl;
   svn_diff_file_diff: function(out diff: PSvnDiff; original, modified: PChar; pool: PAprPool): PSvnError; cdecl;
+  svn_diff_file_diff3_2: function(out diff: PSvnDiff; original, modified, latest: PChar; options: PSvnDiffFileOptions;
+    pool: PAprPool): PSvnError; cdecl;
   svn_diff_file_diff3: function(out diff: PSvnDiff; original, modified, latest: PChar; pool: PAprPool): PSvnError;
     cdecl;
+  svn_diff_file_diff4_2: function(out diff: PSvnDiff; original, modified, latest, ancestor: PChar;
+    options: PSvnDiffFileOptions; pool: PAprPool): PSvnError; cdecl;
   svn_diff_file_diff4: function(out diff: PSvnDiff; original, modified, latest, ancestor: PChar;
     pool: PAprPool): PSvnError; cdecl;
   svn_diff_file_output_unified2: function(output_stream: PSvnStream; diff: PSvnDiff; original_path, modified_path,
@@ -1133,6 +1196,9 @@ var
   svn_diff_file_output_merge: function(output_stream: PSvnStream; diff: PSvnDiff; original_path, modified_path,
     latest_path, conflict_original, conflict_modified, conflict_latest, conflict_separator: PChar;
     display_original_in_conflict, display_resolved_conflicts: TSvnBoolean; pool: PAprPool): PSvnError; cdecl;
+  svn_diff_file_options_create: function(pool: PAprPool): PSvnDiffFileOptions; cdecl;
+  svn_diff_file_options_parse: function(options: PSvnDiffFileOptions; const args: PAprArrayHeader;
+    pool: PAprPool): PSvnError; cdecl;
 
 //----- svn_diff.h -----------------------------------------------------------------------------------------------------
 
@@ -1168,6 +1234,8 @@ type
     new_data: PSvnString;
   end;
   TSvnTxDeltaWindowHandler = function(window: PSvnTxDeltaWindow; baton: Pointer): PSvnError; cdecl;
+  TSvnTxDeltaNextWindowFunc = function(out window: PSvnTxDeltaWindow; baton: Pointer; pool: PAprPool): PSvnError; cdecl;
+  TSvnTxDeltaMd5DigestFunc = function(baton: Pointer): Pointer; cdecl;
   PSvnTxDeltaStream = ^TSvnTxDeltaStream;
   TSvnTxDeltaStream = THandle;
 
@@ -1204,8 +1272,13 @@ type
 var
   svn_delta_version: function: PSvnVersion; cdecl;
   svn_txdelta_window_dup: function(window: PSvnTxDeltaWindow; pool: PAprPool): PSvnTxDeltaWindow; cdecl;
+  svn_txdelta_compose_windows: function(window_A, window_B: PSvnTxDeltaWindow; pool: PAprPool): PSvnTxDeltaWindow;
+    cdecl;
+  svn_txdelta_stream_create: function(baton: Pointer; next_window: TSvnTxDeltaNextWindowFunc;
+    md5_digest: TSvnTxDeltaMd5DigestFunc; pool: PAprPool): PSvnTxDeltaStream; cdecl;
   svn_txdelta_next_window: function(out window: PSvnTxDeltaWindow; stream: PSvnTxDeltaStream;
     pool: PAprPool): PSvnError; cdecl;
+  svn_txdelta_apply_instructions: procedure(window: PSvnTxDeltaWindow; sbuf, tbuf: PChar; tlen: PAprSize); cdecl;
   svn_txdelta_md5_digest: function(stream: PSvnTxDeltaStream): PByte; cdecl;
   svn_txdelta: procedure(out stream: PSvnTxDeltaStream; source, target: PSvnStream; pool: PAprPool); cdecl;
   svn_txdelta_target_push: function(handler: TSvnTxDeltaWindowHandler; handler_baton: Pointer; source: PSvnStream;
@@ -1218,6 +1291,8 @@ var
     handler_baton: Pointer; pool: PAprPool): PSvnError; cdecl;
   svn_txdelta_apply: procedure(source, target: PSvnStream; result_digest: PByte; error_info: PChar; pool: PAprPool;
     out handler: TSvnTxDeltaWindowHandler; out handler_baton: Pointer); cdecl;
+  svn_txdelta_to_svndiff2: procedure(out handler: TSvnTxDeltaWindowHandler; out handler_baton: Pointer;
+    output: PSvnStream; svndiff_version: Integer; pool: PAprPool); cdecl;
   svn_txdelta_to_svndiff: procedure(output: PSvnStream; pool: PAprPool; out handler: TSvnTxDeltaWindowHandler;
     out handler_baton: Pointer); cdecl;
   svn_txdelta_parse_svndiff: function(handler: TSvnTxDeltaWindowHandler; handler_baton: Pointer;
@@ -1246,6 +1321,7 @@ const
   SVN_FS_CONFIG_FS_TYPE = 'fs-type';
   SVN_FS_TYPE_BDB = 'bdb';
   SVN_FS_TYPE_FSFS = 'fsfs';
+  SVN_FS_CONFIG_PRE_1_4_COMPATIBLE = 'pre-1.4-compatible';
   SVN_FS_TXN_CHECK_OOD = $00001;
   SVN_FS_TXN_CHECK_LOCKS = $00002;
 
@@ -1537,8 +1613,14 @@ var
     tgt_path: PChar; editor: PSvnDeltaEditor; edit_baton: Pointer; authz_read_func: TSvnReposAuthzFunc;
     authz_read_baton: Pointer; text_deltas, recurse, entry_props, ignore_ancestry: TSvnBoolean;
     pool: PAprPool): PSvnError; cdecl;
+  svn_repos_replay2: function(root: PSvnFSRoot; base_dir: PChar; low_water_mark: TSvnRevNum; send_deltas: TSvnBoolean;
+    editor: PSvnDeltaEditor; edit_baton: Pointer; authz_read_func: TSvnReposAuthzFunc; authz_read_baton: Pointer;
+    pool: PAprPool): PSvnError; cdecl;
   svn_repos_replay: function(root: PSvnFSRoot; editor: PSvnDeltaEditor; edit_baton: Pointer;
     pool: PAprPool): PSvnError; cdecl;
+  svn_repos_get_commit_editor4: function(out editor: PSvnDeltaEditor; out edit_baton: Pointer; repos: PSvnRepos;
+    txn: PSvnFSTxn; repos_url, base_path, user, log_msg: PChar; callback: TSvnCommitCallback; callback_baton: Pointer;
+    authz_callback: TSvnReposAuthzCallback; authz_baton: Pointer; pool: PAprPool): PSvnError; cdecl;
   svn_repos_get_commit_editor3: function(out editor: PSvnDeltaEditor; out edit_baton: Pointer; repos: PSvnRepos;
     txn: PSvnFSTxn; repos_url, base_path, user, log_msg: PChar; callback: TSvnCommitCallback; callback_baton: Pointer;
     authz_callback: TSvnReposAuthzCallback; authz_baton: Pointer; pool: PAprPool): PSvnError; cdecl;
@@ -1639,6 +1721,19 @@ const
 
 type
   TSvnOptSubcommand = function(os: PAprGetOpt; baton: Pointer; pool: PAprPool): PSvnError; cdecl;
+  TSvnOptSubcommandDescOverride = record
+    optch: Integer;
+    desc: PChar;
+  end;
+  PSvnOptSubcommandDesc2 = ^TSvnOptSubcommandDesc2;
+  TSvnOptSubcommandDesc2 = record
+    name: PChar;
+    cmd_func: TSvnOptSubcommand;
+    aliases: array[0..SVN_OPT_MAX_ALIASES - 1] of PChar;
+    help: PChar;
+    valid_options: array[0..SVN_OPT_MAX_OPTIONS - 1] of Integer;
+    desc_overrides: array[0..SVN_OPT_MAX_OPTIONS - 1] of TSvnOptSubcommandDescOverride;
+  end;
   PSvnOptSubcommandDesc = ^TSvnOptSubcommandDesc;
   TSvnOptSubcommandDesc = record
     name: PChar;
@@ -1663,13 +1758,21 @@ type
   end;
 
 var
+  svn_opt_get_canonical_subcommand2: function(table: PSvnOptSubcommandDesc2; cmd_name: PChar): PSvnOptSubcommandDesc2; cdecl;
   svn_opt_get_canonical_subcommand: function(table: PSvnOptSubcommandDesc; cmd_name: PChar): PSvnOptSubcommandDesc;
     cdecl;
+  svn_opt_get_option_from_code2: function(code: Integer; option_table: PAprGetOptOption;
+    command: PSvnOptSubcommandDesc2; pool: PAprPool): PAprGetOptOption; cdecl;
   svn_opt_get_option_from_code: function(code: Integer; option_table: PAprGetOptOption): PAprGetOptOption; cdecl;
+  svn_opt_subcommand_takes_option2: function(command: PSvnOptSubcommandDesc2; option_code: Integer): TSvnBoolean; cdecl;
   svn_opt_subcommand_takes_option: function(command: PSvnOptSubcommandDesc; option_code: Integer): TSvnBoolean; cdecl;
+  svn_opt_print_generic_help2: procedure(header: PChar; cmd_table: PSvnOptSubcommandDesc2; opt_table: PAprGetOptOption;
+    footer: PChar; pool: PAprPool; stream: THandle); cdecl;
   svn_opt_print_generic_help: procedure(header: PChar; cmd_table: PSvnOptSubcommandDesc; opt_table: PAprGetOptOption;
     footer: PChar; pool: PAprPool; stream: THandle); cdecl;
   svn_opt_format_option: procedure(str: PPChar; opt: PAprGetOptOption; doc: TSvnBoolean; pool: PAprPool); cdecl;
+  svn_opt_subcommand_help2: procedure(subcommand: PChar; table: PSvnOptSubcommandDesc2; options_table: PAprGetOptOption;
+    pool: PAprPool); cdecl;
   svn_opt_subcommand_help: procedure(subcommand: PChar; table: PSvnOptSubcommandDesc; options_table: PAprGetOptOption;
     pool: PAprPool); cdecl;
   svn_opt_parse_revision: function(start_revision, end_revision: PSvnOptRevision; arg: PChar; pool: PAprPool): Integer;
@@ -1684,6 +1787,9 @@ var
   svn_opt_parse_all_args: function(out args_p: PAprArrayHeader; os: PAprGetOpt; pool: PAprPool): PSvnError; cdecl;
   svn_opt_parse_path: function(out rev: TSvnOptRevision; out truepath: PChar; path: PChar; pool: PAprPool): PSvnError;
     cdecl;
+  svn_opt_print_help2: function(os: PAprGetOpt; pgm_name: PChar; print_version, quiet: TSvnBoolean;
+    version_footer, header: PChar; cmd_table: PSvnOptSubcommandDesc2; option_table: PAprGetOptOption; footer: PChar;
+    pool: PAprPool): PSvnError; cdecl;
   svn_opt_print_help: function(os: PAprGetOpt; pgm_name: PChar; print_version, quiet: TSvnBoolean;
     version_footer, header: PChar; cmd_table: PSvnOptSubcommandDesc; option_table: PAprGetOptOption; footer: PChar;
     pool: PAprPool): PSvnError; cdecl;
@@ -1800,8 +1906,66 @@ var
   svn_auth_next_credentials: function(out credentials: Pointer; state: PSvnAuthIterState; pool: PAprPool): PSvnError;
     cdecl;
   svn_auth_save_credentials: function(state: PSvnAuthIterState; pool: PAprPool): PSvnError; cdecl;
+  svn_auth_get_simple_prompt_provider: procedure(out provider: PSvnAuthProviderObject;
+    prompt_func: TSvnAuthSimplePromptFunc; prompt_baton: Pointer; retry_limit: Integer; pool: PAprPool); cdecl;
+  svn_auth_get_username_prompt_provider: procedure(out provider: PSvnAuthProviderObject;
+    prompt_func: TSvnAuthUsernamePromptFunc; prompt_baton: Pointer; retry_limit: Integer; pool: PAprPool); cdecl;
+  svn_auth_get_simple_provider: procedure (out provider: PSvnAuthProviderObject; pool: PAprPool); cdecl;
+  svn_auth_get_windows_simple_provider: procedure (out provider: PSvnAuthProviderObject; pool: PAprPool); cdecl;
+  svn_auth_get_username_provider: procedure(out provider: PSvnAuthProviderObject; pool: PAprPool); cdecl;
+  svn_auth_get_ssl_server_trust_file_provider: procedure(out provider: PSvnAuthProviderObject; pool: PAprPool); cdecl;
+  svn_auth_get_ssl_client_cert_file_provider: procedure(out provider: PSvnAuthProviderObject; pool: PAprPool); cdecl;
+  svn_auth_get_ssl_client_cert_pw_file_provider: procedure(out provider: PSvnAuthProviderObject; pool: PAprPool); cdecl;
+  svn_auth_get_ssl_server_trust_prompt_provider: procedure(out provider: PSvnAuthProviderObject;
+    prompt_func: TSvnAuthSSLServerTrustPromptFunc; prompt_baton: Pointer; pool: PAprPool); cdecl;
+  svn_auth_get_ssl_client_cert_prompt_provider: procedure(out provider: PSvnAuthProviderObject;
+    prompt_func: TSvnAuthSSLClientCertPromptFunc; prompt_baton: Pointer; retry_limit: Integer; pool: PAprPool); cdecl;
+  svn_auth_get_ssl_client_cert_pw_prompt_provider: procedure(out provider: PSvnAuthProviderObject;
+    prompt_func: TSvnAuthSSLClientCertPwPromptFunc; prompt_baton: Pointer; retry_limit: Integer; pool: PAprPool); cdecl;
 
 //----- svn_auth.h -----------------------------------------------------------------------------------------------------
+
+//----- svn_cmdline.h --------------------------------------------------------------------------------------------------
+
+type
+  PSvnCmdlinePromptBaton = ^TSvnCmdlinePromptBaton;
+  TSvnCmdlinePromptBaton = record
+    cancel_func: TSvnCancelFunc;
+    cancel_baton: Pointer;
+  end;
+
+var
+  svn_cmdline_init: function(progname: PChar; error_stream: THandle): Integer; cdecl;
+  svn_cmdline_cstring_from_utf8: function(out dest: PChar; src: PChar; pool: PAprPool): PSvnError; cdecl;
+  svn_cmdline_cstring_from_utf8_fuzzy: function(src: PChar; pool: PAprPool): PChar; cdecl;
+  svn_cmdline_cstring_to_utf8: function(out dest: PChar; src: PChar; pool: PAprPool): PSvnError; cdecl;
+  svn_cmdline_path_local_style_from_utf8: function(out dest: PChar; src: PChar; pool: PAprPool): PSvnError; cdecl;
+  svn_cmdline_printf: function(pool: PAprPool; fmt: PChar; const args: array of const): PSvnError; cdecl;
+  svn_cmdline_fprintf: function(stream: THandle; pool: PAprPool; fmt: PChar; const args: array of const): PSvnError;
+    cdecl;
+  svn_cmdline_fputs: function(str: PChar; stream: THandle; pool: PAprPool): PSvnError; cdecl;
+  svn_cmdline_fflush: function(stream: THandle): PSvnError; cdecl;
+  svn_cmdline_output_encoding: function(pool: PAprPool): PChar; cdecl;
+  svn_cmdline_handle_exit_error: function(error: PSvnError; pool: PAprPool; prefix: PChar): Integer; cdecl;
+  svn_cmdline_prompt_user: function(out result: PChar; prompt_str: PChar; pool: PAprPool): PSvnError; cdecl;
+  svn_cmdline_auth_simple_prompt: function(out cred_p: PSvnAuthCredSimple; baton: Pointer; realm, username: PChar;
+    may_save: TSvnBoolean; pool: PAprPool): PSvnError; cdecl;
+  svn_cmdline_auth_username_prompt: function(out cred_p: PSvnAuthCredUsername; baton: Pointer; realm: PChar;
+    may_save: TSvnBoolean; pool: PAprPool): PSvnError; cdecl;
+  svn_cmdline_auth_ssl_server_trust_prompt: function(out cred_p: PSvnAuthCredSSLServerTrust; baton: Pointer;
+    realm: PChar; failures: Cardinal; cert_info: PSvnAuthSSLServerCertInfo; may_save: TSvnBoolean;
+    pool: PAprPool): PSvnError; cdecl;
+  svn_cmdline_auth_ssl_client_cert_prompt: function(out cred_p: PSvnAuthCredSSLClientCert; baton: Pointer; realm: PChar;
+    may_save: TSvnBoolean; pool: PAprPool): PSvnError; cdecl;
+  svn_cmdline_auth_ssl_client_cert_pw_prompt: function(out cred_p: PSvnAuthCredSSLClientCertPw; baton: Pointer;
+    realm: PChar; may_save: TSvnBoolean; pool: PAprPool): PSvnError; cdecl;
+  svn_cmdline_setup_auth_baton: function(out ab: PSvnAuthBaton; non_interactive: TSvnBoolean;
+    username, password, config_dir: PChar; no_auth_cache: TSvnBoolean; cfg: PSvnConfig; cancel_func: TSvnCancelFunc;
+    cancel_baton: Pointer; pool: PAprPool): PSvnError; cdecl;
+  svn_cmdline__getopt_init: function(out os: PAprGetOpt; argc: Integer; argv: array of const;
+    pool: PAprPool): PSvnError; cdecl;
+
+//----- svn_cmdline.h --------------------------------------------------------------------------------------------------
 
 //----- svn_ra.h -------------------------------------------------------------------------------------------------------
 
@@ -1926,6 +2090,7 @@ var
     callback_baton: Pointer; config: PAprHash; pool: PAprPool): PSvnError; cdecl;
   svn_ra_open: function(out session_p: PSvnRaSession; repos_URL: PChar; callbacks: PSvnRaCallbacks;
     callback_baton: Pointer; config: PAprHash; pool: PAprPool): PSvnError; cdecl;
+  svn_ra_reparent: function(ra_session: PSvnRaSession; url: PChar; pool: PAprPool): PSvnError; cdecl;
   svn_ra_get_latest_revnum: function(session: PSvnRaSession; out latest_revnum: TSvnRevNum; pool: PAprPool): PSvnError;
     cdecl;
   svn_ra_get_dated_revision: function(session: PSvnRaSession; out revision: TSvnRevNum; tm: TAprTime;
@@ -1936,11 +2101,16 @@ var
     pool: PAprPool): PSvnError; cdecl;
   svn_ra_rev_prop: function(session: PSvnRaSession; rev: TSvnRevNum; name: PChar; out value: PSvnString;
     pool: PAprPool): PSvnError; cdecl;
+  svn_ra_get_commit_editor2: function(session: PSvnRaSession; out editor: PSvnDeltaEditor; out edit_baton: Pointer;
+    log_msg: PChar; callback: TSvnCommitCallback2; callback_baton: Pointer; lock_tokens: PAprHash;
+    keep_locks: TSvnBoolean; pool: PAprPool): PSvnError; cdecl;
   svn_ra_get_commit_editor: function(session: PSvnRaSession; out editor: PSvnDeltaEditor; out edit_baton: Pointer;
     log_msg: PChar; callback: TSvnCommitCallback; callback_baton: Pointer; lock_tokens: PAprHash;
     keep_locks: TSvnBoolean; pool: PAprPool): PSvnError; cdecl;
   svn_ra_get_file: function(session: PSvnRaSession; path: PChar; revision: TSvnRevNum; stream: PSvnStream;
     out fetched_rev: TSvnRevNum; out props: PAprHash; pool: PAprPool): PSvnError; cdecl;
+  svn_ra_get_dir2: function(session: PSvnRaSession; out dirents: PAprHash; out fetched_rev: TSvnRevNum;
+    out props: PAprHash; path: PChar; revision: TSvnRevNum; dirent_fields: Cardinal; pool: PAprPool): PSvnError; cdecl;
   svn_ra_get_dir: function(session: PSvnRaSession; path: PChar; revision: TSvnRevNum; out dirents: PAprHash;
     out fetched_rev: TSvnRevNum; out props: PAprHash; pool: PAprPool): PSvnError; cdecl;
   svn_ra_do_update: function(session: PSvnRaSession; out reporter: PSvnRaReporter2; out report_baton: Pointer;
@@ -1952,6 +2122,9 @@ var
   svn_ra_do_status: function(session: PSvnRaSession; out reporter: PSvnRaReporter2; out report_baton: Pointer;
     status_target: PChar; revision: TSvnRevNum; recurse: TSvnBoolean; status_editor: PSvnDeltaEditor;
     status_baton: Pointer; pool: PAprPool): PSvnError; cdecl;
+  svn_ra_do_diff2: function(session: PSvnRaSession; out reporter: PSvnRaReporter2; out report_baton: Pointer;
+    revision: TSvnRevNum; diff_target: PChar; recurse, ignore_ancestry, text_deltas: TSvnBoolean; versus_url: PChar;
+    diff_editor: PSvnDeltaEditor; diff_baton: Pointer; pool: PAprPool): PSvnError; cdecl;
   svn_ra_do_diff: function(session: PSvnRaSession; out reporter: PSvnRaReporter2; out report_baton: Pointer;
     revision: TSvnRevNum; diff_target: PChar; recurse, ignore_ancestry: TSvnBoolean; versus_url: PChar;
     diff_editor: PSvnDeltaEditor; diff_baton: Pointer; pool: PAprPool): PSvnError; cdecl;
@@ -1976,6 +2149,8 @@ var
     cdecl;
   svn_ra_get_locks: function(session: PSvnRaSession; out locks: PAprHash; path: PChar; pool: PAprPool): PSvnError;
     cdecl;
+  svn_ra_replay: function(session: PSvnRaSession; revision, low_water_mark: TSvnRevNum; send_deltas: TSvnBoolean;
+    editor: PSvnDeltaEditor; edit_baton: Pointer; pool: PAprPool): PSvnError; cdecl;
   svn_ra_print_modules: function(out output: TSvnStringBuf; pool: PAprPool): PSvnError; cdecl;
   svn_ra_print_ra_libraries: function(out descriptions: PSvnStringBuf; ra_baton: Pointer; pool: PAprPool): PSvnError;
     cdecl;
@@ -1983,6 +2158,7 @@ var
   svn_ra_dav_init: function(abi_version: Integer; pool: PAprPool; hash: PAprHash): PSvnError; cdecl;
   svn_ra_local_init: function(abi_version: Integer; pool: PAprPool; hash: PAprHash): PSvnError; cdecl;
   svn_ra_svn_init: function(abi_version: Integer; pool: PAprPool; hash: PAprHash): PSvnError; cdecl;
+  svn_ra_serf_init: function(abi_version: Integer; pool: PAprPool; hash: PAprHash): PSvnError; cdecl;
   svn_ra_init_ra_libs: function(out ra_baton: Pointer; pool: PAprPool): PSvnError; cdecl;
   svn_ra_get_ra_library: function(out lib: PSvnRaPlugin; ra_baton: Pointer; url: PChar; pool: PAprPool): PSvnError;
     cdecl;
@@ -1992,6 +2168,13 @@ var
 //----- svn_wc.h -------------------------------------------------------------------------------------------------------
 
 const
+  SVN_WC_TRANSLATE_FROM_NF = $00000000;
+  SVN_WC_TRANSLATE_TO_NF = $00000001;
+  SVN_WC_TRANSLATE_FORCE_EOL_REPAIR = $00000002;
+  SVN_WC_TRANSLATE_NO_OUTPUT_CLEANUP = $00000004;
+  SVN_WC_TRANSLATE_FORCE_COPY = $00000008;
+  SVN_WC_TRANSLATE_USE_GLOBAL_TMP = $00000010;
+  
   SVN_WC_ADM_DIR_NAME = '.svn';
   SVN_WC_ENTRY_THIS_DIR = '';
 
@@ -2097,6 +2280,10 @@ type
     lock_owner: PChar;
     lock_comment: PChar;
     lock_creation_date: TAprTime;
+    has_props: TSvnBoolean;
+    has_prop_mods: TSvnBoolean;
+    cachable_props: PChar;
+    present_props: PChar;
   end;
   PSvnWCEntryCallbacks = ^TSvnWCEntryCallbacks;
   TSvnWCEntryCallbacks = record
@@ -2137,7 +2324,16 @@ type
   TSvnWCStatusFunc2 = procedure(baton: Pointer; path: PChar; status: PSvnWCStatus2); cdecl;
   TSvnWCStatusFunc = procedure(baton: Pointer; path: PChar; status: PSvnWCStatus); cdecl;
   TSvnWCMergeOutcome = (svnWcMergeUnchanged, svnWcMergeMerged, svnWcMergeConflict, svnWcMergeNoMerge);
+  TSvnWCRelocationValidator2 = function(baton: Pointer; uuid, url: PChar; root: TSvnBoolean; pool: PAprPool): PSvnError;
+    cdecl;
   TSvnWCRelocationValidator = function(baton: Pointer; uuid, url: PChar): PSvnError; cdecl;
+  PSvnWCRevisionStatus = ^TSvnWCRevisionStatus;
+  TSvnWCRevisionStatus = record
+    min_rev: TSvnRevNum;
+    max_rev: TSvnRevNum;
+    switched: TSvnBoolean;
+    modified: TSvnBoolean;
+  end;
 
 var
   svn_wc_version: function: PSvnVersion; cdecl;
@@ -2245,6 +2441,9 @@ var
   svn_wc_add: function(path: PChar; parent_access: PSvnWCAdmAccess; copyfrom_url: PChar; copyfrom_rev: TSvnRevNum;
     cancel_func: TSvnCancelFunc; cancel_baton: Pointer; notify_func: TSvnWCNotifyFunc; notify_baton: Pointer;
     pool: PAprPool): PSvnError; cdecl;
+  svn_wc_add_repos_file2: function(dst_path: PChar; adm_access: PSvnWCAdmAccess;
+    new_text_base_path, new_text_path: PChar; new_base_props, new_props: PAprHash; copyfrom_url: PChar;
+    copyfrom_rev: TSvnRevNum; pool: PAprPool): PSvnError; cdecl;
   svn_wc_add_repos_file: function(dst_path: PChar; adm_access: PSvnWCAdmAccess; new_text_path: PChar;
     new_props: PAprHash; copyfrom_url: PChar; copyfrom_rev: TSvnRevNum; pool: PAprPool): PSvnError; cdecl;
   svn_wc_remove_from_revision_control: function(adm_access: PSvnWCAdmAccess; name: PChar;
@@ -2256,6 +2455,9 @@ var
   svn_wc_resolved_conflict: function(path: PChar; adm_access: PSvnWCAdmAccess;
     resolve_text, resolve_props, recurse: TSvnBoolean; notify_func: TSvnWCNotifyFunc; notify_baton: Pointer;
     pool: PAprPool): PSvnError; cdecl;
+  svn_wc_process_committed3: function(path: PChar; adm_access: PSvnWCAdmAccess; recurse: TSvnBoolean;
+    new_revnum: TSvnRevNum; rev_date, rev_author: PChar; wcprop_changes: PAprArrayHeader; remove_lock: TSvnBoolean;
+    digest: Pointer; pool: PAprPool): PSvnError; cdecl;
   svn_wc_process_committed2: function(path: PChar; adm_access: PSvnWCAdmAccess; recurse: TSvnBoolean;
     new_revnum: TSvnRevNum; rev_date, rev_author: PChar; wcprop_changes: PAprArrayHeader; remove_lock: TSvnBoolean;
     pool: PAprPool): PSvnError; cdecl;
@@ -2317,6 +2519,9 @@ var
     recurse: TSvnBoolean; pool: PAprPool): PSvnError; cdecl;
   svn_wc_get_prop_diffs: function(out propchanges: PAprArrayHeader; out original_props: PAprHash; path: PChar;
     adm_access: PSvnWCAdmAccess; pool: PAprPool): PSvnError; cdecl;
+  svn_wc_merge2: function(out merge_outcome: TSvnWCMergeOutcome; left, right, merge_target: PChar;
+    adm_access: PSvnWCAdmAccess; left_label, right_label, target_label: PChar; dry_run: TSvnBoolean; diff3_cmd: PChar;
+    merge_options: PAprArrayHeader; pool: PAprPool): PSvnError; cdecl;
   svn_wc_merge: function(left, right, merge_target: PChar; adm_access: PSvnWCAdmAccess;
     left_label, right_label, target_label: PChar; dry_run: TSvnBoolean; out merge_outcome: TSvnWCMergeOutcome;
     diff3_cmd: PChar; pool: PAprPool): PSvnError; cdecl;
@@ -2329,6 +2534,8 @@ var
     pool: PAprPool): PSvnError; cdecl;
   svn_wc_cleanup: function(path: PChar; optional_adm_access: PSvnWCAdmAccess; diff3_cmd: PChar;
     cancel_func: TSvnCancelFunc; cancel_baton: Pointer; pool: PAprPool): PSvnError; cdecl;
+  svn_wc_relocate2: function(path: PChar; adm_access: PSvnWCAdmAccess; path_from, path_to: PChar; recurse: TSvnBoolean;
+    validator: TSvnWCRelocationValidator2; validator_baton: Pointer; pool: PAprPool): PSvnError; cdecl;
   svn_wc_relocate: function(path: PChar; adm_access: PSvnWCAdmAccess; loc_from, loc_to: PChar; recurse: TSvnBoolean;
     validator: TSvnWCRelocationValidator; validator_baton: Pointer; pool: PAprPool): PSvnError; cdecl;
   svn_wc_revert2: function(path: PChar; parent_access: PSvnWCAdmAccess; recursive, use_commit_times: TSvnBoolean;
@@ -2337,10 +2544,16 @@ var
   svn_wc_revert: function(path: PChar; parent_access: PSvnWCAdmAccess; recursive, use_commit_times: TSvnBoolean;
     cancel_func: TSvnCancelFunc; cancel_baton: Pointer; notify_func: TSvnWCNotifyFunc; notify_baton: Pointer;
     pool: Pointer): PSvnError; cdecl;
+  svn_wc_create_tmp_file2: function(out fp: PAprFile; out new_name: PChar; path: PChar; delete_when: TSvnIOFileDel;
+    pool: PAprPool): PSvnError; cdecl;
   svn_wc_create_tmp_file: function(out fp: PAprFile; path: PChar; delete_on_close: TSvnBoolean;
     pool: PAprPool): PSvnError; cdecl;
+  svn_wc_translated_file2: function(out xlated_path: PChar; src, versioned_file: PChar; adm_access: PSvnWCAdmAccess;
+    flags: Cardinal; pool: PAprPool): PSvnError; cdecl;
   svn_wc_translated_file: function(out xlated_p: PChar; vfile: PChar; adm_access: PSvnWCAdmAccess;
     force_repair: TSvnBoolean; pool: PAprPool): PSvnError; cdecl;
+  svn_wc_transmit_text_deltas2: function(out tempfile: PChar; digest: Pointer; path: PChar; adm_access: PSvnWCAdmAccess;
+    fulltext: TSvnBoolean; editor: PSvnDeltaEditor; file_baton: Pointer; pool: PAprPool): PSvnError; cdecl;
   svn_wc_transmit_text_deltas: function(path: PChar; adm_access: PSvnWCAdmAccess; fulltext: TSvnBoolean;
     editor: PSvnDeltaEditor; file_baton: Pointer; tempfile: PPChar; pool: PAprPool): PSvnError; cdecl;
   svn_wc_transmit_prop_deltas: function(path: PChar; adm_access: PSvnWCAdmAccess; entry: PSvnWCEntry;
@@ -2352,6 +2565,8 @@ var
   svn_wc_add_lock: function(path: PChar; lock: PSvnLock; adm_access: PSvnWCAdmAccess; pool: PAprPool): PSvnError;
     cdecl;
   svn_wc_remove_lock: function(path: PChar; adm_access: PSvnWCAdmAccess; pool: PAprPool): PSvnError; cdecl;
+  svn_wc_revision_status: function(out result_p: PSvnWCRevisionStatus; wc_path, trail_url: PChar;
+    committed: TSvnBoolean; cancel_func: TSvnCancelFunc; cancel_baton: Pointer; pool: PAprPool): PSvnError; cdecl;
 
 //----- svn_wc.h -------------------------------------------------------------------------------------------------------
 
@@ -2408,6 +2623,18 @@ type
     pool: PAprPool): PSvnError; cdecl;
   TSvnClientBlameReceiver = function(baton: Pointer; line_no: Int64; revision: TSvnRevNum;
     author, date, line: PChar; pool: PAprPool): PSvnError; cdecl;
+  TSvnClientDiffSummarizeKind = (svnDiffKindNormal, svnDiffKindAdded, svnDiffKindModified, svnDiffKindDeleted);
+  PSvnClientDiffSummarize = ^TSvnClientDiffSummarize;
+  TSvnClientDiffSummarize = record
+    path: PChar;
+    summarize_kind: TSvnClientDiffSummarizeKind;
+    prop_changed: TSvnBoolean;
+    node_kind: TSvnNodeKind;
+  end;
+  TSvnClientDiffSummarizeFunc = function(diff: PSvnClientDiffSummarize; baton: Pointer; pool: PAprPool): PSvnError;
+    cdecl;
+  TSvnClientListFunc = function(baton: Pointer; path: PChar; dirent: PSvnDirEnt; lock: PSvnLock; abs_path: PChar;
+    pool: PAprPool): PSvnError; cdecl;
   PSvnClientCtx = ^TSvnClientCtx;
   TSvnClientCtx = record
     auth_baton: PSvnAuthBaton;
@@ -2515,12 +2742,18 @@ var
   svn_client_status: function(out result_rev: TSvnRevNum; path: PChar; revision: PSvnOptRevision;
     status_func: TSvnWCStatusFunc; status_baton: Pointer; recurse, get_all, update, no_ignore: TSvnBoolean;
     ctx: PSvnClientCtx; pool: PAprPool): PSvnError; cdecl;
+  svn_client_log3: function(targets: PAprArrayHeader; peg_revision, rev_start, rev_end: PSvnOptRevision; limit: Integer;
+    discover_changed_paths, strict_node_history: TSvnBoolean; receiver: TSvnLogMessageReceiver; receiver_baton: Pointer;
+    ctx: PSvnClientCtx; pool: PAprPool): PSvnError; cdecl;
   svn_client_log2: function(targets: PAprArrayHeader; rev_start, rev_end: PSvnOptRevision; limit: Integer;
     discover_changed_paths, strict_node_history: TSvnBoolean; receiver: TSvnLogMessageReceiver; receiver_baton: Pointer;
     ctx: PSvnClientCtx; pool: PAprPool): PSvnError; cdecl;
   svn_client_log: function(targets: PAprArrayHeader; rev_start, rev_end: PSvnOptRevision;
     discover_changed_paths, strict_node_history: TSvnBoolean; receiver: TSvnLogMessageReceiver; receiver_baton: Pointer;
     ctx: PSvnClientCtx; pool: PAprPool): PSvnError; cdecl;
+  svn_client_blame3: function(path_or_url: PChar; peg_revision, rev_start, rev_end: PSvnOptRevision;
+    diff_options: PSvnDiffFileOptions; ignore_mime_type: TSvnBoolean; receiver: TSvnClientBlameReceiver;
+    receiver_baton: Pointer; ctx: PSvnClientCtx; pool: PAprPool): PSvnError; cdecl;
   svn_client_blame2: function(path_or_url: PChar; peg_revision, rev_start, rev_end: PSvnOptRevision;
     receiver: TSvnClientBlameReceiver; receiver_baton: Pointer; ctx: PSvnClientCtx; pool: PAprPool): PSvnError; cdecl;
   svn_client_blame: function(path_or_url: PChar; rev_start, rev_end: PSvnOptRevision; receiver: TSvnClientBlameReceiver;
@@ -2545,9 +2778,23 @@ var
   svn_client_diff_peg: function(diff_options: PAprArrayHeader; path: PChar;
     peg_revision, start_revision, end_revision: PSvnOptRevision; recurse, ignore_ancestry, no_diff_deleted: TSvnBoolean;
     outfile, errfile: PAprFile; ctx: PSvnClientCtx; pool: PAprPool): PSvnError; cdecl;
+  svn_client_diff_summarize_dup: function(diff: PSvnClientDiffSummarize; pool: PAprPool): PSvnClientDiffSummarize;
+    cdecl;
+  svn_client_diff_summarize: function(path1: PChar; revision1: PSvnOptRevision; path2: PChar;
+    revision2: PSvnOptRevision; recurse, ignore_ancestry: TSvnBoolean; summarize_func: TSvnClientDiffSummarizeFunc;
+    summarize_baton: Pointer; ctx: PSvnClientCtx; pool: PAprPool): PSvnError; cdecl;
+  svn_client_diff_summarize_peg: function(path: PChar; peg_revision, start_revision, end_revision: PSvnOptRevision;
+    recurse, ignore_ancestry: TSvnBoolean; summarize_func: TSvnClientDiffSummarizeFunc; summarize_baton: Pointer;
+    ctx: PSvnClientCtx; pool: PAprPool): PSvnError; cdecl;
+  svn_client_merge2: function(source1: PChar; revision1: PSvnOptRevision; source2: PChar; revision2: PSvnOptRevision;
+    target_wcpath: PChar; recurse, ignore_ancestry, force, dry_run: TSvnBoolean; merge_options: PAprArrayHeader;
+    ctx: PSvnClientCtx; pool: PAprPool): PSvnError; cdecl;
   svn_client_merge: function(source1: PChar; revision1: PSvnOptRevision; source2: PChar; revision2: PSvnOptRevision;
     target_wcpath: PChar; recurse, ignore_ancestry, force, dry_run: TSvnBoolean; ctx: PSvnClientCtx;
     pool: PAprPool): PSvnError; cdecl;
+  svn_client_merge_peg2: function(source: PChar; revision1, revision2, peg_revision: PSvnOptRevision;
+    target_wcpath: PChar; recurse, ignore_ancestry, force, dry_run: TSvnBoolean; merge_options: PAprArrayHeader;
+    ctx: PSvnClientCtx; pool: PAprPool): PSvnError; cdecl;
   svn_client_merge_peg: function(source: PChar; revision1, revision2, peg_revision: PSvnOptRevision;
     target_wcpath: PChar; recurse, ignore_ancestry, force, dry_run: TSvnBoolean; ctx: PSvnClientCtx;
     pool: PAprPool): PSvnError; cdecl;
@@ -2558,10 +2805,14 @@ var
     pool: PAprPool): PSvnError; cdecl;
   svn_client_resolved: function(path: PChar; recursive: TSvnBoolean; ctx: PSvnClientCtx; pool: PAprPool): PSvnError;
     cdecl;
+  svn_client_copy3: function(out commit_info_p: PSvnCommitInfo; src_path: PChar; src_revision: PSvnOptRevision;
+    dst_path: PChar; ctx: PSvnClientCtx; pool: PAprPool): PSvnError; cdecl;
   svn_client_copy2: function(out commit_info_p: PSvnCommitInfo; src_path: PChar; src_revision: PSvnOptRevision;
     dst_path: PChar; ctx: PSvnClientCtx; pool: PAprPool): PSvnError; cdecl;
   svn_client_copy: function(out commit_info_p: PSvnClientCommitInfo; src_path: PChar; src_revision: PSvnOptRevision;
     dst_path: PChar; ctx: PSvnClientCtx; pool: PAprPool): PSvnError; cdecl;
+  svn_client_move4: function(out commit_info_p: PSvnClientCommitInfo; src_path, dst_path: PChar; force: TSvnBoolean;
+    ctx: PSvnClientCtx; pool: PAprPool): PSvnError; cdecl;
   svn_client_move3: function(out commit_info_p: PSvnCommitInfo; src_path, dst_path: PChar; force: TSvnBoolean;
     ctx: PSvnClientCtx; pool: PAprPool): PSvnError; cdecl;
   svn_client_move2: function(out commit_info_p: PSvnClientCommitInfo; src_path, dst_path: PChar; force: TSvnBoolean;
@@ -2593,6 +2844,9 @@ var
     force: TSvnBoolean; native_eol: PChar; ctx: PSvnClientCtx; pool: PAprPool): PSvnError; cdecl;
   svn_client_export: function(out result_rev: TSvnRevNum; dir_from, dir_to: PChar; revision: PSvnOptRevision;
     force: TSvnBoolean; ctx: PSvnClientCtx; pool: PAprPool): PSvnError; cdecl;
+  svn_client_list: function(path_or_url: PChar; peg_revision, revision: PSvnOptRevision; recurse: TSvnBoolean;
+    dirent_fields: Cardinal; fetch_locks: TSvnBoolean; list_func: TSvnClientListFunc; baton: Pointer;
+    ctx: PSvnClientCtx; pool: PAprPool): PSvnError; cdecl;
   svn_client_ls3: function(out dirents, locks: PAprHash; path_or_url: PChar; peg_revision, revision: PSvnOptRevision;
     recurse: TSvnBoolean; ctx: PSvnClientCtx; pool: PAprPool): PSvnError; cdecl;
   svn_client_ls2: function(out dirents: PAprHash; path_or_url: PChar; peg_revision, revision: PSvnOptRevision;
@@ -3072,12 +3326,16 @@ begin
     else
     begin
       // svn_types.h
+      @svn_dirent_dup := GetProcAddress(SvnClientLib, 'svn_dirent_dup');
       @svn_create_commit_info := GetProcAddress(SvnClientLib, 'svn_create_commit_info');
+      @svn_commit_info_dup := GetProcAddress(SvnClientLib, 'svn_commit_info_dup');
+      @svn_compat_wrap_commit_callback := GetProcAddress(SvnClientLib, 'svn_compat_wrap_commit_callback');
       @svn_log_changed_path_dup := GetProcAddress(SvnClientLib, 'svn_log_changed_path_dup');
       @svn_mime_type_validate := GetProcAddress(SvnClientLib, 'svn_mime_type_validate');
       @svn_mime_type_is_binary := GetProcAddress(SvnClientLib, 'svn_mime_type_is_binary');
       @svn_lock_create := GetProcAddress(SvnClientLib, 'svn_lock_create');
       @svn_lock_dup := GetProcAddress(SvnClientLib, 'svn_lock_dup');
+      @svn_uuid_generate := GetProcAddress(SvnClientLib, 'svn_uuid_generate');
       // svn_nls.h
       @svn_nls_init := GetProcAddress(SvnClientLib, 'svn_nls_init');
       // svn_version.h
@@ -3093,6 +3351,9 @@ begin
       @svn_sleep_for_timestamps := GetProcAddress(SvnClientLib, 'svn_sleep_for_timestamps');
       // svn_pools.h
       @svn_pool_create_ex := GetProcAddress(SvnClientLib, 'svn_pool_create_ex');
+      // svn_user.h
+      @svn_user_get_name := GetProcAddress(SvnClientLib, 'svn_user_get_name');
+      @svn_user_get_homedir := GetProcAddress(SvnClientLib, 'svn_user_get_homedir');
       // svn_sorts.h
       @svn_sort_compare_items_as_paths := GetProcAddress(SvnClientLib, 'svn_sort_compare_items_as_paths');
       @svn_sort_compare_items_lexically := GetProcAddress(SvnClientLib, 'svn_sort_compare_items_lexically');
@@ -3175,15 +3436,25 @@ begin
       @svn_cmdline_fflush := GetProcAddress(SvnClientLib, 'svn_cmdline_fflush');
       @svn_cmdline_output_encoding := GetProcAddress(SvnClientLib, 'svn_cmdline_output_encoding');
       @svn_cmdline_handle_exit_error := GetProcAddress(SvnClientLib, 'svn_cmdline_handle_exit_error');
+      @svn_cmdline_prompt_user := GetProcAddress(SvnClientLib, 'svn_cmdline_prompt_user');
+      @svn_cmdline_auth_simple_prompt := GetProcAddress(SvnClientLib, 'svn_cmdline_auth_simple_prompt');
+      @svn_cmdline_auth_username_prompt := GetProcAddress(SvnClientLib, 'svn_cmdline_auth_username_prompt');
+      @svn_cmdline_auth_ssl_server_trust_prompt := GetProcAddress(SvnClientLib, 'svn_cmdline_auth_ssl_server_trust_prompt');
+      @svn_cmdline_auth_ssl_client_cert_prompt := GetProcAddress(SvnClientLib, 'svn_cmdline_auth_ssl_client_cert_prompt');
+      @svn_cmdline_auth_ssl_client_cert_pw_prompt := GetProcAddress(SvnClientLib, 'svn_cmdline_auth_ssl_client_cert_pw_prompt');
+      @svn_cmdline_setup_auth_baton := GetProcAddress(SvnClientLib, 'svn_cmdline_setup_auth_baton');
+      @svn_cmdline__getopt_init := GetProcAddress(SvnClientLib, 'svn_cmdline__getopt_init');
       // svn_utf.h
       @svn_utf_initialize := GetProcAddress(SvnClientLib, 'svn_utf_initialize');
       @svn_utf_stringbuf_to_utf8 := GetProcAddress(SvnClientLib, 'svn_utf_stringbuf_to_utf8');
       @svn_utf_string_to_utf8 := GetProcAddress(SvnClientLib, 'svn_utf_string_to_utf8');
       @svn_utf_cstring_to_utf8 := GetProcAddress(SvnClientLib, 'svn_utf_cstring_to_utf8');
+      @svn_utf_cstring_to_utf8_ex2 := GetProcAddress(SvnClientLib, 'svn_utf_cstring_to_utf8_ex2');
       @svn_utf_cstring_to_utf8_ex := GetProcAddress(SvnClientLib, 'svn_utf_cstring_to_utf8_ex');
       @svn_utf_stringbuf_from_utf8 := GetProcAddress(SvnClientLib, 'svn_utf_stringbuf_from_utf8');
       @svn_utf_string_from_utf8 := GetProcAddress(SvnClientLib, 'svn_utf_string_from_utf8');
       @svn_utf_cstring_from_utf8 := GetProcAddress(SvnClientLib, 'svn_utf_cstring_from_utf8');
+      @svn_utf_cstring_from_utf8_ex2 := GetProcAddress(SvnClientLib, 'svn_utf_cstring_from_utf8_ex2');
       @svn_utf_cstring_from_utf8_ex := GetProcAddress(SvnClientLib, 'svn_utf_cstring_from_utf8_ex');
       @svn_utf_cstring_from_utf8_fuzzy := GetProcAddress(SvnClientLib, 'svn_utf_cstring_from_utf8_fuzzy');
       @svn_utf_cstring_from_utf8_stringbuf := GetProcAddress(SvnClientLib, 'svn_utf_cstring_from_utf8_stringbuf');
@@ -3199,6 +3470,7 @@ begin
       // svn_error.h
       @svn_error__locate := GetProcAddress(SvnClientLib, 'svn_error__locate');
       @svn_strerror := GetProcAddress(SvnClientLib, 'svn_strerror');
+      @svn_err_best_message := GetProcAddress(SvnClientLib, 'svn_err_best_message');
       @svn_error_create := GetProcAddress(SvnClientLib, 'svn_error_create');
       @svn_error_createf := GetProcAddress(SvnClientLib, 'svn_error_createf');
       @svn_error_wrap_apr := GetProcAddress(SvnClientLib, 'svn_error_wrap_apr');
@@ -3257,16 +3529,21 @@ begin
       @svn_config_enumerate_sections2 := GetProcAddress(SvnClientLib, 'svn_config_enumerate_sections2');
       @svn_config_enumerate := GetProcAddress(SvnClientLib, 'svn_config_enumerate');
       @svn_config_enumerate2 := GetProcAddress(SvnClientLib, 'svn_config_enumerate2');
+      @svn_config_has_section := GetProcAddress(SvnClientLib, 'svn_config_has_section');
       @svn_config_find_group := GetProcAddress(SvnClientLib, 'svn_config_find_group');
       @svn_config_get_server_setting := GetProcAddress(SvnClientLib, 'svn_config_get_server_setting');
       @svn_config_get_server_setting_int := GetProcAddress(SvnClientLib, 'svn_config_get_server_setting_int');
       @svn_config_ensure := GetProcAddress(SvnClientLib, 'svn_config_ensure');
       @svn_config_read_auth_data := GetProcAddress(SvnClientLib, 'svn_config_read_auth_data');
       @svn_config_write_auth_data := GetProcAddress(SvnClientLib, 'svn_config_write_auth_data');
+      // svn_dso.h
+      @svn_dso_initialize := GetProcAddress(SvnClientLib, 'svn_dso_initialize');
+      @svn_dso_load := GetProcAddress(SvnClientLib, 'svn_dso_load');
       // svn_io.h
       @svn_io_check_path := GetProcAddress(SvnClientLib, 'svn_io_check_path');
       @svn_io_check_special_path := GetProcAddress(SvnClientLib, 'svn_io_check_special_path');
       @svn_io_check_resolved_path := GetProcAddress(SvnClientLib, 'svn_io_check_resolved_path');
+      @svn_io_open_unique_file2 := GetProcAddress(SvnClientLib, 'svn_io_open_unique_file2');
       @svn_io_open_unique_file := GetProcAddress(SvnClientLib, 'svn_io_open_unique_file');
       @svn_io_create_unique_link := GetProcAddress(SvnClientLib, 'svn_io_create_unique_link');
       @svn_io_read_link := GetProcAddress(SvnClientLib, 'svn_io_read_link');
@@ -3299,10 +3576,13 @@ begin
       @svn_stream_set_write := GetProcAddress(SvnClientLib, 'svn_stream_set_write');
       @svn_stream_set_close := GetProcAddress(SvnClientLib, 'svn_stream_set_close');
       @svn_stream_empty := GetProcAddress(SvnClientLib, 'svn_stream_empty');
+      @svn_stream_disown := GetProcAddress(SvnClientLib, 'svn_stream_disown');
+      @svn_stream_from_aprfile2 := GetProcAddress(SvnClientLib, 'svn_stream_from_aprfile2');
       @svn_stream_from_aprfile := GetProcAddress(SvnClientLib, 'svn_stream_from_aprfile');
       @svn_stream_for_stdout := GetProcAddress(SvnClientLib, 'svn_stream_for_stdout');
       @svn_stream_from_stringbuf := GetProcAddress(SvnClientLib, 'svn_stream_from_stringbuf');
       @svn_stream_compressed := GetProcAddress(SvnClientLib, 'svn_stream_compressed');
+      @svn_stream_checksummed := GetProcAddress(SvnClientLib, 'svn_stream_checksummed');
       @svn_stream_read := GetProcAddress(SvnClientLib, 'svn_stream_read');
       @svn_stream_write := GetProcAddress(SvnClientLib, 'svn_stream_write');
       @svn_stream_close := GetProcAddress(SvnClientLib, 'svn_stream_close');
@@ -3310,10 +3590,12 @@ begin
       @svn_stream_printf_from_utf8 := GetProcAddress(SvnClientLib, 'svn_stream_printf_from_utf8');
       @svn_stream_readline := GetProcAddress(SvnClientLib, 'svn_stream_readline');
       @svn_stream_copy := GetProcAddress(SvnClientLib, 'svn_stream_copy');
+      @svn_stream_contents_same := GetProcAddress(SvnClientLib, 'svn_stream_contents_same');
       @svn_stringbuf_from_file := GetProcAddress(SvnClientLib, 'svn_stringbuf_from_file');
       @svn_stringbuf_from_aprfile := GetProcAddress(SvnClientLib, 'svn_stringbuf_from_aprfile');
       @svn_io_remove_file := GetProcAddress(SvnClientLib, 'svn_io_remove_file');
       @svn_io_remove_dir := GetProcAddress(SvnClientLib, 'svn_io_remove_dir');
+      @svn_io_get_dir_filenames := GetProcAddress(SvnClientLib, 'svn_io_get_dir_filenames');
       @svn_io_get_dirents2 := GetProcAddress(SvnClientLib, 'svn_io_get_dirents2');
       @svn_io_get_dirents := GetProcAddress(SvnClientLib, 'svn_io_get_dirents');
       @svn_io_dir_walk := GetProcAddress(SvnClientLib, 'svn_io_dir_walk');
@@ -3321,6 +3603,7 @@ begin
       @svn_io_wait_for_cmd := GetProcAddress(SvnClientLib, 'svn_io_wait_for_cmd');
       @svn_io_run_cmd := GetProcAddress(SvnClientLib, 'svn_io_run_cmd');
       @svn_io_run_diff := GetProcAddress(SvnClientLib, 'svn_io_run_diff');
+      @svn_io_run_diff3_2 := GetProcAddress(SvnClientLib, 'svn_io_run_diff3_2');
       @svn_io_run_diff3 := GetProcAddress(SvnClientLib, 'svn_io_run_diff3');
       @svn_io_detect_mimetype := GetProcAddress(SvnClientLib, 'svn_io_detect_mimetype');
       @svn_io_file_open := GetProcAddress(SvnClientLib, 'svn_io_file_open');
@@ -3358,10 +3641,12 @@ begin
       @svn_hash_diff := GetProcAddress(SvnClientLib, 'svn_hash_diff');
       // svn_subst.h
       @svn_subst_eol_style_from_value := GetProcAddress(SvnClientLib, 'svn_subst_eol_style_from_value');
+      @svn_subst_translation_required := GetProcAddress(SvnClientLib, 'svn_subst_translation_required');
       @svn_subst_build_keywords2 := GetProcAddress(SvnClientLib, 'svn_subst_build_keywords2');
       @svn_subst_build_keywords := GetProcAddress(SvnClientLib, 'svn_subst_build_keywords');
       @svn_subst_keywords_differ2 := GetProcAddress(SvnClientLib, 'svn_subst_keywords_differ2');
       @svn_subst_keywords_differ := GetProcAddress(SvnClientLib, 'svn_subst_keywords_differ');
+      @svn_subst_stream_translated := GetProcAddress(SvnClientLib, 'svn_subst_stream_translated');
       @svn_subst_translate_stream3 := GetProcAddress(SvnClientLib, 'svn_subst_translate_stream3');
       @svn_subst_translate_stream2 := GetProcAddress(SvnClientLib, 'svn_subst_translate_stream2');
       @svn_subst_translate_stream := GetProcAddress(SvnClientLib, 'svn_subst_translate_stream');
@@ -3370,6 +3655,8 @@ begin
       @svn_subst_copy_and_translate := GetProcAddress(SvnClientLib, 'svn_subst_copy_and_translate');
       @svn_subst_translate_cstring2 := GetProcAddress(SvnClientLib, 'svn_subst_translate_cstring2');
       @svn_subst_translate_cstring := GetProcAddress(SvnClientLib, 'svn_subst_translate_cstring');
+      @svn_subst_translate_to_normal_form := GetProcAddress(SvnClientLib, 'svn_subst_translate_to_normal_form');
+      @svn_subst_stream_detranslated := GetProcAddress(SvnClientLib, 'svn_subst_stream_detranslated');
       @svn_subst_translate_string := GetProcAddress(SvnClientLib, 'svn_subst_translate_string');
       @svn_subst_detranslate_string := GetProcAddress(SvnClientLib, 'svn_subst_detranslate_string');
       // svn_diff.h
@@ -3380,12 +3667,17 @@ begin
       @svn_diff_contains_conflicts := GetProcAddress(SvnClientLib, 'svn_diff_contains_conflicts');
       @svn_diff_contains_diffs := GetProcAddress(SvnClientLib, 'svn_diff_contains_diffs');
       @svn_diff_output := GetProcAddress(SvnClientLib, 'svn_diff_output');
+      @svn_diff_file_diff_2 := GetProcAddress(SvnClientLib, 'svn_diff_file_diff_2');
       @svn_diff_file_diff := GetProcAddress(SvnClientLib, 'svn_diff_file_diff');
+      @svn_diff_file_diff3_2 := GetProcAddress(SvnClientLib, 'svn_diff_file_diff3_2');
       @svn_diff_file_diff3 := GetProcAddress(SvnClientLib, 'svn_diff_file_diff3');
+      @svn_diff_file_diff4_2 := GetProcAddress(SvnClientLib, 'svn_diff_file_diff4_2');
       @svn_diff_file_diff4 := GetProcAddress(SvnClientLib, 'svn_diff_file_diff4');
       @svn_diff_file_output_unified2 := GetProcAddress(SvnClientLib, 'svn_diff_file_output_unified2');
       @svn_diff_file_output_unified := GetProcAddress(SvnClientLib, 'svn_diff_file_output_unified');
       @svn_diff_file_output_merge := GetProcAddress(SvnClientLib, 'svn_diff_file_output_merge');
+      @svn_diff_file_options_create := GetProcAddress(SvnClientLib, 'svn_diff_file_options_create');
+      @svn_diff_file_options_parse := GetProcAddress(SvnClientLib, 'svn_diff_file_options_parse');
       // svn_base64.h
       @svn_base64_encode := GetProcAddress(SvnClientLib, 'svn_base64_encode');
       @svn_base64_decode := GetProcAddress(SvnClientLib, 'svn_base64_decode');
@@ -3395,7 +3687,10 @@ begin
       // svn_delta.h
       @svn_delta_version := GetProcAddress(SvnClientLib, 'svn_delta_version');
       @svn_txdelta_window_dup := GetProcAddress(SvnClientLib, 'svn_txdelta_window_dup');
+      @svn_txdelta_compose_windows := GetProcAddress(SvnClientLib, 'svn_txdelta_compose_windows');
+      @svn_txdelta_stream_create := GetProcAddress(SvnClientLib, 'svn_txdelta_stream_create');
       @svn_txdelta_next_window := GetProcAddress(SvnClientLib, 'svn_txdelta_next_window');
+      @svn_txdelta_apply_instructions := GetProcAddress(SvnClientLib, 'svn_txdelta_apply_instructions');
       @svn_txdelta_md5_digest := GetProcAddress(SvnClientLib, 'svn_txdelta_md5_digest');
       @svn_txdelta := GetProcAddress(SvnClientLib, 'svn_txdelta');
       @svn_txdelta_target_push := GetProcAddress(SvnClientLib, 'svn_txdelta_target_push');
@@ -3403,6 +3698,7 @@ begin
       @svn_txdelta_send_stream := GetProcAddress(SvnClientLib, 'svn_txdelta_send_stream');
       @svn_txdelta_send_txstream := GetProcAddress(SvnClientLib, 'svn_txdelta_send_txstream');
       @svn_txdelta_apply := GetProcAddress(SvnClientLib, 'svn_txdelta_apply');
+      @svn_txdelta_to_svndiff2 := GetProcAddress(SvnClientLib, 'svn_txdelta_to_svndiff2');
       @svn_txdelta_to_svndiff := GetProcAddress(SvnClientLib, 'svn_txdelta_to_svndiff');
       @svn_txdelta_parse_svndiff := GetProcAddress(SvnClientLib, 'svn_txdelta_parse_svndiff');
       @svn_txdelta_read_svndiff_window := GetProcAddress(SvnClientLib, 'svn_txdelta_read_svndiff_window');
@@ -3539,7 +3835,9 @@ begin
       @svn_repos_finish_report := GetProcAddress(SvnClientLib, 'svn_repos_finish_report');
       @svn_repos_abort_report := GetProcAddress(SvnClientLib, 'svn_repos_abort_report');
       @svn_repos_dir_delta := GetProcAddress(SvnClientLib, 'svn_repos_dir_delta');
+      @svn_repos_replay2 := GetProcAddress(SvnClientLib, 'svn_repos_replay2');
       @svn_repos_replay := GetProcAddress(SvnClientLib, 'svn_repos_replay');
+      @svn_repos_get_commit_editor4 := GetProcAddress(SvnClientLib, 'svn_repos_get_commit_editor4');
       @svn_repos_get_commit_editor3 := GetProcAddress(SvnClientLib, 'svn_repos_get_commit_editor3');
       @svn_repos_get_commit_editor2 := GetProcAddress(SvnClientLib, 'svn_repos_get_commit_editor2');
       @svn_repos_get_commit_editor := GetProcAddress(SvnClientLib, 'svn_repos_get_commit_editor');
@@ -3578,11 +3876,16 @@ begin
       @svn_repos_authz_read := GetProcAddress(SvnClientLib, 'svn_repos_authz_read');
       @svn_repos_authz_check_access := GetProcAddress(SvnClientLib, 'svn_repos_authz_check_access');
       // svn_opt.h
+      @svn_opt_get_canonical_subcommand2 := GetProcAddress(SvnClientLib, 'svn_opt_get_canonical_subcommand2');
       @svn_opt_get_canonical_subcommand := GetProcAddress(SvnClientLib, 'svn_opt_get_canonical_subcommand');
+      @svn_opt_get_option_from_code2 := GetProcAddress(SvnClientLib, 'svn_opt_get_option_from_code2');
       @svn_opt_get_option_from_code := GetProcAddress(SvnClientLib, 'svn_opt_get_option_from_code');
+      @svn_opt_subcommand_takes_option2 := GetProcAddress(SvnClientLib, 'svn_opt_subcommand_takes_option2');
       @svn_opt_subcommand_takes_option := GetProcAddress(SvnClientLib, 'svn_opt_subcommand_takes_option');
+      @svn_opt_print_generic_help2 := GetProcAddress(SvnClientLib, 'svn_opt_print_generic_help2');
       @svn_opt_print_generic_help := GetProcAddress(SvnClientLib, 'svn_opt_print_generic_help');
       @svn_opt_format_option := GetProcAddress(SvnClientLib, 'svn_opt_format_option');
+      @svn_opt_subcommand_help2 := GetProcAddress(SvnClientLib, 'svn_opt_subcommand_help2');
       @svn_opt_subcommand_help := GetProcAddress(SvnClientLib, 'svn_opt_subcommand_help');
       @svn_opt_parse_revision := GetProcAddress(SvnClientLib, 'svn_opt_parse_revision');
       @svn_opt_args_to_target_array2 := GetProcAddress(SvnClientLib, 'svn_opt_args_to_target_array2');
@@ -3591,6 +3894,7 @@ begin
       @svn_opt_parse_num_args := GetProcAddress(SvnClientLib, 'svn_opt_parse_num_args');
       @svn_opt_parse_all_args := GetProcAddress(SvnClientLib, 'svn_opt_parse_all_args');
       @svn_opt_parse_path := GetProcAddress(SvnClientLib, 'svn_opt_parse_path');
+      @svn_opt_print_help2 := GetProcAddress(SvnClientLib, 'svn_opt_print_help2');
       @svn_opt_print_help := GetProcAddress(SvnClientLib, 'svn_opt_print_help');
       // svn_auth.h
       @svn_auth_ssl_server_cert_info_dup := GetProcAddress(SvnClientLib, 'svn_auth_ssl_server_cert_info_dup');
@@ -3600,23 +3904,44 @@ begin
       @svn_auth_first_credentials := GetProcAddress(SvnClientLib, 'svn_auth_first_credentials');
       @svn_auth_next_credentials := GetProcAddress(SvnClientLib, 'svn_auth_next_credentials');
       @svn_auth_save_credentials := GetProcAddress(SvnClientLib, 'svn_auth_save_credentials');
+      @svn_auth_get_simple_prompt_provider := GetProcAddress(SvnClientLib, 'svn_auth_get_simple_prompt_provider');
+      @svn_auth_get_username_prompt_provider := GetProcAddress(SvnClientLib, 'svn_auth_get_username_prompt_provider');
+      @svn_auth_get_simple_provider := GetProcAddress(SvnClientLib, 'svn_auth_get_simple_provider');
+      @svn_auth_get_windows_simple_provider := GetProcAddress(SvnClientLib, 'svn_auth_get_windows_simple_provider');
+      @svn_auth_get_username_provider := GetProcAddress(SvnClientLib, 'svn_auth_get_username_provider');
+      @svn_auth_get_ssl_server_trust_file_provider := GetProcAddress(SvnClientLib,
+        'svn_auth_get_ssl_server_trust_file_provider');
+      @svn_auth_get_ssl_client_cert_file_provider := GetProcAddress(SvnClientLib,
+        'svn_auth_get_ssl_client_cert_file_provider');
+      @svn_auth_get_ssl_client_cert_pw_file_provider := GetProcAddress(SvnClientLib,
+        'svn_auth_get_ssl_client_cert_pw_file_provider');
+      @svn_auth_get_ssl_server_trust_prompt_provider := GetProcAddress(SvnClientLib,
+        'svn_auth_get_ssl_server_trust_prompt_provider');
+      @svn_auth_get_ssl_client_cert_prompt_provider := GetProcAddress(SvnClientLib,
+        'svn_auth_get_ssl_client_cert_prompt_provider');
+      @svn_auth_get_ssl_client_cert_pw_prompt_provider := GetProcAddress(SvnClientLib,
+        'svn_auth_get_ssl_client_cert_pw_prompt_provider');
       // svn_ra.h
       @svn_ra_version := GetProcAddress(SvnClientLib, 'svn_ra_version');
       @svn_ra_initialize := GetProcAddress(SvnClientLib, 'svn_ra_initialize');
       @svn_ra_create_callbacks := GetProcAddress(SvnClientLib, 'svn_ra_create_callbacks');
       @svn_ra_open2 := GetProcAddress(SvnClientLib, 'svn_ra_open2');
       @svn_ra_open := GetProcAddress(SvnClientLib, 'svn_ra_open');
+      @svn_ra_reparent := GetProcAddress(SvnClientLib, 'svn_ra_reparent');
       @svn_ra_get_latest_revnum := GetProcAddress(SvnClientLib, 'svn_ra_get_latest_revnum');
       @svn_ra_get_dated_revision := GetProcAddress(SvnClientLib, 'svn_ra_get_dated_revision');
       @svn_ra_change_rev_prop := GetProcAddress(SvnClientLib, 'svn_ra_change_rev_prop');
       @svn_ra_rev_proplist := GetProcAddress(SvnClientLib, 'svn_ra_rev_proplist');
       @svn_ra_rev_prop := GetProcAddress(SvnClientLib, 'svn_ra_rev_prop');
+      @svn_ra_get_commit_editor2 := GetProcAddress(SvnClientLib, 'svn_ra_get_commit_editor2');
       @svn_ra_get_commit_editor := GetProcAddress(SvnClientLib, 'svn_ra_get_commit_editor');
       @svn_ra_get_file := GetProcAddress(SvnClientLib, 'svn_ra_get_file');
+      @svn_ra_get_dir2 := GetProcAddress(SvnClientLib, 'svn_ra_get_dir2');
       @svn_ra_get_dir := GetProcAddress(SvnClientLib, 'svn_ra_get_dir');
       @svn_ra_do_update := GetProcAddress(SvnClientLib, 'svn_ra_do_update');
       @svn_ra_do_switch := GetProcAddress(SvnClientLib, 'svn_ra_do_switch');
       @svn_ra_do_status := GetProcAddress(SvnClientLib, 'svn_ra_do_status');
+      @svn_ra_do_diff2 := GetProcAddress(SvnClientLib, 'svn_ra_do_diff2');
       @svn_ra_do_diff := GetProcAddress(SvnClientLib, 'svn_ra_do_diff');
       @svn_ra_get_log := GetProcAddress(SvnClientLib, 'svn_ra_get_log');
       @svn_ra_check_path := GetProcAddress(SvnClientLib, 'svn_ra_check_path');
@@ -3629,11 +3954,13 @@ begin
       @svn_ra_unlock := GetProcAddress(SvnClientLib, 'svn_ra_unlock');
       @svn_ra_get_lock := GetProcAddress(SvnClientLib, 'svn_ra_get_lock');
       @svn_ra_get_locks := GetProcAddress(SvnClientLib, 'svn_ra_get_locks');
+      @svn_ra_replay := GetProcAddress(SvnClientLib, 'svn_ra_replay');
       @svn_ra_print_modules := GetProcAddress(SvnClientLib, 'svn_ra_print_modules');
       @svn_ra_print_ra_libraries := GetProcAddress(SvnClientLib, 'svn_ra_print_ra_libraries');
       @svn_ra_dav_init := GetProcAddress(SvnClientLib, 'svn_ra_dav_init');
       @svn_ra_local_init := GetProcAddress(SvnClientLib, 'svn_ra_local_init');
       @svn_ra_svn_init := GetProcAddress(SvnClientLib, 'svn_ra_svn_init');
+      @svn_ra_serf_init := GetProcAddress(SvnClientLib, 'svn_ra_serf_init');
       @svn_ra_init_ra_libs := GetProcAddress(SvnClientLib, 'svn_ra_init_ra_libs');
       @svn_ra_get_ra_library := GetProcAddress(SvnClientLib, 'svn_ra_get_ra_library');
       // svn_wc.h
@@ -3693,10 +4020,12 @@ begin
       @svn_wc_delete := GetProcAddress(SvnClientLib, 'svn_wc_delete');
       @svn_wc_add2 := GetProcAddress(SvnClientLib, 'svn_wc_add2');
       @svn_wc_add := GetProcAddress(SvnClientLib, 'svn_wc_add');
+      @svn_wc_add_repos_file2 := GetProcAddress(SvnClientLib, 'svn_wc_add_repos_file2');
       @svn_wc_add_repos_file := GetProcAddress(SvnClientLib, 'svn_wc_add_repos_file');
       @svn_wc_remove_from_revision_control := GetProcAddress(SvnClientLib, 'svn_wc_remove_from_revision_control');
       @svn_wc_resolved_conflict2 := GetProcAddress(SvnClientLib, 'svn_wc_resolved_conflict2');
       @svn_wc_resolved_conflict := GetProcAddress(SvnClientLib, 'svn_wc_resolved_conflict');
+      @svn_wc_process_committed3 := GetProcAddress(SvnClientLib, 'svn_wc_process_committed3');
       @svn_wc_process_committed2 := GetProcAddress(SvnClientLib, 'svn_wc_process_committed2');
       @svn_wc_process_committed := GetProcAddress(SvnClientLib, 'svn_wc_process_committed');
       @svn_wc_crawl_revisions2 := GetProcAddress(SvnClientLib, 'svn_wc_crawl_revisions2');
@@ -3721,23 +4050,29 @@ begin
       @svn_wc_diff2 := GetProcAddress(SvnClientLib, 'svn_wc_diff2');
       @svn_wc_diff := GetProcAddress(SvnClientLib, 'svn_wc_diff');
       @svn_wc_get_prop_diffs := GetProcAddress(SvnClientLib, 'svn_wc_get_prop_diffs');
+      @svn_wc_merge2 := GetProcAddress(SvnClientLib, 'svn_wc_merge2');
       @svn_wc_merge := GetProcAddress(SvnClientLib, 'svn_wc_merge');
       @svn_wc_merge_props := GetProcAddress(SvnClientLib, 'svn_wc_merge_props');
       @svn_wc_merge_prop_diffs := GetProcAddress(SvnClientLib, 'svn_wc_merge_prop_diffs');
       @svn_wc_get_pristine_copy_path := GetProcAddress(SvnClientLib, 'svn_wc_get_pristine_copy_path');
       @svn_wc_cleanup2 := GetProcAddress(SvnClientLib, 'svn_wc_cleanup2');
       @svn_wc_cleanup := GetProcAddress(SvnClientLib, 'svn_wc_cleanup');
+      @svn_wc_relocate2 := GetProcAddress(SvnClientLib, 'svn_wc_relocate2');
       @svn_wc_relocate := GetProcAddress(SvnClientLib, 'svn_wc_relocate');
       @svn_wc_revert2 := GetProcAddress(SvnClientLib, 'svn_wc_revert2');
       @svn_wc_revert := GetProcAddress(SvnClientLib, 'svn_wc_revert');
+      @svn_wc_create_tmp_file2 := GetProcAddress(SvnClientLib, 'svn_wc_create_tmp_file2');
       @svn_wc_create_tmp_file := GetProcAddress(SvnClientLib, 'svn_wc_create_tmp_file');
+      @svn_wc_translated_file2 := GetProcAddress(SvnClientLib, 'svn_wc_translated_file2');
       @svn_wc_translated_file := GetProcAddress(SvnClientLib, 'svn_wc_translated_file');
+      @svn_wc_transmit_text_deltas2 := GetProcAddress(SvnClientLib, 'svn_wc_transmit_text_deltas2');
       @svn_wc_transmit_text_deltas := GetProcAddress(SvnClientLib, 'svn_wc_transmit_text_deltas');
       @svn_wc_transmit_prop_deltas := GetProcAddress(SvnClientLib, 'svn_wc_transmit_prop_deltas');
       @svn_wc_get_default_ignores := GetProcAddress(SvnClientLib, 'svn_wc_get_default_ignores');
       @svn_wc_get_ignores := GetProcAddress(SvnClientLib, 'svn_wc_get_ignores');
       @svn_wc_add_lock := GetProcAddress(SvnClientLib, 'svn_wc_add_lock');
       @svn_wc_remove_lock := GetProcAddress(SvnClientLib, 'svn_wc_remove_lock');
+      @svn_wc_revision_status := GetProcAddress(SvnClientLib, 'svn_wc_revision_status');
       // svn_client.h
       @svn_client_version := GetProcAddress(SvnClientLib, 'svn_client_version');
       @svn_client_get_simple_prompt_provider := GetProcAddress(SvnClientLib, 'svn_client_get_simple_prompt_provider');
@@ -3780,8 +4115,10 @@ begin
       @svn_client_commit := GetProcAddress(SvnClientLib, 'svn_client_commit');
       @svn_client_status2 := GetProcAddress(SvnClientLib, 'svn_client_status2');
       @svn_client_status := GetProcAddress(SvnClientLib, 'svn_client_status');
+      @svn_client_log3 := GetProcAddress(SvnClientLib, 'svn_client_log3');
       @svn_client_log2 := GetProcAddress(SvnClientLib, 'svn_client_log2');
       @svn_client_log := GetProcAddress(SvnClientLib, 'svn_client_log');
+      @svn_client_blame3 := GetProcAddress(SvnClientLib, 'svn_client_blame3');
       @svn_client_blame2 := GetProcAddress(SvnClientLib, 'svn_client_blame2');
       @svn_client_blame := GetProcAddress(SvnClientLib, 'svn_client_blame');
       @svn_client_diff3 := GetProcAddress(SvnClientLib, 'svn_client_diff3');
@@ -3790,14 +4127,21 @@ begin
       @svn_client_diff_peg3 := GetProcAddress(SvnClientLib, 'svn_client_diff_peg3');
       @svn_client_diff_peg2 := GetProcAddress(SvnClientLib, 'svn_client_diff_peg2');
       @svn_client_diff_peg := GetProcAddress(SvnClientLib, 'svn_client_diff_peg');
+      @svn_client_diff_summarize_dup := GetProcAddress(SvnClientLib, 'svn_client_diff_summarize_dup');
+      @svn_client_diff_summarize := GetProcAddress(SvnClientLib, 'svn_client_diff_summarize');
+      @svn_client_diff_summarize_peg := GetProcAddress(SvnClientLib, 'svn_client_diff_summarize_peg');
+      @svn_client_merge2 := GetProcAddress(SvnClientLib, 'svn_client_merge2');
       @svn_client_merge := GetProcAddress(SvnClientLib, 'svn_client_merge');
+      @svn_client_merge_peg2 := GetProcAddress(SvnClientLib, 'svn_client_merge_peg2');
       @svn_client_merge_peg := GetProcAddress(SvnClientLib, 'svn_client_merge_peg');
       @svn_client_cleanup := GetProcAddress(SvnClientLib, 'svn_client_cleanup');
       @svn_client_relocate := GetProcAddress(SvnClientLib, 'svn_client_relocate');
       @svn_client_revert := GetProcAddress(SvnClientLib, 'svn_client_revert');
       @svn_client_resolved := GetProcAddress(SvnClientLib, 'svn_client_resolved');
+      @svn_client_copy3 := GetProcAddress(SvnClientLib, 'svn_client_copy3');
       @svn_client_copy2 := GetProcAddress(SvnClientLib, 'svn_client_copy2');
       @svn_client_copy := GetProcAddress(SvnClientLib, 'svn_client_copy');
+      @svn_client_move4 := GetProcAddress(SvnClientLib, 'svn_client_move4');
       @svn_client_move3 := GetProcAddress(SvnClientLib, 'svn_client_move3');
       @svn_client_move2 := GetProcAddress(SvnClientLib, 'svn_client_move2');
       @svn_client_move := GetProcAddress(SvnClientLib, 'svn_client_move');
@@ -3813,6 +4157,7 @@ begin
       @svn_client_export3 := GetProcAddress(SvnClientLib, 'svn_client_export3');
       @svn_client_export2 := GetProcAddress(SvnClientLib, 'svn_client_export2');
       @svn_client_export := GetProcAddress(SvnClientLib, 'svn_client_export');
+      @svn_client_list := GetProcAddress(SvnClientLib, 'svn_client_list');
       @svn_client_ls3 := GetProcAddress(SvnClientLib, 'svn_client_ls3');
       @svn_client_ls2 := GetProcAddress(SvnClientLib, 'svn_client_ls2');
       @svn_client_ls := GetProcAddress(SvnClientLib, 'svn_client_ls');
@@ -3838,12 +4183,16 @@ begin
   if SvnClientLibLoaded then
     FreeLibrary(SvnClientLib);
   SvnClientLib := INVALID_HANDLE_VALUE;
+  @svn_dirent_dup := nil;
   @svn_create_commit_info := nil;
+  @svn_commit_info_dup := nil;
+  @svn_compat_wrap_commit_callback := nil;
   @svn_log_changed_path_dup := nil;
   @svn_mime_type_validate := nil;
   @svn_mime_type_is_binary := nil;
   @svn_lock_create := nil;
   @svn_lock_dup := nil;
+  @svn_uuid_generate := nil;
   @svn_nls_init := nil;
   @svn_ver_compatible := nil;
   @svn_ver_equal := nil;
@@ -3855,6 +4204,8 @@ begin
   @svn_parse_date := nil;
   @svn_sleep_for_timestamps := nil;
   @svn_pool_create_ex := nil;
+  @svn_user_get_name := nil;
+  @svn_user_get_homedir := nil;
   @svn_sort_compare_items_as_paths := nil;
   @svn_sort_compare_items_lexically := nil;
   @svn_sort_compare_revisions := nil;
@@ -3932,14 +4283,24 @@ begin
   @svn_cmdline_fflush := nil;
   @svn_cmdline_output_encoding := nil;
   @svn_cmdline_handle_exit_error := nil;
+  @svn_cmdline_prompt_user := nil;
+  @svn_cmdline_auth_simple_prompt := nil;
+  @svn_cmdline_auth_username_prompt := nil;
+  @svn_cmdline_auth_ssl_server_trust_prompt := nil;
+  @svn_cmdline_auth_ssl_client_cert_prompt := nil;
+  @svn_cmdline_auth_ssl_client_cert_pw_prompt := nil;
+  @svn_cmdline_setup_auth_baton := nil;
+  @svn_cmdline__getopt_init := nil;
   @svn_utf_initialize := nil;
   @svn_utf_stringbuf_to_utf8 := nil;
   @svn_utf_string_to_utf8 := nil;
   @svn_utf_cstring_to_utf8 := nil;
+  @svn_utf_cstring_to_utf8_ex2 := nil;
   @svn_utf_cstring_to_utf8_ex := nil;
   @svn_utf_stringbuf_from_utf8 := nil;
   @svn_utf_string_from_utf8 := nil;
   @svn_utf_cstring_from_utf8 := nil;
+  @svn_utf_cstring_from_utf8_ex2 := nil;
   @svn_utf_cstring_from_utf8_ex := nil;
   @svn_utf_cstring_from_utf8_fuzzy := nil;
   @svn_utf_cstring_from_utf8_stringbuf := nil;
@@ -3953,6 +4314,7 @@ begin
   @svn_prop_diffs := nil;
   @svn_error__locate := nil;
   @svn_strerror := nil;
+  @svn_err_best_message := nil;
   @svn_error_create := nil;
   @svn_error_createf := nil;
   @svn_error_wrap_apr := nil;
@@ -4009,15 +4371,19 @@ begin
   @svn_config_enumerate_sections2 := nil;
   @svn_config_enumerate := nil;
   @svn_config_enumerate2 := nil;
+  @svn_config_has_section := nil;
   @svn_config_find_group := nil;
   @svn_config_get_server_setting := nil;
   @svn_config_get_server_setting_int := nil;
   @svn_config_ensure := nil;
   @svn_config_read_auth_data := nil;
   @svn_config_write_auth_data := nil;
+  @svn_dso_initialize := nil;
+  @svn_dso_load := nil;
   @svn_io_check_path := nil;
   @svn_io_check_special_path := nil;
   @svn_io_check_resolved_path := nil;
+  @svn_io_open_unique_file2 := nil;
   @svn_io_open_unique_file := nil;
   @svn_io_create_unique_link := nil;
   @svn_io_read_link := nil;
@@ -4050,10 +4416,13 @@ begin
   @svn_stream_set_write := nil;
   @svn_stream_set_close := nil;
   @svn_stream_empty := nil;
+  @svn_stream_disown := nil;
+  @svn_stream_from_aprfile2 := nil;
   @svn_stream_from_aprfile := nil;
   @svn_stream_for_stdout := nil;
   @svn_stream_from_stringbuf := nil;
   @svn_stream_compressed := nil;
+  @svn_stream_checksummed := nil;
   @svn_stream_read := nil;
   @svn_stream_write := nil;
   @svn_stream_close := nil;
@@ -4061,10 +4430,12 @@ begin
   @svn_stream_printf_from_utf8 := nil;
   @svn_stream_readline := nil;
   @svn_stream_copy := nil;
+  @svn_stream_contents_same := nil;
   @svn_stringbuf_from_file := nil;
   @svn_stringbuf_from_aprfile := nil;
   @svn_io_remove_file := nil;
   @svn_io_remove_dir := nil;
+  @svn_io_get_dir_filenames := nil;
   @svn_io_get_dirents2 := nil;
   @svn_io_get_dirents := nil;
   @svn_io_dir_walk := nil;
@@ -4072,6 +4443,7 @@ begin
   @svn_io_wait_for_cmd := nil;
   @svn_io_run_cmd := nil;
   @svn_io_run_diff := nil;
+  @svn_io_run_diff3_2 := nil;
   @svn_io_run_diff3 := nil;
   @svn_io_detect_mimetype := nil;
   @svn_io_file_open := nil;
@@ -4106,10 +4478,12 @@ begin
   @svn_hash_write := nil;
   @svn_hash_diff := nil;
   @svn_subst_eol_style_from_value := nil;
+  @svn_subst_translation_required := nil;
   @svn_subst_build_keywords2 := nil;
   @svn_subst_build_keywords := nil;
   @svn_subst_keywords_differ2 := nil;
   @svn_subst_keywords_differ := nil;
+  @svn_subst_stream_translated := nil;
   @svn_subst_translate_stream3 := nil;
   @svn_subst_translate_stream2 := nil;
   @svn_subst_translate_stream := nil;
@@ -4118,6 +4492,8 @@ begin
   @svn_subst_copy_and_translate := nil;
   @svn_subst_translate_cstring2 := nil;
   @svn_subst_translate_cstring := nil;
+  @svn_subst_translate_to_normal_form := nil;
+  @svn_subst_stream_detranslated := nil;
   @svn_subst_translate_string := nil;
   @svn_subst_detranslate_string := nil;
   @svn_diff_version := nil;
@@ -4127,12 +4503,17 @@ begin
   @svn_diff_contains_conflicts := nil;
   @svn_diff_contains_diffs := nil;
   @svn_diff_output := nil;
+  @svn_diff_file_diff_2 := nil;
   @svn_diff_file_diff := nil;
+  @svn_diff_file_diff3_2 := nil;
   @svn_diff_file_diff3 := nil;
+  @svn_diff_file_diff4_2 := nil;
   @svn_diff_file_diff4 := nil;
   @svn_diff_file_output_unified2 := nil;
   @svn_diff_file_output_unified := nil;
   @svn_diff_file_output_merge := nil;
+  @svn_diff_file_options_create := nil;
+  @svn_diff_file_options_parse := nil;
   @svn_base64_encode := nil;
   @svn_base64_decode := nil;
   @svn_base64_encode_string := nil;
@@ -4140,7 +4521,10 @@ begin
   @svn_base64_from_md5 := nil;
   @svn_delta_version := nil;
   @svn_txdelta_window_dup := nil;
+  @svn_txdelta_compose_windows := nil;
+  @svn_txdelta_stream_create := nil;
   @svn_txdelta_next_window := nil;
+  @svn_txdelta_apply_instructions := nil;
   @svn_txdelta_md5_digest := nil;
   @svn_txdelta := nil;
   @svn_txdelta_target_push := nil;
@@ -4148,6 +4532,7 @@ begin
   @svn_txdelta_send_stream := nil;
   @svn_txdelta_send_txstream := nil;
   @svn_txdelta_apply := nil;
+  @svn_txdelta_to_svndiff2 := nil;
   @svn_txdelta_to_svndiff := nil;
   @svn_txdelta_parse_svndiff := nil;
   @svn_txdelta_read_svndiff_window := nil;
@@ -4282,7 +4667,9 @@ begin
   @svn_repos_finish_report := nil;
   @svn_repos_abort_report := nil;
   @svn_repos_dir_delta := nil;
+  @svn_repos_replay2 := nil;
   @svn_repos_replay := nil;
+  @svn_repos_get_commit_editor4 := nil;
   @svn_repos_get_commit_editor3 := nil;
   @svn_repos_get_commit_editor2 := nil;
   @svn_repos_get_commit_editor := nil;
@@ -4320,11 +4707,16 @@ begin
   @svn_repos_get_fs_build_parser := nil;
   @svn_repos_authz_read := nil;
   @svn_repos_authz_check_access := nil;
+  @svn_opt_get_canonical_subcommand2 := nil;
   @svn_opt_get_canonical_subcommand := nil;
+  @svn_opt_get_option_from_code2 := nil;
   @svn_opt_get_option_from_code := nil;
+  @svn_opt_subcommand_takes_option2 := nil;
   @svn_opt_subcommand_takes_option := nil;
+  @svn_opt_print_generic_help2 := nil;
   @svn_opt_print_generic_help := nil;
   @svn_opt_format_option := nil;
+  @svn_opt_subcommand_help2 := nil;
   @svn_opt_subcommand_help := nil;
   @svn_opt_parse_revision := nil;
   @svn_opt_args_to_target_array2 := nil;
@@ -4333,6 +4725,7 @@ begin
   @svn_opt_parse_num_args := nil;
   @svn_opt_parse_all_args := nil;
   @svn_opt_parse_path := nil;
+  @svn_opt_print_help2 := nil;
   @svn_opt_print_help := nil;
   @svn_auth_ssl_server_cert_info_dup := nil;
   @svn_auth_open := nil;
@@ -4341,22 +4734,37 @@ begin
   @svn_auth_first_credentials := nil;
   @svn_auth_next_credentials := nil;
   @svn_auth_save_credentials := nil;
+  @svn_auth_get_simple_prompt_provider := nil;
+  @svn_auth_get_username_prompt_provider := nil;
+  @svn_auth_get_simple_provider := nil;
+  @svn_auth_get_windows_simple_provider := nil;
+  @svn_auth_get_username_provider := nil;
+  @svn_auth_get_ssl_server_trust_file_provider := nil;
+  @svn_auth_get_ssl_client_cert_file_provider := nil;
+  @svn_auth_get_ssl_client_cert_pw_file_provider := nil;
+  @svn_auth_get_ssl_server_trust_prompt_provider := nil;
+  @svn_auth_get_ssl_client_cert_prompt_provider := nil;
+  @svn_auth_get_ssl_client_cert_pw_prompt_provider := nil;
   @svn_ra_version := nil;
   @svn_ra_initialize := nil;
   @svn_ra_create_callbacks := nil;
   @svn_ra_open2 := nil;
   @svn_ra_open := nil;
+  @svn_ra_reparent := nil;
   @svn_ra_get_latest_revnum := nil;
   @svn_ra_get_dated_revision := nil;
   @svn_ra_change_rev_prop := nil;
   @svn_ra_rev_proplist := nil;
   @svn_ra_rev_prop := nil;
+  @svn_ra_get_commit_editor2 := nil;
   @svn_ra_get_commit_editor := nil;
   @svn_ra_get_file := nil;
+  @svn_ra_get_dir2 := nil;
   @svn_ra_get_dir := nil;
   @svn_ra_do_update := nil;
   @svn_ra_do_switch := nil;
   @svn_ra_do_status := nil;
+  @svn_ra_do_diff2 := nil;
   @svn_ra_do_diff := nil;
   @svn_ra_get_log := nil;
   @svn_ra_check_path := nil;
@@ -4369,11 +4777,13 @@ begin
   @svn_ra_unlock := nil;
   @svn_ra_get_lock := nil;
   @svn_ra_get_locks := nil;
+  @svn_ra_replay := nil;
   @svn_ra_print_modules := nil;
   @svn_ra_print_ra_libraries := nil;
   @svn_ra_dav_init := nil;
   @svn_ra_local_init := nil;
   @svn_ra_svn_init := nil;
+  @svn_ra_serf_init := nil;
   @svn_ra_init_ra_libs := nil;
   @svn_ra_get_ra_library := nil;
   @svn_wc_version := nil;
@@ -4432,10 +4842,12 @@ begin
   @svn_wc_delete := nil;
   @svn_wc_add2 := nil;
   @svn_wc_add := nil;
+  @svn_wc_add_repos_file2 := nil;
   @svn_wc_add_repos_file := nil;
   @svn_wc_remove_from_revision_control := nil;
   @svn_wc_resolved_conflict2 := nil;
   @svn_wc_resolved_conflict := nil;
+  @svn_wc_process_committed3 := nil;
   @svn_wc_process_committed2 := nil;
   @svn_wc_process_committed := nil;
   @svn_wc_crawl_revisions2 := nil;
@@ -4460,23 +4872,29 @@ begin
   @svn_wc_diff2 := nil;
   @svn_wc_diff := nil;
   @svn_wc_get_prop_diffs := nil;
+  @svn_wc_merge2 := nil;
   @svn_wc_merge := nil;
   @svn_wc_merge_props := nil;
   @svn_wc_merge_prop_diffs := nil;
   @svn_wc_get_pristine_copy_path := nil;
   @svn_wc_cleanup2 := nil;
   @svn_wc_cleanup := nil;
+  @svn_wc_relocate2 := nil;
   @svn_wc_relocate := nil;
   @svn_wc_revert2 := nil;
   @svn_wc_revert := nil;
+  @svn_wc_create_tmp_file2 := nil;
   @svn_wc_create_tmp_file := nil;
+  @svn_wc_translated_file2 := nil;
   @svn_wc_translated_file := nil;
+  @svn_wc_transmit_text_deltas2 := nil;
   @svn_wc_transmit_text_deltas := nil;
   @svn_wc_transmit_prop_deltas := nil;
   @svn_wc_get_default_ignores := nil;
   @svn_wc_get_ignores := nil;
   @svn_wc_add_lock := nil;
   @svn_wc_remove_lock := nil;
+  @svn_wc_revision_status := nil;
   @svn_client_version := nil;
   @svn_client_get_simple_prompt_provider := nil;
   @svn_client_get_username_prompt_provider := nil;
@@ -4511,8 +4929,10 @@ begin
   @svn_client_commit := nil;
   @svn_client_status2 := nil;
   @svn_client_status := nil;
+  @svn_client_log3 := nil;
   @svn_client_log2 := nil;
   @svn_client_log := nil;
+  @svn_client_blame3 := nil;
   @svn_client_blame2 := nil;
   @svn_client_blame := nil;
   @svn_client_diff3 := nil;
@@ -4521,14 +4941,21 @@ begin
   @svn_client_diff_peg3 := nil;
   @svn_client_diff_peg2 := nil;
   @svn_client_diff_peg := nil;
+  @svn_client_diff_summarize_dup := nil;
+  @svn_client_diff_summarize := nil;
+  @svn_client_diff_summarize_peg := nil;
+  @svn_client_merge2 := nil;
   @svn_client_merge := nil;
+  @svn_client_merge_peg2 := nil;
   @svn_client_merge_peg := nil;
   @svn_client_cleanup := nil;
   @svn_client_relocate := nil;
   @svn_client_revert := nil;
   @svn_client_resolved := nil;
+  @svn_client_copy3 := nil;
   @svn_client_copy2 := nil;
   @svn_client_copy := nil;
+  @svn_client_move4 := nil;
   @svn_client_move3 := nil;
   @svn_client_move2 := nil;
   @svn_client_move := nil;
@@ -4544,6 +4971,7 @@ begin
   @svn_client_export3 := nil;
   @svn_client_export2 := nil;
   @svn_client_export := nil;
+  @svn_client_list := nil;
   @svn_client_ls3 := nil;
   @svn_client_ls2 := nil;
   @svn_client_ls := nil;

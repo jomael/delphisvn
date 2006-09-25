@@ -38,18 +38,18 @@ extern "C" {
  * in @a pool.  Use svn_time_from_cstring() for the reverse
  * conversion.
  */
-LIBSVN_CLIENT_API const char *svn_time_to_cstring (apr_time_t when, apr_pool_t *pool);
+LIBSVN_CLIENT_API const char *svn_time_to_cstring(apr_time_t when, apr_pool_t *pool);
 
 /** Convert @a data to an @c apr_time_t @a when.
  * Use @a pool for temporary memory allocation.
  */
-LIBSVN_CLIENT_API svn_error_t *svn_time_from_cstring (apr_time_t *when, const char *data,
-                                    apr_pool_t *pool);
+LIBSVN_CLIENT_API svn_error_t *svn_time_from_cstring(apr_time_t *when, const char *data,
+                                   apr_pool_t *pool);
 
 /** Convert @a when to a <tt>const char *</tt> representation allocated
  * in @a pool, suitable for human display in UTF8.
  */
-LIBSVN_CLIENT_API const char *svn_time_to_human_cstring (apr_time_t when, apr_pool_t *pool);
+LIBSVN_CLIENT_API const char *svn_time_to_human_cstring(apr_time_t when, apr_pool_t *pool);
 
 
 /** Convert a human-readable date @a text into an @c apr_time_t, using
@@ -61,14 +61,14 @@ LIBSVN_CLIENT_API const char *svn_time_to_human_cstring (apr_time_t when, apr_po
  * error (rather than a simple parse error) occurs.
  */
 LIBSVN_CLIENT_API svn_error_t *
-svn_parse_date (svn_boolean_t *matched, apr_time_t *result, const char *text,
-                apr_time_t now, apr_pool_t *pool);
+svn_parse_date(svn_boolean_t *matched, apr_time_t *result, const char *text,
+               apr_time_t now, apr_pool_t *pool);
 
 
 /** Sleep until the next second, to ensure that any files modified
  * after we exit have a different timestamp than the one we recorded.
  */
-LIBSVN_CLIENT_API void svn_sleep_for_timestamps (void);
+LIBSVN_CLIENT_API void svn_sleep_for_timestamps(void);
 
 #ifdef __cplusplus
 }

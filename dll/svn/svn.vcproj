@@ -119,7 +119,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				AdditionalIncludeDirectories="..\libsvn_client;..\include;..\include\apr;..\include\apr-util;..\include\apr-iconv"
-				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE;_CRT_SECURE_NO_DEPRECATE"
+				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE"
 				RuntimeLibrary="2"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
@@ -233,15 +233,15 @@
 				>
 			</File>
 			<File
+				RelativePath=".\list-cmd.c"
+				>
+			</File>
+			<File
 				RelativePath=".\lock-cmd.c"
 				>
 			</File>
 			<File
 				RelativePath=".\log-cmd.c"
-				>
-			</File>
-			<File
-				RelativePath=".\ls-cmd.c"
 				>
 			</File>
 			<File
@@ -262,10 +262,6 @@
 			</File>
 			<File
 				RelativePath=".\notify.c"
-				>
-			</File>
-			<File
-				RelativePath=".\prompt.c"
 				>
 			</File>
 			<File
@@ -348,6 +344,10 @@
 			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav"
 			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}"
 			>
+			<File
+				RelativePath="V:\Projects\subversion\svn_client\subversion.ico"
+				>
+			</File>
 			<File
 				RelativePath="..\..\svn_client\subversion.ico"
 				>

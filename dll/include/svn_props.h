@@ -70,7 +70,7 @@ LIBSVN_CLIENT_API svn_prop_t *svn_prop_dup(const svn_prop_t *prop, apr_pool_t *p
  * @since New in 1.3.
  */
 LIBSVN_CLIENT_API apr_array_header_t *
-svn_prop_array_dup (const apr_array_header_t *array, apr_pool_t *pool);
+svn_prop_array_dup(const apr_array_header_t *array, apr_pool_t *pool);
 
 
 /**
@@ -97,14 +97,14 @@ typedef enum svn_prop_kind
  * is non-@c NULL) set @a *prefix_len to the length of the prefix of @a name
  * that was sufficient to distinguish its kind.
  */
-LIBSVN_CLIENT_API svn_prop_kind_t svn_property_kind (int *prefix_len,
-                                   const char *prop_name);
+LIBSVN_CLIENT_API svn_prop_kind_t svn_property_kind(int *prefix_len,
+                                  const char *prop_name);
 
 
 /** Return @c TRUE iff @a prop_name represents the name of a Subversion
  * property.
  */
-LIBSVN_CLIENT_API svn_boolean_t svn_prop_is_svn_prop (const char *prop_name);
+LIBSVN_CLIENT_API svn_boolean_t svn_prop_is_svn_prop(const char *prop_name);
 
 
 /** If @a propname requires that its value be stored as UTF8/LF in the
@@ -114,7 +114,7 @@ LIBSVN_CLIENT_API svn_boolean_t svn_prop_is_svn_prop (const char *prop_name);
  * svn_subst_translate_string()/svn_subst_detranslate_string() for
  * help with this task.)
  */
-LIBSVN_CLIENT_API svn_boolean_t svn_prop_needs_translation (const char *propname);
+LIBSVN_CLIENT_API svn_boolean_t svn_prop_needs_translation(const char *propname);
 
 
 /** Given a @a proplist array of @c svn_prop_t structures, allocate
@@ -133,11 +133,11 @@ LIBSVN_CLIENT_API svn_boolean_t svn_prop_needs_translation (const char *propname
  *     into @c svn_prop_kind_t.  That way we can add more prop kinds
  *     in the future without changing this interface... 
  */
-LIBSVN_CLIENT_API svn_error_t *svn_categorize_props (const apr_array_header_t *proplist,
-                                   apr_array_header_t **entry_props,
-                                   apr_array_header_t **wc_props,
-                                   apr_array_header_t **regular_props,
-                                   apr_pool_t *pool);
+LIBSVN_CLIENT_API svn_error_t *svn_categorize_props(const apr_array_header_t *proplist,
+                                  apr_array_header_t **entry_props,
+                                  apr_array_header_t **wc_props,
+                                  apr_array_header_t **regular_props,
+                                  apr_pool_t *pool);
 
 
 /** Given two property hashes (<tt>const char *name</tt> -> <tt>const 
@@ -154,10 +154,10 @@ LIBSVN_CLIENT_API svn_error_t *svn_categorize_props (const apr_array_header_t *p
  * value = foo     value = bar       Set occurred (modification)
  * value = NULL    value = baz       Set occurred (creation)</pre>
  */
-LIBSVN_CLIENT_API svn_error_t *svn_prop_diffs (apr_array_header_t **propdiffs,
-                             apr_hash_t *target_props,
-                             apr_hash_t *source_props,
-                             apr_pool_t *pool);
+LIBSVN_CLIENT_API svn_error_t *svn_prop_diffs(apr_array_header_t **propdiffs,
+                            apr_hash_t *target_props,
+                            apr_hash_t *source_props,
+                            apr_pool_t *pool);
 
 
 
@@ -319,6 +319,32 @@ LIBSVN_CLIENT_API svn_error_t *svn_prop_diffs (apr_array_header_t **propdiffs,
  */
 #define SVN_PROP_REVISION_AUTOVERSIONED  SVN_PROP_PREFIX "autoversioned"
 
+
+/* More reserved revision props in the 'svn:' namespace, used by the
+   svnsync tool:   */
+
+/** Prefix for all svnsync custom properties. */
+#define SVNSYNC_PROP_PREFIX             SVN_PROP_PREFIX "sync-"
+
+/* The following revision properties are set on revision 0 of
+ * destination repositories by svnsync:
+ */
+
+/** Used to enforce mutually exclusive destination repository access. */
+#define SVNSYNC_PROP_LOCK               SVNSYNC_PROP_PREFIX "lock"
+
+/** Identifies the repository's source URL. */
+#define SVNSYNC_PROP_FROM_URL           SVNSYNC_PROP_PREFIX "from-url"
+/** Identifies the repository's source UUID. */
+#define SVNSYNC_PROP_FROM_UUID          SVNSYNC_PROP_PREFIX "from-uuid"
+
+/** Identifies the last completely mirrored revision. */
+#define SVNSYNC_PROP_LAST_MERGED_REV    SVNSYNC_PROP_PREFIX "last-merged-rev"
+
+/** Identifies the revision currently being copied. */
+#define SVNSYNC_PROP_CURRENTLY_COPYING  SVNSYNC_PROP_PREFIX "currently-copying"
+
+
 /**
  * This is a list of all revision properties.
  */ 
@@ -326,7 +352,12 @@ LIBSVN_CLIENT_API svn_error_t *svn_prop_diffs (apr_array_header_t **propdiffs,
                                     SVN_PROP_REVISION_LOG, \
                                     SVN_PROP_REVISION_DATE, \
                                     SVN_PROP_REVISION_AUTOVERSIONED, \
-                                    SVN_PROP_REVISION_ORIG_DATE,
+                                    SVN_PROP_REVISION_ORIG_DATE, \
+                                    SVNSYNC_PROP_LOCK, \
+                                    SVNSYNC_PROP_FROM_URL, \
+                                    SVNSYNC_PROP_FROM_UUID, \
+                                    SVNSYNC_PROP_LAST_MERGED_REV, \
+                                    SVNSYNC_PROP_CURRENTLY_COPYING,
 
 /** @} */
 

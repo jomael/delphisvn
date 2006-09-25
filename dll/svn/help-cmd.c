@@ -34,9 +34,9 @@
 
 /* This implements the `svn_opt_subcommand_t' interface. */
 svn_error_t *
-svn_cl__help (apr_getopt_t *os,
-              void *baton,
-              apr_pool_t *pool)
+svn_cl__help(apr_getopt_t *os,
+             void *baton,
+             apr_pool_t *pool)
 {
   svn_cl__opt_state_t *opt_state;
 
@@ -45,6 +45,8 @@ svn_cl__help (apr_getopt_t *os,
   N_("usage: svn <subcommand> [options] [args]\n"
      "Subversion command-line client, version %s.\n"
      "Type 'svn help <subcommand>' for help on a specific subcommand.\n"
+     "Type 'svn --version' to see the program version and RA modules\n"
+     "  or 'svn --version --quiet' to see just the version number.\n"
      "\n"
      "Most subcommands take file and/or directory arguments, recursing\n"
      "on the directories.  If no arguments are supplied to such a\n"
@@ -57,7 +59,7 @@ svn_cl__help (apr_getopt_t *os,
      "For additional information, see http://subversion.tigris.org/\n");
 
   char *help_header =
-    apr_psprintf (pool, _(help_header_template), SVN_VER_NUMBER);
+    apr_psprintf(pool, _(help_header_template), SVN_VER_NUMBER);
 
   const char *ra_desc_start
     = _("The following repository access (RA) modules are available:\n\n");
@@ -69,10 +71,10 @@ svn_cl__help (apr_getopt_t *os,
   else
     opt_state = NULL;
 
-  version_footer = svn_stringbuf_create (ra_desc_start, pool);
-  SVN_ERR (svn_ra_print_modules (version_footer, pool));
+  version_footer = svn_stringbuf_create(ra_desc_start, pool);
+  SVN_ERR(svn_ra_print_modules(version_footer, pool));
 
-  return svn_opt_print_help (os,
+  return svn_opt_print_help2(os,
                              "svn",   /* ### erm, derive somehow? */
                              opt_state ? opt_state->version : FALSE,
                              opt_state ? opt_state->quiet : FALSE,
