@@ -18,7 +18,7 @@
 {                                                                                                                      }
 {**********************************************************************************************************************}
 {                                                                                                                      }
-{ This unit contains import declarations for libsvn_client.dll, Subversion 1.3.2 DLL.                                  }
+{ This unit contains import declarations for libsvn_client.dll, Subversion 1.4.0 DLL.                                  }
 {                                                                                                                      }
 {**********************************************************************************************************************}
 
