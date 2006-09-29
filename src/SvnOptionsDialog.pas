@@ -39,10 +39,11 @@ type
     ButtonCancel: TButton;
     ButtonOK: TButton;
     CheckBoxAllowEmptyCommitMsg: TCheckBox;
+    CheckBoxCommitExternals: TCheckBox;
     CheckBoxConfirmAdd: TCheckBox;
+    CheckBoxRecurseUnversioned: TCheckBox;
     ComboBoxDirs: TComboBox;
     LabelDirs: TLabel;
-    CheckBoxRecurseUnversioned: TCheckBox;
 
     procedure ButtonBrowseClick(Sender: TObject);
     procedure CheckBoxClick(Sender: TObject);
@@ -79,6 +80,7 @@ begin
       Form.ComboBoxDirs.Text := Settings.Directories;
       Form.CheckBoxConfirmAdd.Checked := Settings.ConfirmAdd;
       Form.CheckBoxAllowEmptyCommitMsg.Checked := Settings.AllowEmptyCommitMsg;
+      Form.CheckBoxCommitExternals.Checked := Settings.CommitExternals;
       Form.CheckBoxRecurseUnversioned.Checked := Settings.RecurseUnversioned;
     finally
       Form.FLoading := False;
@@ -91,6 +93,7 @@ begin
       Settings.Directories := Form.ComboBoxDirs.Text;
       Settings.ConfirmAdd := Form.CheckBoxConfirmAdd.Checked;
       Settings.AllowEmptyCommitMsg := Form.CheckBoxAllowEmptyCommitMsg.Checked;
+      Settings.CommitExternals := Form.CheckBoxCommitExternals.Checked;
       Settings.RecurseUnversioned := Form.CheckBoxRecurseUnversioned.Checked;
     end;
   finally

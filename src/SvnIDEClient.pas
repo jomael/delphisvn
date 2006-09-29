@@ -39,6 +39,7 @@ type
   TSvnIDESettings = class
   private
     FAllowEmptyCommitMsg: Boolean;
+    FCommitExternals: Boolean;
     FConfirmAdd: Boolean;
     FDirectories: string;
     FDirHistory: TStrings;
@@ -46,6 +47,7 @@ type
     FRecurseUnversioned: Boolean;
 
     procedure SetAllowEmptyCommitMsg(Value: Boolean);
+    procedure SetCommitExternals(Value: Boolean);
     procedure SetConfirmAdd(Value: Boolean);
     procedure SetDirectories(const Value: string);
     procedure SetRecurseUnversioned(Value: Boolean);
@@ -57,6 +59,7 @@ type
     procedure SaveSettings;
 
     property AllowEmptyCommitMsg: Boolean read FAllowEmptyCommitMsg write SetAllowEmptyCommitMsg;
+    property CommitExternals: Boolean read FCommitExternals write SetCommitExternals;
     property ConfirmAdd: Boolean read FConfirmAdd write SetConfirmAdd;
     property Directories: string read FDirectories write SetDirectories;
     property DirHistory: TStrings read FDirHistory;
@@ -280,6 +283,18 @@ begin
   if FAllowEmptyCommitMsg <> Value then
   begin
     FAllowEmptyCommitMsg := Value;
+    FModified := True;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnIDESettings.SetCommitExternals(Value: Boolean);
+
+begin
+  if FCommitExternals <> Value then
+  begin
+    FCommitExternals := Value;
     FModified := True;
   end;
 end;
@@ -647,6 +662,7 @@ begin
   FDirectories := '';
   FDirHistory := TStringList.Create;
   FAllowEmptyCommitMsg := False;
+  FCommitExternals := False;
   FConfirmAdd := True;
 end;
 
@@ -688,6 +704,10 @@ begin
         FAllowEmptyCommitMsg := Registry.ReadBool('AllowEmptyCommitMsg')
       else
         FAllowEmptyCommitMsg := False;
+      if Registry.ValueExists('CommitExternals') then
+        FCommitExternals := Registry.ReadBool('CommitExternals')
+      else
+        FCommitExternals := False;
       if Registry.ValueExists('ConfirmAdd') then
         FConfirmAdd := Registry.ReadBool('ConfirmAdd')
       else
@@ -734,6 +754,7 @@ begin
     begin
       Registry.WriteString('Directories', FDirectories);
       Registry.WriteBool('AllowEmptyCommitMsg', FAllowEmptyCommitMsg);
+      Registry.WriteBool('CommitExternals', FCommitExternals);
       Registry.WriteBool('ConfirmAdd', FConfirmAdd);
       Registry.WriteBool('RecurseUnversioned', FRecurseUnversioned);
     end;
@@ -1681,24 +1702,40 @@ procedure TSvnIDEClient.ActionCommitExecute(Sender: TObject);
 
 var
   LogMessage: string;
-  Directories: TStringList;
+  Directories, Externals: TStringList;
+  I: Integer;
 
 begin
   LogMessage := '';
   if ShowSvnLogMessagePrompt('Enter your commit log message:', LogMessage) <> mrOK then
     Exit;
 
+  Externals := nil;
   Directories := TStringList.Create;
   try
+    if FSettings.CommitExternals then
+    begin
+      Externals := TStringList.Create;
+      Externals.Duplicates := dupIgnore;
+    end;
     GetDirectories(Directories);
     if Directories.Count > 0 then
     begin
+      if FSettings.CommitExternals then
+      begin
+        for I := 0 to Directories.Count - 1 do
+          FSvnClient.GetExternals(Directories[I], Externals);
+        Directories.AddStrings(Externals);
+      end;
+
       if not Assigned(FormSvnTools) then
         FormSvnTools := TFormSvnTools.Create(Application);
       FormSvnTools.Show;
-      FormSvnTools.StartSvnCommit(FSvnClient, Directories, LogMessage);
+      FormSvnTools.StartSvnCommit(FSvnClient, Directories, LogMessage, True, False, Assigned(Externals) and
+        (Externals.Count > 0));
     end;
   finally
+    Externals.Free;
     Directories.Free;
   end;
 end;

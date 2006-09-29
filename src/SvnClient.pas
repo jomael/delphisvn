@@ -135,8 +135,11 @@ type
     FPropStatus: TSvnWCStatusKind;
     FPropTime: TDateTime;
     FPropValDelimiter: Char;
+    FReloadExternals: TList;
+    FReloadGlobalExternals: TList;
+    FReloadRecursive: Boolean;
     FReloadStack: TStack;
-    FReloadUnversionedList: TList;
+    FReloadUnversioned: TList;
     FRemotePropStatus: TSvnWCStatusKind;
     FRemoteTextStatus: TSvnWCStatusKind;
     FRepository: string;
@@ -154,6 +157,7 @@ type
     procedure ClearHistory;
     procedure ClearItems;
     function GetCount: Integer;
+    function GetExternal: Boolean;
     function GetFileAttr: Cardinal;
     function GetHistoryCount: Integer;
     function GetHistoryItems(Index: Integer): TSvnHistoryItem;
@@ -203,6 +207,7 @@ type
     property CopiedFromURL: string read FCopiedFromURL;
     property Count: Integer read GetCount;
     property Deleted: Boolean read FDeleted;
+    property External: Boolean read GetExternal;
     property FileAttr: Cardinal read GetFileAttr;
     property HistoryCount: Integer read GetHistoryCount;
     property HistoryItems[Index: Integer]: TSvnHistoryItem read GetHistoryItems;
@@ -278,6 +283,7 @@ type
     FCommitLogMessage: string;
     FConfigDir: string;
     FCtx: PSvnClientCtx;
+    FExternals: TStrings;
     FPassword: string;
     FPool: PAprPool; // main pool
     FPoolUtf8: PAprPool; // pool for UTF-8 routines
@@ -296,6 +302,7 @@ type
     FOnSSLServerTrustPrompt: TSSLServerTrustPrompt;
     FOnUserNamePrompt: TUserNamePromptEvent;
 
+    procedure GetExternalsCallback(Sender: TObject; Item: TSvnItem; var Cancel: Boolean);
     function GetInitialized: Boolean;
   protected
     function DoBlame(LineNo: Int64; Revision: Integer; const Author, Date, Line: string): Boolean;
@@ -322,6 +329,7 @@ type
     function Commit(PathNames: TStrings; const LogMessage: string; Callback: TSvnNotifyCallback = nil;
       Recurse: Boolean = True; KeepLocks: Boolean = False; SubPool: PAprPool = nil): Boolean;
     procedure Finalize;
+    procedure GetExternals(const PathName: string; Externals: TStrings; Recurse: Boolean = True);
     function GetModifications(const PathName: string; Callback: TSvnStatusCallback = nil;
       Recurse: Boolean = True; Update: Boolean = False; IgnoreExternals: Boolean = False;
       RecurseUnversioned: Boolean = False; SubPool: PAprPool = nil): TSvnRevNum;
@@ -1288,6 +1296,38 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+function TSvnItem.GetExternal: Boolean;
+
+var
+  Externals: TStringList;
+  I: Integer;
+  S: string;
+
+begin
+  Result := False;
+
+  if Assigned(Parent) then
+  begin
+    Externals := TStringList.Create;
+    try
+      Externals.Delimiter := Parent.PropValDelimiter;
+      Externals.StrictDelimiter := True;
+      Externals.DelimitedText := Parent.PropValues['svn:externals'];
+      S := ExtractFileName(FPathName) + ' ';
+      for I := 0 to Externals.Count - 1 do
+        if StrLIComp(PChar(Externals[I]), PChar(S), Length(S)) = 0 then
+        begin
+          Result := True;
+          Break;
+        end;
+    finally
+      Externals.Free;
+    end;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
 function TSvnItem.GetFileAttr: Cardinal;
 
 begin
@@ -1698,50 +1738,114 @@ procedure TSvnItem.DoWCStatus(Path: PChar; const Status: TSvnWCStatus2);
 var
   Parent, Child: TSvnItem;
   ParentPath, ChildsParentPath: string;
+  I: Integer;
+
+  procedure AddExternals(Parent: TSvnItem);
+  var
+    I: Integer;
+    Child: TSvnItem;
+  begin
+    for I := FReloadExternals.Count - 1 downto 0 do
+    begin
+      Child := FReloadExternals[I];
+      FReloadExternals.Delete(I);
+      Child.FParent := Parent;
+      Parent.Add(Child);
+    end;
+  end;
 
   procedure AddUnversionedItems(Parent: TSvnItem);
   var
     I: Integer;
     Child: TSvnItem;
   begin
-    for I := FReloadUnversionedList.Count - 1 downto 0 do
+    for I := FReloadUnversioned.Count - 1 downto 0 do
     begin
-      Child := FReloadUnversionedList[I];
-      FReloadUnversionedList.Delete(I);
+      Child := FReloadUnversioned[I];
+      FReloadUnversioned.Delete(I);
       Child.FParent := Parent;
       Parent.Add(Child);
     end;
   end;
 
 begin
-  if Status.text_status = svnWcStatusUnversioned then
-    FReloadUnversionedList.Add(TSvnItem.Create(FSvnClient, nil, Path, Status))
-  else
-  begin
-    Parent := FReloadStack.Peek;
-    if AnsiStrIComp(Path, PChar(Parent.SvnPathName)) = 0 then
-    begin
-      LoadStatus(Status);
-      if FKind = svnNodeDir then
-        AddUnversionedItems(Self);
-    end
+  case Status.text_status of
+    svnWcStatusUnversioned:
+      FReloadUnversioned.Add(TSvnItem.Create(FSvnClient, nil, Path, Status));
+    svnWcStatusExternal:
+      begin
+        Child := TSvnItem.Create(FSvnClient, nil, Path, Status);
+        FReloadExternals.Add(Child);
+        if FReloadRecursive then
+          FReloadGlobalExternals.Add(Child);
+      end;
     else
     begin
-      ChildsParentPath := SvnExtractFilePath(Path);
-      ParentPath := Parent.SvnPathName + SvnPathDelim;
-      while not AnsiSameText(ChildsParentPath, ParentPath) do
+      if FReloadRecursive then
       begin
-        FReloadStack.Pop;
-        Parent := FReloadStack.Peek;
-        ParentPath := Parent.SvnPathName + SvnPathDelim;
+        if FReloadStack.Count > 0 then
+          Parent := FReloadStack.Peek
+        else
+          Parent := nil;
+      end
+      else
+        Parent := Self;
+
+      if Assigned(Parent) then
+      begin
+        if StrIComp(Path, PChar(Parent.SvnPathName)) = 0 then
+        begin
+          LoadStatus(Status);
+          if FKind = svnNodeDir then
+          begin
+            AddUnversionedItems(Self);
+            AddExternals(Self);
+          end;
+          Exit;
+        end
+        else if FReloadRecursive then
+        begin
+          ChildsParentPath := SvnExtractFilePath(Path);
+          ParentPath := SvnIncludeTrailingPathDelimiter(Parent.SvnPathName);
+          while not AnsiSameText(ChildsParentPath, ParentPath) do
+          begin
+            FReloadStack.Pop;
+            if FReloadStack.Count > 0 then
+            begin
+              Parent := FReloadStack.Peek;
+              ParentPath := SvnIncludeTrailingPathDelimiter(Parent.SvnPathName);
+            end
+            else
+            begin
+              Parent := nil;
+              Break;
+            end;
+          end;
+        end;
       end;
 
-      Child := TSvnItem.Create(FSvnClient, Parent, Path, Status);
-
-      if Child.Kind = svnNodeDir then
+      if Assigned(Parent) then
       begin
-        AddUnversionedItems(Child);
-        FReloadStack.Push(Child);
+        Child := TSvnItem.Create(FSvnClient, Parent, Path, Status);
+        if Child.Kind = svnNodeDir then
+        begin
+          AddUnversionedItems(Child);
+          AddExternals(Child);
+          FReloadStack.Push(Child);
+        end;
+      end
+      else if FReloadRecursive then // not found in current stack, try externals
+      begin
+        for I := 0 to FReloadGlobalExternals.Count - 1 do
+          if AnsiSameText(Path, TSvnItem(FReloadGlobalExternals[I]).SvnPathName) then
+          begin
+            Parent := FReloadGlobalExternals[I];
+            FReloadGlobalExternals.Delete(I);
+            FReloadStack.Push(Parent);
+            Break;
+          end;
+        if Assigned(Parent) then
+          Parent.LoadStatus(Status);
       end;
     end;
   end;
@@ -1955,22 +2059,30 @@ procedure TSvnItem.Reload(Recurse: Boolean = False; Update: Boolean = False);
 var
   SubPool: PAprPool;
   Revision: TSvnOptRevision;
+  I: Integer;
 
 begin
   Clear;
   FItems := TList.Create;
 
-  FReloadUnversionedList := nil;
+  FReloadRecursive := Recurse;
+  FReloadExternals := nil;
+  FReloadGlobalExternals := nil;
+  FReloadUnversioned := nil;
   FReloadStack := TStack.Create;
   try
-    FReloadUnversionedList := TList.Create;
+    FReloadExternals := TList.Create;
+    if FReloadRecursive then
+      FReloadGlobalExternals := TList.Create;
+    FReloadUnversioned := TList.Create;
     AprCheck(apr_pool_create_ex(SubPool, FSvnClient.Pool, nil, FSvnClient.Allocator));
     try
       FSvnPathName := FSvnClient.NativePathToSvnPath(FPathName, SubPool);
       FillChar(Revision, SizeOf(TSvnOptRevision), 0);
       Revision.Kind := svnOptRevisionHead;
       FSvnClient.FCancelled := False;
-      FReloadStack.Push(Self);
+      if FReloadRecursive then
+        FReloadStack.Push(Self);
       SvnCheck(svn_client_status2(nil, PChar(FSvnPathName), @Revision, WCStatus, Self, Recurse, True, Update, False,
         False, FSvnClient.Ctx, SubPool));
     finally
@@ -1981,7 +2093,16 @@ begin
       SortItems(Recurse);
   finally
     FreeAndNil(FReloadStack);
-    FreeAndNil(FReloadUnversionedList);
+    for I := 0 to FReloadUnversioned.Count - 1 do
+      TSvnItem(FReloadUnversioned[I]).Free;
+    FreeAndNil(FReloadUnversioned);
+    for I := 0 to FReloadExternals.Count - 1 do
+      TSvnItem(FReloadExternals[I]).Free;
+    FreeAndNil(FReloadExternals);
+    if FReloadRecursive then
+      for I := 0 to FReloadGlobalExternals.Count - 1 do
+        TSvnItem(FReloadGlobalExternals[I]).Free;
+    FreeAndNil(FReloadGlobalExternals);
   end;
 end;
 
@@ -2048,6 +2169,16 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 { TSvnClient private }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnClient.GetExternalsCallback(Sender: TObject; Item: TSvnItem; var Cancel: Boolean);
+
+begin
+  Cancel := False;
+  if Assigned(FExternals) and (Item.TextStatus = svnWcStatusExternal) then
+    FExternals.Add(Item.PathName);
+end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -2371,6 +2502,24 @@ begin
     FreeSvnClientLib;
   if FAprLibLoaded then
     FreeAprLib;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnClient.GetExternals(const PathName: string; Externals: TStrings; Recurse: Boolean);
+
+begin
+  Externals.BeginUpdate;
+  try
+    FExternals := Externals;
+    try
+      GetModifications(PathName, GetExternalsCallback, Recurse);
+    finally
+      FExternals := nil;
+    end;
+  finally
+    Externals.EndUpdate;
+  end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

@@ -75,7 +75,7 @@ type
     procedure HandleShowDiffExecute(Action: TAction); override;
     procedure HandleShowDiffUpdate(Action: TAction); override;
     procedure StartCommit(AClient: TSvnClient; APathNames: TStrings; const ALogMessage: string;
-      ARecurse: Boolean = True; AKeepLocks: Boolean = False);
+      ARecurse: Boolean = True; AKeepLocks: Boolean = False; ASeparateCommits: Boolean = False);
     procedure StartRevert(AClient: TSvnClient; APathNames: TStrings; ARecurse: Boolean = True);
     procedure StartUpdate(AClient: TSvnClient; APathNames: TStrings; ARecurse: Boolean = True;
       AIgnoreExternals: Boolean = False);
@@ -126,6 +126,7 @@ type
 
   TSvnCommitThread = class(TSvnNotifyThread)
   private
+    FSeparateCommits: Boolean;
     FKeepLocks: Boolean;
     FLogMessage: string;
     FRecurse: Boolean;
@@ -133,7 +134,7 @@ type
     procedure Execute; override;
   public
     constructor Create(AFrame: TFrameSvnNotify; AClient: TSvnClient; APathNames: TStrings; const ALogMessage: string;
-      ARecurse, AKeepLocks: Boolean);
+      ARecurse, AKeepLocks, ASeparateCommits: Boolean);
   end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -265,9 +266,27 @@ end;
 
 procedure TSvnCommitThread.Execute;
 
+var
+  PathNames: TStringList;
+  I: Integer;
+
 begin
   try
-    FClient.Commit(FPathNames, FLogMessage, NotifyCallback, FRecurse, FKeepLocks);
+    if FSeparateCommits then
+    begin
+      PathNames := TStringList.Create;
+      try
+        for I := 0 to FPathNames.Count - 1 do
+        begin
+          PathNames.Text := FPathNames[I];
+          FClient.Commit(PathNames, FLogMessage, NotifyCallback, FRecurse, FKeepLocks);
+        end;
+      finally
+        PathNames.Free;
+      end;
+    end
+    else
+      FClient.Commit(FPathNames, FLogMessage, NotifyCallback, FRecurse, FKeepLocks);
     PostMessage(FFrame.Handle, AM_UPDATE, 1, 0);
   except
     on E: Exception do
@@ -285,12 +304,13 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 constructor TSvnCommitThread.Create(AFrame: TFrameSvnNotify; AClient: TSvnClient; APathNames: TStrings;
-  const ALogMessage: string; ARecurse, AKeepLocks: Boolean);
+  const ALogMessage: string; ARecurse, AKeepLocks, ASeparateCommits: Boolean);
 
 begin
   FLogMessage := ALogMessage;
   FRecurse := ARecurse;
   FKeepLocks := AKeepLocks;
+  FSeparateCommits := ASeparateCommits;
   inherited Create(AFrame, AClient, APathNames);
 end;
 
@@ -453,7 +473,7 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TFrameSvnNotify.StartCommit(AClient: TSvnClient; APathNames: TStrings; const ALogMessage: string;
-  ARecurse, AKeepLocks: Boolean);
+  ARecurse, AKeepLocks, ASeparateCommits: Boolean);
 
 begin
   Starting;
@@ -461,7 +481,7 @@ begin
   Tree.Clear;
   Tree.Header.SortColumn := NoColumn;
   Tree.Cursor := crHourGlass;
-  TSvnCommitThread.Create(Self, AClient, APathNames, ALogMessage, ARecurse, AKeepLocks);
+  TSvnCommitThread.Create(Self, AClient, APathNames, ALogMessage, ARecurse, AKeepLocks, ASeparateCommits);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
