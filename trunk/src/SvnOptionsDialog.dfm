@@ -13,7 +13,6 @@ object FormSvnOptions: TFormSvnOptions
   Font.Style = []
   OldCreateOrder = False
   Position = poScreenCenter
-  ShowHint = False
   DesignSize = (
     449
     306)
@@ -72,28 +71,37 @@ object FormSvnOptions: TFormSvnOptions
   end
   object CheckBoxConfirmAdd: TCheckBox
     Left = 8
-    Top = 51
+    Top = 75
     Width = 257
     Height = 17
     Caption = 'Confirm &Add'
-    TabOrder = 4
+    TabOrder = 5
     OnClick = CheckBoxClick
   end
   object CheckBoxAllowEmptyCommitMsg: TCheckBox
     Left = 8
-    Top = 74
+    Top = 122
     Width = 257
     Height = 17
     Caption = 'Allow empty Commit &message'
-    TabOrder = 5
+    TabOrder = 7
     OnClick = CheckBoxClick
   end
   object CheckBoxRecurseUnversioned: TCheckBox
     Left = 8
-    Top = 98
+    Top = 50
     Width = 257
     Height = 17
     Caption = 'Recurse &unversioned subdirectories'
+    TabOrder = 4
+    OnClick = CheckBoxClick
+  end
+  object CheckBoxCommitExternals: TCheckBox
+    Left = 8
+    Top = 98
+    Width = 257
+    Height = 17
+    Caption = 'Commit &externals'
     TabOrder = 6
     OnClick = CheckBoxClick
   end

@@ -505,7 +505,8 @@ begin
   begin
     Data := Sender.GetNodeData(Node);
     AssignData(Data, ParentData^.Item[CheckIndex(ParentData^.Item, Node^.Index)]);
-    if Assigned(Data) and Assigned(Data^.Item) and (Data^.Item.Kind in [svnNodeDir]) then
+    if Assigned(Data) and Assigned(Data^.Item) and ((Data^.Item.Kind = svnNodeDir) or
+      (Data^.Item.TextStatus = svnWcStatusExternal)) then
       Include(InitialStates, ivsHasChildren);
     if ParentNode^.CheckState = csCheckedNormal then
       Node^.CheckState := csCheckedNormal;
@@ -525,7 +526,7 @@ begin
       Sender.DeleteNode(Node);
       raise;
     end;
-    if Assigned(Data) and Assigned(Data^.Item) and (Data^.Item.Kind in [svnNodeDir]) then
+    if Assigned(Data) and Assigned(Data^.Item) and (Data^.Item.Kind = svnNodeDir) then
       Include(InitialStates, ivsHasChildren);
   end;
 end;

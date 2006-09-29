@@ -109,7 +109,7 @@ type
       AUpdate: Boolean = True; AIgnoreExternals: Boolean = False; ARecurseUnversioned: Boolean = False);
     procedure StartSvnCleanup(AClient: TSvnClient; APathNames: TStrings);
     procedure StartSvnCommit(AClient: TSvnClient; APathNames: TStrings; const ALogMessage: string;
-      ARecurse: Boolean = True; AKeepLocks: Boolean = False);
+      ARecurse: Boolean = True; AKeepLocks: Boolean = False; ASeparateCommits: Boolean = False);
     procedure StartSvnRevert(AClient: TSvnClient; APathNames: TStrings; ARecurse: Boolean = True);
     procedure StartSvnUpdate(AClient: TSvnClient; APathNames: TStrings; ARecurse: Boolean = True;
       AIgnoreExternals: Boolean = False);
@@ -394,7 +394,7 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TFormSvnTools.StartSvnCommit(AClient: TSvnClient; APathNames: TStrings; const ALogMessage: string;
-  ARecurse, AKeepLocks: Boolean);
+  ARecurse, AKeepLocks, ASeparateCommits: Boolean);
 
 begin
   if not (FFrame is TFrameSvnNotify) then
@@ -407,7 +407,7 @@ begin
     FNotifyFrameSettings.Save(FFrame);
   end;
 
-  TFrameSvnNotify(FFrame).StartCommit(AClient, APathNames, ALogMessage, ARecurse, AKeepLocks);
+  TFrameSvnNotify(FFrame).StartCommit(AClient, APathNames, ALogMessage, ARecurse, AKeepLocks, ASeparateCommits);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

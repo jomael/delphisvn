@@ -200,7 +200,7 @@ begin
   if FStatusException <> '' then
     raise Exception.Create(FStatusException);
 
-  if Running then
+  if Running and Assigned(FItem) and (FItem.TextStatus <> svnWcStatusExternal) then
     with FrameSvnListView do
     begin
       Node := AddItem(FItem);
