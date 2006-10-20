@@ -15,6 +15,7 @@
 {                                                                                                                      }
 { Contributors:                                                                                                        }
 {   Ondrej Kelle (tondrej)                                                                                             }
+{   Uwe Schuster (uschuster)                                                                                           }
 {                                                                                                                      }
 {**********************************************************************************************************************}
 {                                                                                                                      }
@@ -1311,7 +1312,9 @@ begin
     Externals := TStringList.Create;
     try
       Externals.Delimiter := Parent.PropValDelimiter;
+      {$IFDEF COMPILER_10_UP}
       Externals.StrictDelimiter := True;
+      {$ENDIF}
       Externals.DelimitedText := Parent.PropValues['svn:externals'];
       S := ExtractFileName(FPathName) + ' ';
       for I := 0 to Externals.Count - 1 do
