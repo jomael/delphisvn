@@ -120,12 +120,14 @@ var
 begin
   {$IFDEF COMPILER_10}
   Lib := GetModuleHandle('coreide100.bpl');
-  {$ENDIF}
-  {$IFDEF COMPILER_9}
+  {$ELSE} {$IFDEF COMPILER_9}
   Lib := GetModuleHandle('coreide90.bpl');
-  {$ENDIF}
-  {$IFNDEF COMPILER_9_UP}
+  {$ELSE} {$IFDEF COMPILER_7}
+  Lib := GetModuleHandle('coreide70.bpl');
+  {$ELSE}
   Lib := 0;
+  {$ENDIF}
+  {$ENDIF}
   {$ENDIF}
   if Lib = 0 then
     Exit;

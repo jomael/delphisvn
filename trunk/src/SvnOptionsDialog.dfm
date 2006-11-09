@@ -1,10 +1,10 @@
 object FormSvnOptions: TFormSvnOptions
   Left = 301
   Top = 78
+  Width = 457
+  Height = 333
   BorderIcons = [biSystemMenu]
   Caption = 'Subversion Options'
-  ClientHeight = 306
-  ClientWidth = 449
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText

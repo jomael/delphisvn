@@ -1133,8 +1133,20 @@ var
 //----- svn_diff.h -----------------------------------------------------------------------------------------------------
 
 type
+  TSvnDiffType = (svnDifftypeCommon, svnDiffTypeDiffModified, svnDiffTypeDiffLatest, svnDiffTypeDiffCommon,
+    svnDiffTypeConflict);
   PSvnDiff = ^TSvnDiff;
-  TSvnDiff = THandle;
+  TSvnDiff = record
+    next: PSvnDiff;
+    _type: TSvnDiffType;
+    original_start: TAprOff;
+    original_length: TAprOff;
+    modified_start: TAprOff;
+    modified_length: TAprOff;
+    latest_start: TAprOff;
+    latest_length: TAprOff;
+    resolved_diff: PSvnDiff;
+  end;
   TSvnDiffDataSource = (svnDiffDatasourceOriginal, svnDiffDatasourceModified, svnDiffDatasourceLatest,
     svnDiffDatasourceAncestor);
   PSvnDiffFns = ^TSvnDiffFns;

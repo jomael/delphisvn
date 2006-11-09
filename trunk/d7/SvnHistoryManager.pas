@@ -8,7 +8,7 @@
 { Software distributed under the License is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, either      }
 { express or implied. See the License for the specific language governing rights and limitations under the License.    }
 {                                                                                                                      }
-{ The Original Code is SvnEditorView.pas.                                                                              }
+{ The Original Code is SvnEditorViewFrame.pas.                                                                         }
 {                                                                                                                      }
 { The Initial Developer of the Original Code is Ondrej Kelle.                                                          }
 { Portions created by Ondrej Kelle are Copyright Ondrej Kelle. All rights reserved.                                    }
@@ -18,175 +18,212 @@
 {                                                                                                                      }
 {**********************************************************************************************************************}
 {                                                                                                                      }
-{ This unit contains TSvnEditorView, a class which implements ICustomEditorView and ICustomEditorFrameView interfaces  }
-{ to provide a new editor view displaying Subversion information about the file.                                       }
+{ This unit contains the history manager.                                                                              }
 {                                                                                                                      }
 {**********************************************************************************************************************}
 
-unit SvnEditorView;
+unit SvnHistoryManager;
 
 interface
 
 uses
-  Classes, SysUtils, Forms,
-  ToolsAPI, DesignIntf, EditorViewSupport;
-
-{$INCLUDE Compilers.inc}
+  Classes, SysUtils, SvnIDEHistory;
 
 type
-  TSvnEditorView = class(TInterfacedObject, ICustomEditorView, ICustomEditorFrameView)
+  TFileHistoryManager = class(TInterfacedObject, IOTAFileHistoryManager)
   private
-    { ICustomEditorView }
-    function GetCaption: string;
-    function GetPriority: Integer;
-    function GetStyle: TEditorViewStyle;
-    procedure Display(const AContext: IInterface; AViewObject: TObject);
-    function EditAction(const AContext: IInterface; Action: TEditAction; AViewObject: TObject): Boolean;
-    function GetEditState(const AContext: IInterface; AViewObject: TObject): TEditState;
-    function Handles(const AContext: IInterface): Boolean;
-    {$IFDEF COMPILER_9_UP}
-    function GetCanCloneView: Boolean;
-    function GetViewIdentifier: string;
-    procedure Hide(const AContext: IInterface; AViewObject: TObject);
-    procedure ViewClosed(const AContext: IInterface; AViewObject: TObject);
-    {$ENDIF}
+    FNotifiers: TInterfaceList;
+    FProviders: TInterfaceList;
 
-    { ICustomEditorFrameView }
-    function GetFrameClass: TCustomFrameClass;
+    { IOTAFileHistoryManager }
+    function AddNotifier(const ANotifier: IOTAFileHistoryNotifier): Integer;
+    procedure AddTemporaryLabel(const ALabelName: WideString; const AFiles: TOTAFileNameArray);
+    function Get_Count: Integer;
+    function GetFileHistoryProvider(Index: Integer): IOTAFileHistoryProvider;
+    function RegisterHistoryProvider(const HistoryProvider: IOTAFileHistoryProvider): Integer;
+    procedure RemoveNotifier(Index: Integer);
+    procedure RevertTemporaryLabel(const ALabelName: WideString);
+    procedure UnregisterHistoryProvider(Index: Integer);
+    procedure UpdateProviders;
+  public
+    constructor Create;
+    destructor Destroy; override;
   end;
+
+var
+  FileHistoryManager: IOTAFileHistoryManager = nil;
 
 implementation
 
 uses
-  SvnClient, SvnIDEClient, SvnEditorViewFrame;
+  RTLConsts;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-{ TSvnEditorView private: IOTACustomEditorView }
+{ TFileHistoryManager private: IOTAFileHistoryManager }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TSvnEditorView.Display(const AContext: IInterface; AViewObject: TObject);
+function TFileHistoryManager.AddNotifier(const ANotifier: IOTAFileHistoryNotifier): Integer;
 
 var
-  Module: IOTAModule;
-  Items: TSvnItemArray;
   I: Integer;
 
 begin
-  if ContextToModule(AContext, Module) and Assigned(Module) then
-  begin
-    if AViewObject is TFrameSvnEditorView then
+  for I := 0 to FNotifiers.Count - 1 do
+    if not Assigned(FNotifiers[I]) then
     begin
-      SetLength(Items, Module.ModuleFileCount);
-      for I := 0 to Module.ModuleFileCount - 1 do
-        Items[I] := TSvnItem.Create(SvnIDEModule.SvnClient, nil, Module.ModuleFileEditors[I].FileName);
-      TFrameSvnEditorView(AViewObject).Display(Items);
+      FNotifiers[I] := ANotifier;
+      Result := I;
+      Exit;
     end;
-  end;
+
+  Result := FNotifiers.Add(ANotifier);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TSvnEditorView.EditAction(const AContext: IInterface; Action: TEditAction; AViewObject: TObject): Boolean;
+procedure TFileHistoryManager.AddTemporaryLabel(const ALabelName: WideString; const AFiles: TOTAFileNameArray);
 
 begin
-  Result := True;
+
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TSvnEditorView.GetCaption: string;
-
-begin
-  Result := 'Subversion';
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-function TSvnEditorView.GetEditState(const AContext: IInterface; AViewObject: TObject): TEditState;
-
-begin
-  Result := [];
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-function TSvnEditorView.GetPriority: Integer;
-
-begin
-  Result := NormalViewPriority;
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-function TSvnEditorView.GetStyle: TEditorViewStyle;
-
-begin
-  Result := [evsDesigntime];
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-function TSvnEditorView.Handles(const AContext: IInterface): Boolean;
+function TFileHistoryManager.Get_Count: Integer;
 
 var
-  Module: IOTAModule;
+  I: Integer;
 
 begin
-  Result := False;
+  Result := 0;
 
-  if ContextToModule(AContext, Module) and Assigned(Module) then
-    Result := SvnIDEModule.SvnClient.IsPathVersioned(Module.FileName);
-end;
-
-{$IFDEF COMPILER_9_UP}
-//----------------------------------------------------------------------------------------------------------------------
-
-function TSvnEditorView.GetCanCloneView: Boolean;
-
-begin
-  Result := False;
+  for I := 0 to FProviders.Count - 1 do
+    if Assigned(FProviders[I]) then
+      Inc(Result);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TSvnEditorView.GetViewIdentifier: string;
+function TFileHistoryManager.GetFileHistoryProvider(Index: Integer): IOTAFileHistoryProvider;
+
+var
+  I, TmpIndex: Integer;
 
 begin
-  Result := 'TOndrej.SubversionView';
+  Result := nil;
+  if (Index < 0) or (Index > Get_Count - 1) then
+    TList.Error(SListIndexError, Index);
+
+  TmpIndex := -1;
+  for I := 0 to FProviders.Count - 1 do
+    if Assigned(FProviders[I]) then
+    begin
+      Inc(TmpIndex);
+      if (TmpIndex = Index) then
+      begin
+        Result := FProviders[I] as IOTAFileHistoryProvider;
+        Break;
+      end;
+    end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TSvnEditorView.Hide(const AContext: IInterface; AViewObject: TObject);
+function TFileHistoryManager.RegisterHistoryProvider(const HistoryProvider: IOTAFileHistoryProvider): Integer;
+
+var
+  I: Integer;
 
 begin
-  if AViewObject is TFrameSvnEditorView then
-    TFrameSvnEditorView(AViewObject).FreeItems;
+  Result := -1;
+
+  for I := 0 to FProviders.Count - 1 do
+    if not Assigned(FProviders[I]) then
+    begin
+      FProviders[I] := HistoryProvider;
+      Result := I;
+      Break;
+    end;
+  if Result = -1 then
+    Result := FProviders.Add(HistoryProvider);
+
+  for I := 0 to FNotifiers.Count - 1 do
+    if Assigned(FNotifiers[I]) then
+      (FNotifiers[I] as IOTAFileHistoryNotifier).ProvidersUpdated;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TSvnEditorView.ViewClosed(const AContext: IInterface; AViewObject: TObject);
+procedure TFileHistoryManager.RemoveNotifier(Index: Integer);
 
 begin
-  if AViewObject is TFrameSvnEditorView then
-    TFrameSvnEditorView(AViewObject).Clear;
+  FNotifiers[Index] := nil;
 end;
-{$ENDIF}
 
 //----------------------------------------------------------------------------------------------------------------------
 
-{ TSvnEditorView private: IOTACustomEditorFrameView }
+procedure TFileHistoryManager.RevertTemporaryLabel(const ALabelName: WideString);
+
+begin
+
+end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TSvnEditorView.GetFrameClass: TCustomFrameClass;
+procedure TFileHistoryManager.UnregisterHistoryProvider(Index: Integer);
+
+var
+  I: Integer;
 
 begin
-  Result := TFrameSvnEditorView;
+  FProviders[Index] := nil;
+
+  for I := 0 to FNotifiers.Count - 1 do
+    if Assigned(FNotifiers[I]) then
+      (FNotifiers[I] as IOTAFileHistoryNotifier).ProvidersUpdated;
 end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFileHistoryManager.UpdateProviders;
+
+begin
+
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+{ TFileHistoryManager public }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+constructor TFileHistoryManager.Create;
+
+begin
+  inherited Create;
+  FNotifiers := TInterfaceList.Create;
+  FProviders := TInterfaceList.Create;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+destructor TFileHistoryManager.Destroy;
+
+begin
+  FProviders.Free;
+  FNotifiers.Free;
+  inherited Destroy;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+initialization
+  FileHistoryManager := TFileHistoryManager.Create;
+
+finalization
+  FileHistoryManager := nil;
 
 //----------------------------------------------------------------------------------------------------------------------
 

@@ -103,8 +103,13 @@ type
   public
     procedure Cancel;
     function IsBusy: Boolean;
+    {$IFDEF COMPILER_9_UP}
     procedure LoadWindowState(Desktop: TCustomIniFile); override;
     procedure SaveWindowState(Desktop: TCustomIniFile; IsProject: Boolean); override;
+    {$ELSE}
+    procedure LoadWindowState(Desktop: TMemIniFile); override;
+    procedure SaveWindowState(Desktop: TMemIniFile; IsProject: Boolean); override;
+    {$ENDIF}
     procedure StartSvnCheckModifications(AClient: TSvnClient; APathNames: TStrings; ARecurse: Boolean = True;
       AUpdate: Boolean = True; AIgnoreExternals: Boolean = False; ARecurseUnversioned: Boolean = False);
     procedure StartSvnCleanup(AClient: TSvnClient; APathNames: TStrings);
@@ -327,7 +332,11 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+{$IFDEF COMPILER_9_UP}
 procedure TFormSvnTools.LoadWindowState(Desktop: TCustomIniFile);
+{$ELSE}
+procedure TFormSvnTools.LoadWindowState(Desktop: TMemIniFile);
+{$ENDIF}
 
 begin
   inherited LoadWindowState(Desktop);
@@ -341,7 +350,11 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+{$IFDEF COMPILER_9_UP}
 procedure TFormSvnTools.SaveWindowState(Desktop: TCustomIniFile; IsProject: Boolean);
+{$ELSE}
+procedure TFormSvnTools.SaveWindowState(Desktop: TMemIniFile; IsProject: Boolean);
+{$ENDIF}
 
 begin
   inherited SaveWindowState(Desktop, IsProject);
@@ -461,7 +474,9 @@ begin
   Icon := SvnImageModule.Icon;
   DeskSection := SvnToolFormSection;
   AutoSave := True;
+  {$IFDEF COMPILER_9_UP}
   VisibleOnUndock := True;
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

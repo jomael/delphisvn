@@ -18,12 +18,12 @@
 {                                                                                                                      }
 {**********************************************************************************************************************}
 {                                                                                                                      }
-{ This unit contains TSvnEditorView, a class which implements ICustomEditorView and ICustomEditorFrameView interfaces  }
-{ to provide a new editor view displaying Subversion information about the file.                                       }
+{ This unit contains TSvnHistoryView, a class which implements ICustomEditorView and ICustomEditorFrameView interfaces }
+{ to provide a new editor view displaying Subversion history information about the file.                               }
 {                                                                                                                      }
 {**********************************************************************************************************************}
 
-unit SvnEditorView;
+unit SvnHistoryView;
 
 interface
 
@@ -31,10 +31,8 @@ uses
   Classes, SysUtils, Forms,
   ToolsAPI, DesignIntf, EditorViewSupport;
 
-{$INCLUDE Compilers.inc}
-
 type
-  TSvnEditorView = class(TInterfacedObject, ICustomEditorView, ICustomEditorFrameView)
+  TSvnHistoryView = class(TInterfacedObject, ICustomEditorView, ICustomEditorFrameView)
   private
     { ICustomEditorView }
     function GetCaption: string;
@@ -44,12 +42,6 @@ type
     function EditAction(const AContext: IInterface; Action: TEditAction; AViewObject: TObject): Boolean;
     function GetEditState(const AContext: IInterface; AViewObject: TObject): TEditState;
     function Handles(const AContext: IInterface): Boolean;
-    {$IFDEF COMPILER_9_UP}
-    function GetCanCloneView: Boolean;
-    function GetViewIdentifier: string;
-    procedure Hide(const AContext: IInterface; AViewObject: TObject);
-    procedure ViewClosed(const AContext: IInterface; AViewObject: TObject);
-    {$ENDIF}
 
     { ICustomEditorFrameView }
     function GetFrameClass: TCustomFrameClass;
@@ -58,61 +50,23 @@ type
 implementation
 
 uses
-  SvnClient, SvnIDEClient, SvnEditorViewFrame;
+  SvnClient, SvnIDEClient, SvnHistoryViewFrame;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-{ TSvnEditorView private: IOTACustomEditorView }
+{ TSvnHistoryView private: ICustomEditorView}
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TSvnEditorView.Display(const AContext: IInterface; AViewObject: TObject);
-
-var
-  Module: IOTAModule;
-  Items: TSvnItemArray;
-  I: Integer;
+function TSvnHistoryView.GetCaption: string;
 
 begin
-  if ContextToModule(AContext, Module) and Assigned(Module) then
-  begin
-    if AViewObject is TFrameSvnEditorView then
-    begin
-      SetLength(Items, Module.ModuleFileCount);
-      for I := 0 to Module.ModuleFileCount - 1 do
-        Items[I] := TSvnItem.Create(SvnIDEModule.SvnClient, nil, Module.ModuleFileEditors[I].FileName);
-      TFrameSvnEditorView(AViewObject).Display(Items);
-    end;
-  end;
+  Result := 'History';
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TSvnEditorView.EditAction(const AContext: IInterface; Action: TEditAction; AViewObject: TObject): Boolean;
-
-begin
-  Result := True;
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-function TSvnEditorView.GetCaption: string;
-
-begin
-  Result := 'Subversion';
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-function TSvnEditorView.GetEditState(const AContext: IInterface; AViewObject: TObject): TEditState;
-
-begin
-  Result := [];
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-function TSvnEditorView.GetPriority: Integer;
+function TSvnHistoryView.GetPriority: Integer;
 
 begin
   Result := NormalViewPriority;
@@ -120,7 +74,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TSvnEditorView.GetStyle: TEditorViewStyle;
+function TSvnHistoryView.GetStyle: TEditorViewStyle;
 
 begin
   Result := [evsDesigntime];
@@ -128,7 +82,35 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TSvnEditorView.Handles(const AContext: IInterface): Boolean;
+procedure TSvnHistoryView.Display(const AContext: IInterface; AViewObject: TObject);
+
+var
+  Module: IOTAModule;
+
+begin
+  if ContextToModule(AContext, Module) and Assigned(Module) and (AViewObject is TFrameSvnHistoryView) then
+    TFrameSvnHistoryView(AViewObject).Display(Module);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TSvnHistoryView.EditAction(const AContext: IInterface; Action: TEditAction; AViewObject: TObject): Boolean;
+
+begin
+  Result := True;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TSvnHistoryView.GetEditState(const AContext: IInterface; AViewObject: TObject): TEditState;
+
+begin
+  Result := [];
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TSvnHistoryView.Handles(const AContext: IInterface): Boolean;
 
 var
   Module: IOTAModule;
@@ -140,52 +122,16 @@ begin
     Result := SvnIDEModule.SvnClient.IsPathVersioned(Module.FileName);
 end;
 
-{$IFDEF COMPILER_9_UP}
 //----------------------------------------------------------------------------------------------------------------------
 
-function TSvnEditorView.GetCanCloneView: Boolean;
+{ TSvnHistoryView private: ICustomEditorFrameView }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TSvnHistoryView.GetFrameClass: TCustomFrameClass;
 
 begin
-  Result := False;
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-function TSvnEditorView.GetViewIdentifier: string;
-
-begin
-  Result := 'TOndrej.SubversionView';
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-procedure TSvnEditorView.Hide(const AContext: IInterface; AViewObject: TObject);
-
-begin
-  if AViewObject is TFrameSvnEditorView then
-    TFrameSvnEditorView(AViewObject).FreeItems;
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-procedure TSvnEditorView.ViewClosed(const AContext: IInterface; AViewObject: TObject);
-
-begin
-  if AViewObject is TFrameSvnEditorView then
-    TFrameSvnEditorView(AViewObject).Clear;
-end;
-{$ENDIF}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-{ TSvnEditorView private: IOTACustomEditorFrameView }
-
-//----------------------------------------------------------------------------------------------------------------------
-
-function TSvnEditorView.GetFrameClass: TCustomFrameClass;
-
-begin
-  Result := TFrameSvnEditorView;
+  Result := TFrameSvnHistoryView;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

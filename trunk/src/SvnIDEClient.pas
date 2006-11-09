@@ -32,7 +32,11 @@ interface
 
 uses
   Windows, Classes, SysUtils, Forms, Messages, Graphics, Dialogs, Controls, Menus, ActnList, ActnMenus, ImgList,
-  ToolsAPI, FileHistoryAPI, EditorViewSupport, Dockform,
+  ToolsAPI,
+  {$IFDEF COMPILER_9_UP}
+  FileHistoryAPI,
+  {$ENDIF}
+  SvnIDEHistory, EditorViewSupport, Dockform,
   svn_client, SvnClient;
 
 type
@@ -96,6 +100,10 @@ type
   private
     FEditorView: Pointer;
     FEditorViewIntf: ICustomEditorFrameView;
+    {$IFNDEF COMPILER_9_UP}
+    FHistoryView: Pointer;
+    FHistoryViewIntf: ICustomEditorFrameView;
+    {$ENDIF}
     FHistoryProviderIndex: Integer;
     FMenuItem: TMenuItem;
     FSettings: TSvnIDESettings;
@@ -130,6 +138,9 @@ type
     function FindSvnHistoryNode(Tree: TObject; Revision: Integer): Pointer;
     function GetEditWindow: TCustomForm;
     function GetSvnHistoryNodeItem(Tree: TObject; Node: Pointer): TSvnHistoryItem;
+    {$IFNDEF COMPILER_9_UP}
+    function SelectEditorView(const TabCaption: string): Boolean;
+    {$ENDIF}
     procedure SetupBlameControl;
     function ShowBlame(const FileName: string): Boolean;
     function ShowDiff(const FileName: string; FromRevision, ToRevision: Integer): Boolean;
@@ -154,9 +165,12 @@ implementation
 
 uses
   Registry, ActnMan, StdCtrls, Tabs, ComCtrls, ExtCtrls,
+  {$IFNDEF COMPILER_9_UP}
+  DesignIntf, VirtualTrees, SynEdit, SvnHistoryManager, SvnHistoryView, SvnHistoryViewFrame, 
+  {$ENDIF}
   DeskUtil,
   SvnImages, SvnClientLoginPrompt, SvnClientSSLClientCertPrompt, SvnClientSSLServerTrustPrompt, SvnLogMessagePrompt,
-  SvnIDEHistory, SvnEditorView, SvnOptionsDialog, SvnToolForm;
+  SvnEditorView, SvnOptionsDialog, SvnToolForm;
 
 {$R *.dfm}
 
@@ -221,7 +235,13 @@ const
   vclide = 'vclide90.bpl';
   {$ENDIF}
 
+  {$IFDEF COMPILER_7}
+  coreide = 'coreide70.bpl';
+  vclide = 'vclide70.bpl';
+  {$ENDIF}
+
   SExpandRootMacro = '@Uiutils@ExpandRootMacro$qqrx17System@AnsiString';
+  {$IFDEF COMPILER_9_UP}
   SEditControlGetLinesInWindow = '@Editorcontrol@TCustomEditControl@GetLinesInWindow$qqrv';
   SEditControlGetTopLine = '@Editorcontrol@TCustomEditControl@GetTopLine$qqrv';
 
@@ -231,11 +251,13 @@ const
   SBaseVirtualTreeGetNodeData = '@Idevirtualtrees@TBaseVirtualTree@GetNodeData$qqrp28Idevirtualtrees@TVirtualNode';
   SBaseVirtualTreeScrollIntoView = '@Idevirtualtrees@TBaseVirtualTree@ScrollIntoView$qqrp28Idevirtualtrees@TVirtualNodeoo';
   SBaseVirtualTreeSetSelected = '@Idevirtualtrees@TBaseVirtualTree@SetSelected$qqrp28Idevirtualtrees@TVirtualNodeo';
+  {$ENDIF}
 
 function ExpandRootMacro(const S: string): string; external coreide name SExpandRootMacro;
+
+{$IFDEF COMPILER_9_UP}
 function EditControlGetLinesInWindow(Self: TObject): Integer; external coreide name SEditControlGetLinesInWindow;
 function EditControlGetTopLine(Self: TObject): Integer; external coreide name SEditControlGetTopLine;
-
 // vclide seems to contain a different version of Virtual TreeView; hence these imports as a workaround
 function BaseVirtualTreeGetFirst(Self: TObject): Pointer; external vclide name SBaseVirtualTreeGetFirst;
 function BaseVirtualTreeGetFirstSelected(Self: TObject): Pointer; external vclide name SBaseVirtualTreeGetFirstSelected;
@@ -246,6 +268,47 @@ function BaseVirtualTreeScrollIntoView(Self: TObject; Node: Pointer; Center, Hor
   external vclide name SBaseVirtualTreeScrollIntoView;
 procedure BaseVirtualTreeSetSelected(Self: TObject; Node: Pointer; Value: Boolean);
   external vclide name SBaseVirtualTreeSetSelected;
+{$ELSE}
+function EditControlGetLinesInWindow(Self: TObject): Integer;
+begin
+  Result := TSynEdit(Self).LinesInWindow;
+end;
+
+function EditControlGetTopLine(Self: TObject): Integer;
+begin
+  Result := TSynEdit(Self).TopLine;
+end;
+
+function BaseVirtualTreeGetFirst(Self: TObject): Pointer;
+begin
+  Result := TBaseVirtualTree(Self).GetFirst;
+end;
+
+function BaseVirtualTreeGetFirstSelected(Self: TObject): Pointer;
+begin
+  Result := TBaseVirtualTree(Self).GetFirstSelected;
+end;
+
+function BaseVirtualTreeGetNext(Self: TObject; Node: Pointer): Pointer;
+begin
+  Result := TBaseVirtualTree(Self).GetNext(Node);
+end;
+
+function BaseVirtualTreeGetNodeData(Self: TObject; Node: Pointer): Pointer;
+begin
+  Result := TBaseVirtualTree(Self).GetNodeData(Node);
+end;
+
+function BaseVirtualTreeScrollIntoView(Self: TObject; Node: Pointer; Center, Horizontally: Boolean): Boolean;
+begin
+  Result := TBaseVirtualTree(Self).ScrollIntoView(Node, Center, Horizontally);
+end;
+
+procedure BaseVirtualTreeSetSelected(Self: TObject; Node: Pointer; Value: Boolean);
+begin
+  TBaseVirtualTree(Self).Selected[Node] := Value;
+end;
+{$ENDIF}
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -455,6 +518,7 @@ begin
   TCMHintShow(Message).HintInfo^.ReshowTimeout := 500;
   TCMHintShow(Message).HintInfo^.HintStr := '';
 
+  {$IFDEF COMPILER_9_UP}
   Tree := nil;
   for I := 0 to Parent.ControlCount - 1 do
     if SameText(Parent.Controls[I].Name, 'RevisionContentTree') then
@@ -462,6 +526,9 @@ begin
       Tree := Parent.Controls[I];
       Break;
     end;
+  {$ELSE}
+  Tree := (FControl.Owner as TFrameSvnHistoryView).TreeContent;
+  {$ENDIF}
   if not Assigned(Tree) then
     Exit;
 
@@ -498,7 +565,9 @@ procedure TBlameControl.Paint;
 
 var
   Frame: TWinControl;
+  {$IFDEF COMPILER_9_UP}
   TabSet1: TTabSet;
+  {$ENDIF}
   Tree: TObject;
   I, Index, W: Integer;
   EditorServices: IOTAEditorServices;
@@ -513,6 +582,7 @@ begin
   Canvas.Brush.Color := clWindow;
   Canvas.FillRect(ClientRect);
 
+  {$IFDEF COMPILER_9_UP}
   if not Assigned(FControl) or not Assigned(Parent) or // tab sheet
     not Assigned(Parent.Parent) then // page control
     Exit;
@@ -527,6 +597,10 @@ begin
 
   // find treeview
   Tree := Frame.FindComponent('RevisionContentTree');
+  {$ELSE}
+  Frame := FControl.Owner as TFrameSvnHistoryView;
+  Tree := TFrameSvnHistoryView(Frame).TreeContent;
+  {$ENDIF}
   if not Assigned(Tree) then
     Exit;
 
@@ -556,7 +630,11 @@ begin
     end;
   end;
 
+  {$IFDEF COMPILER_9_UP}
   if BorlandIDEServices.GetService(IOTAEditorServices, EditorServices) then
+  {$ELSE}
+  if Supports(BorlandIDEServices, IOTAEditorServices, EditorServices) then
+  {$ENDIF}
   begin
     EditOptions := EditorServices.GetEditOptions(cDefEdPascal);
     if Assigned(EditOptions) then
@@ -569,7 +647,11 @@ begin
 
   TopLine := EditControlGetTopLine(FControl);
   LinesInWindow := EditControlGetLinesInWindow(FControl);
+  {$IFDEF COMPILER_9_UP}
   LineHeight := FControl.Height div LinesInWindow;
+  {$ELSE}
+  LineHeight := TSynEdit(FControl).LineHeight;
+  {$ENDIF}
 
   if HistoryItem <> FLastItem then
   begin
@@ -690,7 +772,12 @@ var
 begin
   FDirectories := '';
   FDirHistory.Clear;
-  if not Assigned(BorlandIDEServices) or not BorlandIDEServices.GetService(IOTAServices, Services) then
+  if not Assigned(BorlandIDEServices) or
+    {$IFDEF COMPILER_9_UP}
+    not BorlandIDEServices.GetService(IOTAServices, Services) then
+    {$ELSE}
+    not Supports(BorlandIDEServices, IOTAServices, Services) then
+    {$ENDIF}
     Exit;
 
   Registry := TRegistry.Create(KEY_READ);
@@ -743,7 +830,12 @@ var
   I: Integer;
 
 begin
-  if not Assigned(BorlandIDEServices) or not BorlandIDEServices.GetService(IOTAServices, Services) then
+  if not Assigned(BorlandIDEServices) or
+    {$IFDEF COMPILER_9_UP}
+    not BorlandIDEServices.GetService(IOTAServices, Services) then
+    {$ELSE}
+    not Supports(BorlandIDEServices, IOTAServices, Services) then
+    {$ENDIF}
     Exit;
 
   Registry := TRegistry.Create;
@@ -787,7 +879,9 @@ end;
 procedure TSvnIDEClient.Finalize;
 
 var
+  {$IFDEF COMPILER_9_UP}
   FileHistoryManager: IOTAFileHistoryManager;
+  {$ENDIF}
   MainMenuBar: THackActionMainMenuBar;
   I: Integer;
   Item: TActionClientItem;
@@ -803,14 +897,23 @@ var
   end;
 
 begin
-  if (FHistoryProviderIndex <> -1) and Assigned(BorlandIDEServices) and
-    BorlandIDEServices.GetService(IOTAFileHistoryManager, FileHistoryManager) then
+  if (FHistoryProviderIndex <> -1) and Assigned(BorlandIDEServices)
+    {$IFDEF COMPILER_9_UP}
+    and BorlandIDEServices.GetService(IOTAFileHistoryManager, FileHistoryManager)
+    {$ENDIF}
+    then
     FileHistoryManager.UnregisterHistoryProvider(FHistoryProviderIndex);
   FHistoryProviderIndex := -1;
   if Assigned(FEditorView) then
     UnregisterEditorView(FEditorView);
   FEditorView := nil;
   FEditorViewIntf := nil;
+  {$IFNDEF COMPILER_9_UP}
+  if Assigned(FHistoryView) then
+    UnregisterEditorView(FHistoryView);
+  FHistoryView := nil;
+  FHistoryViewIntf := nil;
+  {$ENDIF}
 
   FreeAndNil(FSvnClient);
   FreeAndNil(FMenuItem);
@@ -879,10 +982,17 @@ end;
 procedure TSvnIDEClient.Initialize;
 
 var
+  {$IFDEF COMPILER_9_UP}
   FileHistoryManager: IOTAFileHistoryManager;
+  {$ENDIF}
   NTAServices: INTAServices;
   MenuItem: TMenuItem;
   I: Integer;
+  {$IFNDEF COMPILER_9_UP}
+  MainMenu1: TMainMenu;
+  ToolsItem: TMenuItem;
+  ToolsItemIndex: Integer;
+  {$ENDIF}
 
 begin
   FSettings.LoadSettings;
@@ -898,12 +1008,20 @@ begin
 
   if Assigned(BorlandIDEServices) then
   begin
+    {$IFDEF COMPILER_9_UP}
     if BorlandIDEServices.GetService(IOTAFileHistoryManager, FileHistoryManager) then
+    {$ENDIF}
       FHistoryProviderIndex := FileHistoryManager.RegisterHistoryProvider(TSvnFileHistoryProvider.Create);
     FEditorViewIntf := TSvnEditorView.Create;
     FEditorView := RegisterEditorView(FEditorViewIntf);
 
+    {$IFDEF COMPILER_9_UP}
     if BorlandIDEServices.GetService(INTAServices, NTAServices) then
+    {$ELSE}
+    FHistoryViewIntf := TSvnHistoryView.Create;
+    FHistoryView := RegisterEditorView(FHistoryViewIntf);
+    if Supports(BorlandIDEServices, INTAServices, NTAServices) then
+    {$ENDIF}
     begin
       FMenuItem := TMenuItem.Create(Application.MainForm);
       FMenuItem.Name := 'SubversionMenu';
@@ -946,7 +1064,14 @@ begin
         raise;
       end;
 
+      {$IFDEF COMPILER_9_UP}
       NTAServices.AddActionMenu('ToolsMenu', nil, FMenuItem);
+      {$ELSE}
+      MainMenu1 := Application.MainForm.FindComponent('MainMenu1') as TMainMenu;
+      ToolsItem := Application.MainForm.FindComponent('ToolsMenu') as TMenuItem;
+      ToolsItemIndex := MainMenu1.Items.IndexOf(ToolsItem);
+      MainMenu1.Items.Insert(ToolsItemIndex + 1, FMenuItem);
+      {$ENDIF}
     end;
   end;
 
@@ -970,10 +1095,18 @@ var
   Splitter: TSplitter;
 
 begin
+  {$IFDEF COMPILER_9_UP}
   HistoryFrame := TCustomFrame(FindChildControl(Form, 'TFileHistoryFrame'));
+  {$ELSE}
+  HistoryFrame := TCustomFrame(FindChildControl(Form, 'TFrameSvnHistoryView'));
+  {$ENDIF}
   if not Assigned(HistoryFrame) then
     Exit;
+  {$IFDEF COMPILER_9_UP}
   RevisionContentTree := HistoryFrame.FindComponent('RevisionContentTree');
+  {$ELSE}
+  RevisionContentTree := TFrameSvnHistoryView(HistoryFrame).TreeContent;
+  {$ENDIF}
   if not Assigned(RevisionContentTree) then
     Exit;
 
@@ -982,6 +1115,7 @@ begin
     Exit;
 
   // find edit control
+  {$IFDEF COMPILER_9_UP}
   EditControl := nil;
   for I := 0 to TabSheet1.ControlCount - 1 do
     if TabSheet1.Controls[I].ClassNameIs('TEditControl') then
@@ -989,6 +1123,9 @@ begin
       EditControl := TabSheet1.Controls[I] as TWinControl;
       Break;
     end;
+  {$ELSE}
+  EditControl := TFrameSvnHistoryView(HistoryFrame).EditContent;
+  {$ENDIF}
   if not Assigned(EditControl) then
     Exit;
 
@@ -1295,7 +1432,11 @@ var
 
 begin
   Result := nil;
+  {$IFDEF COMPILER_9_UP}
   if not BorlandIDEServices.GetService(IOTAEditorServices, EditorServices) then
+  {$ELSE}
+  if not Supports(BorlandIDEServices, IOTAEditorServices, EditorServices) then
+  {$ENDIF}
     Exit;
   EditView := EditorServices.TopView;
   if not Assigned(EditView) then
@@ -1330,6 +1471,32 @@ begin
   end;
 end;
 
+{$IFNDEF COMPILER_9_UP}
+//----------------------------------------------------------------------------------------------------------------------
+
+function TSvnIDEClient.SelectEditorView(const TabCaption: string): Boolean;
+
+var
+  Form: TCustomForm;
+  ViewBar: TTabSet;
+  TabIndex: Integer;
+
+begin
+  Result := False;
+  Form := GetEditWindow;
+  if not Assigned(Form) then
+    Exit;
+  ViewBar := TTabSet(Form.FindComponent('ViewBar'));
+  if not Assigned(ViewBar) then
+    Exit;
+  TabIndex := ViewBar.Tabs.IndexOf(TabCaption);
+  if TabIndex = -1 then
+    Exit;
+  ViewBar.TabIndex := TabIndex;
+  Result := True;
+end;
+{$ENDIF}
+
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TSvnIDEClient.SetupBlameControl;
@@ -1345,11 +1512,15 @@ function TSvnIDEClient.ShowBlame(const FileName: string): Boolean;
 var
   ModuleServices: IOTAModuleServices;
   Module: IOTAModule;
+  {$IFDEF COMPILER_9_UP}
+  TabSet1: TTabSet;
+  {$ELSE}
+  ActionServices: IOTAActionServices;
+  {$ENDIF}
   SourceEditor: IOTASourceEditor;
   I: Integer;
   Form: TCustomForm;
   HistoryFrame: TCustomFrame;
-  TabSet1: TTabSet;
   Index: Integer;
   FileSelector: TComboBox;
   Tree: TObject;
@@ -1359,11 +1530,23 @@ begin
   Result := False;
 
   // open and show the file in source code editor
+  {$IFDEF COMPILER_9_UP}
   if not BorlandIDEServices.GetService(IOTAModuleServices, ModuleServices) then
+  {$ELSE}
+  if not Supports(BorlandIDEServices, IOTAModuleServices, ModuleServices) then
+  {$ENDIF}
     Exit;
   Module := ModuleServices.FindModule(FileName);
   if not Assigned(Module) then
+  {$IFDEF COMPILER_9_UP}
     Module := ModuleServices.OpenModule(FileName);
+  {$ELSE}
+  begin
+    if Supports(BorlandIDEServices, IOTAActionServices, ActionServices) then
+      ActionServices.OpenFile(FileName);
+    Module := ModuleServices.FindModule(FileName);
+  end;
+  {$ENDIF}
   if not Assigned(Module) then
     Exit;
   SourceEditor := nil;
@@ -1375,13 +1558,21 @@ begin
   if not Assigned(SourceEditor) then
     Exit;
   SourceEditor.Show;
+  {$IFDEF COMPILER_9_UP}
   SourceEditor.SwitchToView('Borland.FileHistoryView');
+  {$ELSE}
+  SelectEditorView('History');
+  {$ENDIF}
 
   // find the history frame
   Form := GetEditWindow;
   if not Assigned(Form) then
     Exit;
+  {$IFDEF COMPILER_9_UP}
   HistoryFrame := TCustomFrame(FindChildControl(Form, 'TFileHistoryFrame'));
+  {$ELSE}
+  HistoryFrame := TCustomFrame(FindChildControl(Form, 'TFrameSvnHistoryView'));
+  {$ENDIF}
   if not Assigned(HistoryFrame) then
     Exit;
 
@@ -1399,6 +1590,7 @@ begin
       FileSelector.OnClick(FileSelector);
   end;
 
+  {$IFDEF COMPILER_9_UP}
   // switch to 'Contents' tab
   TabSet1 := TTabSet(HistoryFrame.FindComponent('TabSet1'));
   if not Assigned(TabSet1) then
@@ -1414,6 +1606,10 @@ begin
   Tree := HistoryFrame.FindComponent('RevisionContentTree');
   if not Assigned(Tree) then
     Exit;
+  {$ELSE}
+  TFrameSvnHistoryView(HistoryFrame).PageControl.ActivePageIndex := 0;
+  Tree := TFrameSvnHistoryView(HistoryFrame).TreeContent;
+  {$ENDIF}
 
   Node := FindFirstSvnHistoryNode(Tree);
   if not Assigned(Node) then
@@ -1433,11 +1629,15 @@ function TSvnIDEClient.ShowDiff(const FileName: string; FromRevision, ToRevision
 var
   ModuleServices: IOTAModuleServices;
   Module: IOTAModule;
+  {$IFDEF COMPILER_9_UP}
+  TabSet1: TTabSet;
+  {$ELSE}
+  ActionServices: IOTAActionServices;
+  {$ENDIF}
   SourceEditor: IOTASourceEditor;
   I: Integer;
   Form: TCustomForm;
   HistoryFrame: TCustomFrame;
-  TabSet1: TTabSet;
   Index: Integer;
   FileSelector: TComboBox;
   FromTree, ToTree: TObject;
@@ -1447,11 +1647,23 @@ begin
   Result := False;
 
   // open and show the file in source code editor
+  {$IFDEF COMPILER_9_UP}
   if not BorlandIDEServices.GetService(IOTAModuleServices, ModuleServices) then
+  {$ELSE}
+  if not Supports(BorlandIDEServices, IOTAModuleServices, ModuleServices) then
+  {$ENDIF}
     Exit;
   Module := ModuleServices.FindModule(FileName);
   if not Assigned(Module) then
+  {$IFDEF COMPILER_9_UP}
     Module := ModuleServices.OpenModule(FileName);
+  {$ELSE}
+  begin
+    if Supports(BorlandIDEServices, IOTAActionServices, ActionServices) then
+      ActionServices.OpenFile(FileName);
+    Module := ModuleServices.FindModule(FileName);
+  end;
+  {$ENDIF}
   if not Assigned(Module) then
     Exit;
   SourceEditor := nil;
@@ -1463,6 +1675,7 @@ begin
   if not Assigned(SourceEditor) then
     Exit;
   SourceEditor.Show;
+  {$IFDEF COMPILER_9_UP}
   SourceEditor.SwitchToView('Borland.FileHistoryView');
 
   // find the history frame
@@ -1508,6 +1721,41 @@ begin
   ToTree := HistoryFrame.FindComponent('DiffTo');
   if not Assigned(ToTree) then
     Exit;
+  {$ELSE}
+  SelectEditorView('History');
+  // find the history frame
+  Form := GetEditWindow;
+  HistoryFrame := TFrameSvnHistoryView(FindChildControl(Form, 'TFrameSvnHistoryView'));
+  if not Assigned(HistoryFrame) then
+    Exit;
+
+  // select file
+  if Module.ModuleFileCount > 1 then
+  begin
+    FileSelector := TFrameSvnHistoryView(HistoryFrame).ComboBoxFileSelector;
+    if not Assigned(FileSelector) then
+      Exit;
+    Index := FileSelector.Items.IndexOf(ExtractFileName(FileName));
+    if Index = -1 then
+      Exit;
+    FileSelector.ItemIndex := Index;
+    if Assigned(FileSelector.OnClick) then
+      FileSelector.OnClick(FileSelector);
+  end;
+
+  // switch to 'Diff' tab
+  TFrameSvnHistoryView(HistoryFrame).PageControl.ActivePageIndex := 2;
+  if Assigned(TFrameSvnHistoryView(HistoryFrame).PageControl.OnChange) then
+    TFrameSvnHistoryView(HistoryFrame).PageControl.OnChange(TFrameSvnHistoryView(HistoryFrame).PageControl);
+
+  // find the treeviews
+  FromTree := TFrameSvnHistoryView(HistoryFrame).TreeDiffLeft;
+  if not Assigned(FromTree) then
+    Exit;
+  ToTree := TFrameSvnHistoryView(HistoryFrame).TreeDiffRight;
+  if not Assigned(ToTree) then
+    Exit;
+  {$ENDIF}
 
   // select and show from node
   Node := FindSvnHistoryNode(FromTree, FromRevision);
@@ -1533,16 +1781,31 @@ procedure TSvnIDEClient.ShowEditor(const FileName: string);
 var
   ModuleServices: IOTAModuleServices;
   Module: IOTAModule;
+  {$IFNDEF COMPILER_9_UP}
+  ActionServices: IOTAActionServices;
+  {$ENDIF}
   Editor: IOTAEditor;
   I: Integer;
 
 begin
   Module := nil;
+  {$IFDEF COMPILER_9_UP}
   if BorlandIDEServices.GetService(IOTAModuleServices, ModuleServices) then
+  {$ELSE}
+  if Supports(BorlandIDEServices, IOTAModuleServices, ModuleServices) then
+  {$ENDIF}
   begin
     Module := ModuleServices.FindModule(FileName);
     if not Assigned(Module) then
+    {$IFDEF COMPILER_9_UP}
       Module := ModuleServices.OpenModule(FileName);
+    {$ELSE}
+    begin
+      if Supports(BorlandIDEServices, IOTAActionServices, ActionServices) then
+        ActionServices.OpenFile(FileName);
+      Module := ModuleServices.FindModule(FileName);
+    end;
+    {$ENDIF}
   end;
   if not Assigned(Module) then
     Exit;
@@ -1564,14 +1827,17 @@ end;
 
 procedure TSvnIDEClient.ShowHistoryEditControls;
 
+{$IFDEF COMPILER_9_UP}
 var
   Form: TCustomForm;
   HistoryFrame: TCustomFrame;
   PageControl1: TPageControl;
   I, J: Integer;
   TabSheet: TTabSheet;
+{$ENDIF}
 
 begin
+  {$IFDEF COMPILER_9_UP}
   Form := GetEditWindow;
   if not Assigned(Form) then
     Exit;
@@ -1591,6 +1857,7 @@ begin
       if TabSheet.Controls[J].ClassNameIs('TEditControl') then
         TabSheet.Controls[J].Visible := True;
   end;
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
