@@ -129,8 +129,8 @@ begin
     // for files with no extension, store invalid filename character '?' (to distinguish from non-root directories)
     if Ext = '' then
       S := '?'
-    // for *.exe and *.ico files, store the full path to use their individual icons
-    else if AnsiSameText(Ext, '.ICO') or AnsiSameText(Ext, '.EXE') then
+    // for *.exe, *.cur and *.ico files, store the full path to use their individual icons
+    else if AnsiSameText(Ext, '.ICO') or AnsiSameText(Ext, '.CUR') or AnsiSameText(Ext, '.EXE') then
       S := Path
     // otherwise store the extension
     else

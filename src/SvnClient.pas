@@ -187,6 +187,8 @@ type
     function Add(Item: TSvnItem): Integer;
     procedure AddDestroyNotification(Notification: TNotifyEvent);
     procedure Clear;
+    function GetBaseFile: string;
+    function GetCommittedFile: string;
     function IndexOf(Item: TSvnItem): Integer; overload;
     function IndexOf(const PathName: string; SvnPath: Boolean = False): Integer; overload;
     procedure Reload(Recurse: Boolean = False; Update: Boolean = False);
@@ -2007,6 +2009,68 @@ begin
   ClearItems;
   ClearHistory;
   FreeAndNil(FProps);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TSvnItem.GetBaseFile: string;
+
+var
+  SubPool: PAprPool;
+  PegRevision, Revision: TSvnOptRevision;
+  Buffer: PSvnStringBuf;
+  Stream: PSvnStream;
+
+begin
+  Result := '';
+  if FKind <> svnNodeFile then
+    Exit;
+
+  AprCheck(apr_pool_create_ex(SubPool, FSvnClient.Pool, nil, FSvnClient.Allocator));
+  try
+    FillChar(PegRevision, SizeOf(TSvnOptRevision), 0);
+    PegRevision.Kind := svnOptRevisionUnspecified;;
+    FillChar(Revision, SizeOf(TSvnOptRevision), 0);
+    Revision.Kind := svnOptRevisionBase;
+    Buffer := svn_stringbuf_create('', SubPool);
+    Stream := svn_stream_from_stringbuf(Buffer, SubPool);
+    FSvnClient.FCancelled := False;
+    SvnCheck(svn_client_cat2(Stream, PChar(FSvnPathName), @PegRevision, @Revision, FSvnClient.Ctx, SubPool));
+    SetString(Result, Buffer.data, Buffer.len);
+  finally
+    apr_pool_destroy(SubPool);
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TSvnItem.GetCommittedFile: string;
+
+var
+  SubPool: PAprPool;
+  PegRevision, Revision: TSvnOptRevision;
+  Buffer: PSvnStringBuf;
+  Stream: PSvnStream;
+
+begin
+  Result := '';
+  if FKind <> svnNodeFile then
+    Exit;
+
+  AprCheck(apr_pool_create_ex(SubPool, FSvnClient.Pool, nil, FSvnClient.Allocator));
+  try
+    FillChar(PegRevision, SizeOf(TSvnOptRevision), 0);
+    PegRevision.Kind := svnOptRevisionUnspecified;;
+    FillChar(Revision, SizeOf(TSvnOptRevision), 0);
+    Revision.Kind := svnOptRevisionCommitted;
+    Buffer := svn_stringbuf_create('', SubPool);
+    Stream := svn_stream_from_stringbuf(Buffer, SubPool);
+    FSvnClient.FCancelled := False;
+    SvnCheck(svn_client_cat2(Stream, PChar(FSvnPathName), @PegRevision, @Revision, FSvnClient.Ctx, SubPool));
+    SetString(Result, Buffer.data, Buffer.len);
+  finally
+    apr_pool_destroy(SubPool);
+  end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

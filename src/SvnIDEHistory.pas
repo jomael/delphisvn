@@ -26,14 +26,19 @@ unit SvnIDEHistory;
 
 interface
 
+{$INCLUDE Compilers.inc}
+
 uses
   Classes, SysUtils, Types, ActiveX, ComObj, Controls,
-  ToolsAPI, FileHistoryAPI,
+  ToolsAPI,
+  {$IFDEF COMPILER_9_UP}
+  FileHistoryAPI,
+  {$ENDIF}
   SvnClient;
 
 type
   TDispInterfacedObject = class(TInterfacedObject, IDispatch)
-  private
+  protected
     { IDispatch }
     function GetTypeInfoCount(out Count: Integer): HResult; stdcall;
     function GetTypeInfo(Index, LocaleID: Integer; out TypeInfo): HResult; stdcall;
@@ -42,6 +47,70 @@ type
     function Invoke(DispID: Integer; const IID: TGUID; LocaleID: Integer;
       Flags: Word; var Params; VarResult, ExcepInfo, ArgErr: Pointer): HResult; stdcall;
   end;
+
+{$IFNDEF COMPILER_9_UP}
+  {$MINENUMSIZE 4}
+  TOTAHistoryStyle = (hsBuffer, hsFile, hsLocalFile, hsRemoteRevision, hsActiveRevision);
+  {$MINENUMSIZE 1}
+  TOTAFileNameArray = array of WideString;
+  IOTAFileHistoryProvider = interface;
+  IOTAFileHistory = interface;
+  IOTAFileHistoryNotifier = interface;
+
+  IOTAFileHistoryManager = interface
+    ['{55A2BEE4-A64C-4749-8388-070CAEFDEFA5}']
+    function AddNotifier(const ANotifier: IOTAFileHistoryNotifier): Integer;
+    procedure AddTemporaryLabel(const ALabelName: WideString; const AFiles: TOTAFileNameArray);
+    function Get_Count: Integer;
+    function GetFileHistoryProvider(Index: Integer): IOTAFileHistoryProvider;
+    function RegisterHistoryProvider(const HistoryProvider: IOTAFileHistoryProvider): Integer;
+    procedure RemoveNotifier(Index: Integer);
+    procedure RevertTemporaryLabel(const ALabelName: WideString);
+    procedure UnregisterHistoryProvider(Index: Integer);
+    procedure UpdateProviders;
+
+    property Count: Integer read Get_Count;
+    property FileHistoryProvider[Index: Integer]: IOTAFileHistoryProvider read GetFileHistoryProvider;
+  end;
+
+  IOTAFileHistoryNotifier = interface(IOTANotifier)
+    ['{286AC9E5-875A-4402-AF70-8ACDD6757EC8}']
+    procedure ProvidersUpdated;
+  end;
+
+  IOTAFileHistoryProvider = interface(IDispatch)
+    ['{B8CDB02D-93D8-4088-AE03-A28052AD0FAD}']
+    function Get_Ident: WideString; safecall;
+    function Get_Name: WideString; safecall;
+    function GetFileHistory(const AFileName: WideString): IOTAFileHistory; safecall;
+
+    property Ident: WideString read Get_Ident;
+    property Name: WideString read Get_Name;
+  end;
+
+  IOTAFileHistory = interface(IDispatch)
+    ['{92E624D2-A7CD-4C89-9B4E-71170955E96C}']
+    function Get_Count: Integer; safecall;
+    function GetAuthor(Index: Integer): WideString; safecall;
+    function GetComment(Index: Integer): WideString; safecall;
+    function GetContent(Index: Integer): IStream; safecall;
+    function GetDate(Index: Integer): TDateTime; safecall;
+    function GetIdent(Index: Integer): WideString; safecall;
+    function GetHistoryStyle(Index: Integer): TOTAHistoryStyle; safecall;
+    function GetLabelCount(Index: Integer): Integer; safecall;
+    function GetLabels(Index, LabelIndex: Integer): WideString; safecall;
+
+    property Author[Index: Integer]: WideString read GetAuthor;
+    property Count: Integer read Get_Count;
+    property Comment[Index: Integer]: WideString read GetComment;
+    property Content[Index: Integer]: IStream read GetContent;
+    property Date[Index: Integer]: TDateTime read GetDate;
+    property HistoryStyle[Index: Integer]: TOTAHistoryStyle read GetHistoryStyle;
+    property Ident[Index: Integer]: WideString read GetIdent;
+    property LabelCount[Index: Integer]: Integer read GetLabelCount;
+    property Labels[Index, LabelIndex: Integer]: WideString read GetLabels;
+  end;
+{$ENDIF}
 
   TSvnFileHistoryProvider = class(TDispInterfacedObject, IOTAFileHistoryProvider)
   private
@@ -170,8 +239,17 @@ end;
 
 function TSvnFileHistory.GetContent(Index: Integer): IStream;
 
+var
+  Item: TSvnHistoryItem;
+
 begin
-  Result := TStreamAdapter.Create(TStringStream.Create(TSvnHistoryItem(FItems[Index]).GetFile), soOwned);
+  Item := FItems[Index];
+  if Item.Revision = Item.Owner.BaseRevision then
+    Result := TStreamAdapter.Create(TStringStream.Create(Item.Owner.GetBaseFile), soOwned)
+  else if Item.Revision = Item.Owner.CommittedRevision then
+    Result := TStreamAdapter.Create(TStringStream.Create(Item.Owner.GetCommittedFile), soOwned)
+  else
+    Result := TStreamAdapter.Create(TStringStream.Create(Item.GetFile), soOwned);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

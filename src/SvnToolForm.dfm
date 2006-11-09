@@ -1,9 +1,9 @@
 inherited FormSvnTools: TFormSvnTools
   Left = 365
   Top = 193
+  Width = 524
+  Height = 367
   Caption = 'Subversion'
-  ClientHeight = 340
-  ClientWidth = 516
   PixelsPerInch = 96
   TextHeight = 13
   inherited Splitter1: TSplitter
@@ -16,43 +16,43 @@ inherited FormSvnTools: TFormSvnTools
     List = True
     object ToolButtonCancel: TToolButton
       Left = 4
-      Top = 0
+      Top = 2
       Action = SvnIDEClient.ActionCancel
       AutoSize = True
     end
     object ToolButtonUpdate: TToolButton
       Left = 31
-      Top = 0
+      Top = 2
       Action = SvnIDEClient.ActionUpdate
       AutoSize = True
     end
     object ToolButtonCheckModifications: TToolButton
       Left = 58
-      Top = 0
+      Top = 2
       Action = SvnIDEClient.ActionCheckModifications
       AutoSize = True
     end
     object ToolButtonCommit: TToolButton
       Left = 85
-      Top = 0
+      Top = 2
       Action = SvnIDEClient.ActionCommit
       AutoSize = True
     end
     object ToolButtonRevert: TToolButton
       Left = 112
-      Top = 0
+      Top = 2
       Action = SvnIDEClient.ActionRevert
       AutoSize = True
     end
     object ToolButtonCleanup: TToolButton
       Left = 139
-      Top = 0
+      Top = 2
       Action = SvnIDEClient.ActionCleanup
       AutoSize = True
     end
     object ToolButtonSeparator1: TToolButton
       Left = 166
-      Top = 0
+      Top = 2
       Width = 8
       Caption = 'ToolButtonSeparator1'
       ImageIndex = 3
@@ -60,7 +60,7 @@ inherited FormSvnTools: TFormSvnTools
     end
     object ToolButtonOptions: TToolButton
       Left = 174
-      Top = 0
+      Top = 2
       Action = SvnIDEClient.ActionOptions
       AutoSize = True
     end
