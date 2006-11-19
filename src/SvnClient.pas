@@ -2724,7 +2724,7 @@ begin
     apr_allocator_max_free_set(Allocator, SVN_ALLOCATOR_RECOMMENDED_MAX_FREE);
     AprCheck(apr_pool_create_ex(FPool, nil, nil, FAllocator));
     try
-      SvnCheck(svn_ra_initialize(Pool));
+      SvnCheck(svn_ra_initialize(FPool));
       SvnCheck(svn_client_create_context(FCtx, FPool));
 
       FCtx^.notify_func := SvnContextNotify;

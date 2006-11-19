@@ -1319,8 +1319,11 @@ begin
         if SaveStreamToFile(DataLeft^.History.Content[DataLeft^.Index], LeftFileName) and
           SaveStreamToFile(DataRight^.History.Content[DataRight^.Index], RightFileName) then
         begin
-          SvnCheck(svn_diff_file_diff_2(Diff, PChar(RightFileName), PChar(LeftFileName), @DiffOptions,
-            SvnIDEModule.SvnClient.Pool));
+          if Assigned(@svn_diff_file_diff_2) then
+            SvnCheck(svn_diff_file_diff_2(Diff, PChar(RightFileName), PChar(LeftFileName), @DiffOptions,
+              SvnIDEModule.SvnClient.Pool))
+          else if Assigned(@svn_diff_file_diff) then
+            SvnCheck(svn_diff_file_diff(Diff, PChar(RightFileName), PChar(LeftFileName), SvnIDEModule.SvnClient.Pool));
 
           LinesLeft := TStringList.Create;
           LinesLeft.LoadFromFile(LeftFileName);
