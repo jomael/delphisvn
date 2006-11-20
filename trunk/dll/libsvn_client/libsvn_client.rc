@@ -53,7 +53,7 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,4,0,0
+ FILEVERSION 1,4,0,1
  PRODUCTVERSION 1,4,0,0
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
@@ -71,7 +71,7 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "http://subversion.tigris.org/"
             VALUE "FileDescription", "Subversion Client DLL"
-            VALUE "FileVersion", "1, 4, 0, 0"
+            VALUE "FileVersion", "1, 4, 0, 1"
             VALUE "InternalName", "libsvn_client"
             VALUE "LegalCopyright", "Copyright © 2000-2006 CollabNet"
             VALUE "OriginalFilename", "libsvn_client.dll"
