@@ -508,8 +508,11 @@ procedure TBlameControl.CMHintShow(var Message: TMessage);
 
 var
   Tree: TObject;
-  I, TopLine, LinesInWindow, LineHeight, Index: Integer;
+  I, Index: Integer;
   HistoryItem, BlameHistoryItem: TSvnHistoryItem;
+  {$IFDEF COMPILER_9_UP}
+  TopLine, LinesInWindow, LineHeight: Integer;
+  {$ENDIF}
 
 begin
   if not Assigned(Parent) then
@@ -536,10 +539,14 @@ begin
   if not Assigned(HistoryItem) then
     Exit;
 
+  {$IFDEF COMPILER_9_UP}
   TopLine := EditControlGetTopLine(FControl);
   LinesInWindow := EditControlGetLinesInWindow(FControl);
   LineHeight := FControl.Height div LinesInWindow;
   Index := TopLine + TCMHintShow(Message).HintInfo^.CursorPos.Y div LineHeight - 1;
+  {$ELSE}
+  Index := TSynEdit(FControl).PixelsToRowColumn(0, TCMHintShow(Message).HintInfo^.CursorPos.Y).Row - 1;
+  {$ENDIF}
   if Index > HistoryItem.BlameCount - 1 then
     Exit;
 
@@ -651,6 +658,9 @@ begin
   LineHeight := FControl.Height div LinesInWindow;
   {$ELSE}
   LineHeight := TSynEdit(FControl).LineHeight;
+  // include partially visible last line
+  if FControl.Height > LinesInWindow * LineHeight then
+    Inc(LinesInWindow);
   {$ENDIF}
 
   if HistoryItem <> FLastItem then
