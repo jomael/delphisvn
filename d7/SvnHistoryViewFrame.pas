@@ -1726,9 +1726,9 @@ begin
   Splitter1.Align := alTop;
 
   EditContent := TSynEdit.Create(Self);
-  EditContent.BorderStyle := bsNone;
   EditContent.Parent := TabSheet1;
   EditContent.Align := alClient;
+  EditContent.BorderStyle := bsNone;
   EditContent.ReadOnly := True;
   EditContent.Gutter.ShowLineNumbers := True;
 
@@ -1954,6 +1954,7 @@ begin
   EditDiff.Parent := TabSheet3;
   EditDiff.Top := Splitter5.Top + Splitter5.Height + 1;
   EditDiff.Align := alClient;
+  EditDiff.BorderStyle := bsNone;
   EditDiff.ReadOnly := True;
   EditDiff.Gutter.ShowLineNumbers := False;
   EditDiff.OnGutterPaint := EditDiffGutterPaint;
