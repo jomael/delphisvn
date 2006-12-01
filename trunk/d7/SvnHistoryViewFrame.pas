@@ -1726,6 +1726,7 @@ begin
   Splitter1.Align := alTop;
 
   EditContent := TSynEdit.Create(Self);
+  EditContent.BorderStyle := bsNone;
   EditContent.Parent := TabSheet1;
   EditContent.Align := alClient;
   EditContent.ReadOnly := True;
