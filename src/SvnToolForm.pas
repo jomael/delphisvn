@@ -65,12 +65,14 @@ type
     ActionOpen: TAction;
     ActionShowBlame: TAction;
     ActionShowDiff: TAction;
+    ActionShowUnversioned: TAction;
     MenuAdd: TMenuItem;
     MenuDockable: TMenuItem;
     MenuOpen: TMenuItem;
     MenuSeparator1: TMenuItem;
     MenuShowBlame: TMenuItem;
     MenuShowDiff: TMenuItem;
+    MenuShowUnversioned: TMenuItem;
     MenuStayOnTop: TMenuItem;
     ToolButtonCancel: TToolButton;
     ToolButtonCheckModifications: TToolButton;
@@ -92,6 +94,8 @@ type
     procedure ActionShowBlameUpdate(Sender: TObject);
     procedure ActionShowDiffExecute(Sender: TObject);
     procedure ActionShowDiffUpdate(Sender: TObject);
+    procedure ActionShowUnversionedExecute(Sender: TObject);
+    procedure ActionShowUnversionedUpdate(Sender: TObject);
     procedure PopupMenu1Popup(Sender: TObject);
   private
     FFrame: TFrameSvnBase;
@@ -569,6 +573,28 @@ begin
   inherited;
   if Assigned(FFrame) then
     FFrame.HandleShowDiffUpdate(Sender as TAction)
+  else
+    (Sender as TAction).Visible := False;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFormSvnTools.ActionShowUnversionedExecute(Sender: TObject);
+
+begin
+  inherited;
+  if Assigned(FFrame) then
+    FFrame.HandleShowUnversionedExecute(Sender as TAction);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFormSvnTools.ActionShowUnversionedUpdate(Sender: TObject);
+
+begin
+  inherited;
+  if Assigned(FFrame) then
+    FFrame.HandleShowUnversionedUpdate(Sender as TAction)
   else
     (Sender as TAction).Visible := False;
 end;

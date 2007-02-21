@@ -338,12 +338,12 @@ type
       RecurseUnversioned: Boolean = False; SubPool: PAprPool = nil): TSvnRevNum;
     procedure GetProps(Props: PAprArrayHeader; Strings: TStrings; SubPool: PAprPool = nil;
       Delimiter: Char = DefaultPropValDelimiter);
-    procedure Initialize(const AConfigDir: string = '');
+    procedure Initialize(const AConfigDir: string = ''; Auth: PSvnAuthBaton = nil);
     function IsPathVersioned(const PathName: string): Boolean;
     function MatchGlobalIgnores(const PathName: string; SubPool: PAprPool = nil): Boolean;
     function NativePathToSvnPath(const NativePath: string; SubPool: PAprPool = nil): string;
-    function PathNamesToAprArray(PathNames: TStrings; SubPool: PAprPool = nil): PAprArrayHeader;
-    procedure Revert(PathNames: TStrings; Callback: TSvnNotifyCallback = nil; Recurse: Boolean = True;
+    function PathNamesToAprArray(PathNames: TStrings; SubPool: PAprPool = nil): PAprArrayHeader; overload;
+    function PathNamesToAprArray(const PathNames: array of string; SubPool: PAprPool = nil): PAprArrayHeader; overload;    procedure Revert(PathNames: TStrings; Callback: TSvnNotifyCallback = nil; Recurse: Boolean = True;
       SubPool: PAprPool = nil);
     function SvnPathToNativePath(const SvnPath: string; SubPool: PAprPool = nil): string;
     procedure Update(PathNames: TStrings; Callback: TSvnNotifyCallback = nil; Recurse: Boolean = True;
@@ -420,6 +420,7 @@ const
   NodeKindStrings: array[TSvnNodeKind] of string = (SNodeKindNone, SNodeKindFile, SNodeKindDir, SNodeKindUnknown);
 
 function AprTimeToDateTime(AprTime: TAprTime): TDateTime;
+function DateTimeToAprTime(Value: TDateTime): TAprTime;
 function SvnStrToDateTime(const S: string; Pool: PAprPool): TDateTime;
 function TzToUTCDateTime(Value: TDateTime): TDateTime;
 function UTCToTzDateTime(Value: TDateTime): TDateTime;
@@ -492,6 +493,17 @@ begin
     Result := 0
   else
     Result := UTCToTzDateTime(UnixDateDelta + AprTime / SecsPerDay / 1000000);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function DateTimeToAprTime(Value: TDateTime): TAprTime;
+
+begin
+  if Value = 0 then
+    Result := 0
+  else
+    Result := Round(TzToUTCDateTime(Value - UnixDateDelta) * SecsPerDay * 1000000);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -1005,7 +1017,12 @@ var
 begin
   SvnClient := TSvnClient.Create;
   try
-    SvnClient.Initialize;
+    SvnClient.Initialize('', FItem.Owner.SvnClient.Ctx^.auth_baton);
+    SvnClient.OnLoginPrompt := FItem.Owner.SvnClient.OnLoginPrompt;
+    SvnClient.OnUserNamePrompt := FItem.Owner.SvnClient.OnUserNamePrompt;
+    SvnClient.OnSSLServerTrustPrompt := FItem.Owner.SvnClient.OnSSLServerTrustPrompt;
+    SvnClient.OnSSLClientPasswordPrompt := FItem.Owner.SvnClient.OnSSLClientPasswordPrompt;
+    SvnClient.OnSSLClientPasswordPrompt := FItem.Owner.SvnClient.OnSSLClientPasswordPrompt;
     FItem.ReloadBlame(SvnClient, FItem.Owner.PathName, FItem.Owner.BaseRevision);
   finally
     SvnClient.Free;
@@ -1595,8 +1612,7 @@ begin
       EndRevision.Kind := svnOptRevisionNumber;
       EndRevision.Value.number := 0;
 
-      Targets := apr_array_make(SubPool, 1, SizeOf(PChar));
-      PPChar(apr_array_push(Targets))^ := PChar(FSvnPathName);
+      Targets := FSvnClient.PathNamesToAprArray([FSvnPathName], SubPool);
       FSvnClient.FCancelled := False;
       Error := svn_client_log2(Targets, @StartRevision, @EndRevision, 0, False, False, LogMessage, Self, FSvnClient.Ctx,
         SubPool);
@@ -2690,12 +2706,11 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TSvnClient.Initialize(const AConfigDir: string = '');
+procedure TSvnClient.Initialize(const AConfigDir: string = ''; Auth: PSvnAuthBaton = nil);
 
 var
   Providers: PAprArrayHeader;
   Provider: PSvnAuthProviderObject;
-  Auth: PSvnAuthBaton;
   S: string;
   P: PChar;
 
@@ -2746,44 +2761,47 @@ begin
       SetString(FConfigDir, P, StrLen(P));
       SvnCheck(svn_config_get_config(FCtx^.config, PChar(FConfigDir), FPool));
 
-      Provider := nil;
-      Providers := apr_array_make(FPool, 11, SizeOf(PSvnAuthProviderObject));
+      if not Assigned(Auth) then
+      begin
+        Provider := nil;
+        Providers := apr_array_make(FPool, 11, SizeOf(PSvnAuthProviderObject));
 
-      svn_client_get_windows_simple_provider(Provider, FPool);
-      if Assigned(Provider) then
-        PPSvnAuthProviderObject(apr_array_push(Providers))^ := Provider;
-      svn_client_get_simple_provider(Provider, FPool);
-      if Assigned(Provider) then
-        PPSvnAuthProviderObject(apr_array_push(Providers))^ := Provider;
-      svn_client_get_username_provider(Provider, FPool);
-      if Assigned(Provider) then
-        PPSvnAuthProviderObject(apr_array_push(Providers))^ := Provider;
-      svn_client_get_ssl_server_trust_file_provider(Provider, FPool);
-      if Assigned(Provider) then
-        PPSvnAuthProviderObject(apr_array_push(Providers))^ := Provider;
-      svn_client_get_ssl_client_cert_file_provider(Provider, FPool);
-      if Assigned(Provider) then
-        PPSvnAuthProviderObject(apr_array_push(Providers))^ := Provider;
-      svn_client_get_ssl_client_cert_pw_file_provider(Provider, FPool);
-      if Assigned(Provider) then
-        PPSvnAuthProviderObject(apr_array_push(Providers))^ := Provider;
-      svn_client_get_simple_prompt_provider(Provider, SimplePrompt, Self, 1, FPool);
-      if Assigned(Provider) then
-        PPSvnAuthProviderObject(apr_array_push(Providers))^ := Provider;
-      svn_client_get_username_prompt_provider(Provider, UserNamePrompt, Self, 1, FPool);
-      if Assigned(Provider) then
-        PPSvnAuthProviderObject(apr_array_push(Providers))^ := Provider;
-      svn_client_get_ssl_server_trust_prompt_provider(Provider, SSLServerTrustPrompt, Self, FPool);
-      if Assigned(Provider) then
-        PPSvnAuthProviderObject(apr_array_push(Providers))^ := Provider;
-      svn_client_get_ssl_client_cert_prompt_provider(Provider, SSLClientCertPrompt, Self, 0, FPool);
-      if Assigned(Provider) then
-        PPSvnAuthProviderObject(apr_array_push(Providers))^ := Provider;
-      svn_client_get_ssl_client_cert_pw_prompt_provider(Provider, SSLClientPasswordPrompt, Self, 0, FPool);
-      if Assigned(Provider) then
-        PPSvnAuthProviderObject(apr_array_push(Providers))^ := Provider;
+        svn_client_get_windows_simple_provider(Provider, FPool);
+        if Assigned(Provider) then
+          PPSvnAuthProviderObject(apr_array_push(Providers))^ := Provider;
+        svn_client_get_simple_provider(Provider, FPool);
+        if Assigned(Provider) then
+          PPSvnAuthProviderObject(apr_array_push(Providers))^ := Provider;
+        svn_client_get_username_provider(Provider, FPool);
+        if Assigned(Provider) then
+          PPSvnAuthProviderObject(apr_array_push(Providers))^ := Provider;
+        svn_client_get_ssl_server_trust_file_provider(Provider, FPool);
+        if Assigned(Provider) then
+          PPSvnAuthProviderObject(apr_array_push(Providers))^ := Provider;
+        svn_client_get_ssl_client_cert_file_provider(Provider, FPool);
+        if Assigned(Provider) then
+          PPSvnAuthProviderObject(apr_array_push(Providers))^ := Provider;
+        svn_client_get_ssl_client_cert_pw_file_provider(Provider, FPool);
+        if Assigned(Provider) then
+          PPSvnAuthProviderObject(apr_array_push(Providers))^ := Provider;
+        svn_client_get_simple_prompt_provider(Provider, SimplePrompt, Self, 1, FPool);
+        if Assigned(Provider) then
+          PPSvnAuthProviderObject(apr_array_push(Providers))^ := Provider;
+        svn_client_get_username_prompt_provider(Provider, UserNamePrompt, Self, 1, FPool);
+        if Assigned(Provider) then
+          PPSvnAuthProviderObject(apr_array_push(Providers))^ := Provider;
+        svn_client_get_ssl_server_trust_prompt_provider(Provider, SSLServerTrustPrompt, Self, FPool);
+        if Assigned(Provider) then
+          PPSvnAuthProviderObject(apr_array_push(Providers))^ := Provider;
+        svn_client_get_ssl_client_cert_prompt_provider(Provider, SSLClientCertPrompt, Self, 0, FPool);
+        if Assigned(Provider) then
+          PPSvnAuthProviderObject(apr_array_push(Providers))^ := Provider;
+        svn_client_get_ssl_client_cert_pw_prompt_provider(Provider, SSLClientPasswordPrompt, Self, 0, FPool);
+        if Assigned(Provider) then
+          PPSvnAuthProviderObject(apr_array_push(Providers))^ := Provider;
 
-      svn_auth_open(Auth, Providers, FPool);
+        svn_auth_open(Auth, Providers, FPool);
+      end;
       Ctx^.auth_baton := Auth;
       svn_auth_set_parameter(Auth, SVN_AUTH_PARAM_CONFIG_DIR, PChar(FConfigDir));
       if FUserName <> '' then
@@ -2935,6 +2953,60 @@ begin
       else
         AprCheck(apr_filepath_merge(P, '', PChar(S), APR_FILEPATH_TRUENAME, SubPool));
         
+      PPChar(apr_array_push(Result))^ := P;
+    end;
+  finally
+    if NewPool then
+      apr_pool_destroy(SubPool);
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TSvnClient.PathNamesToAprArray(const PathNames: array of string; SubPool: PAprPool): PAprArrayHeader;
+
+var
+  NewPool: Boolean;
+  I: Integer;
+  CurrentDrive, S: string;
+  P: PChar;
+
+begin
+  Result := nil;
+
+  if Length(PathNames) = 0 then
+    Exit;
+
+  if not Initialized then
+    Initialize;
+
+  CurrentDrive := ExtractFileDrive(GetCurrentDir);
+
+  NewPool := not Assigned(SubPool);
+  if NewPool then
+    AprCheck(apr_pool_create_ex(SubPool, FPool, nil, FAllocator));
+  try
+    Result := apr_array_make(SubPool, Length(PathNames), SizeOf(PChar));
+
+    for I := Low(PathNames) to High(PathNames) do
+    begin
+      // Work around an apparent Subversion glitch:
+      // Svn update reproducibly fails with error SVN_ERR_WC_LOCKED "Attempted to lock an already-locked dir"
+      // in two cases:
+      // 1. A directory with trailing path delimiter, e.g. D:\Temp\Test\ (D:/Temp/Test/ in SVN notation)
+      //    Workaround: always exclude the trailing path delimiter
+
+      S := ExcludeTrailingPathDelimiter(PathNames[I]);
+
+      // 2. Root directory which is the same as the current directory drive, e.g. 'D:\' or 'D:'
+      //    when current directory is anywhere on drive D:
+      //    Workaround: use '/'
+
+      if S = CurrentDrive then
+        P := SvnPathDelim
+      else
+        AprCheck(apr_filepath_merge(P, '', PChar(S), APR_FILEPATH_TRUENAME, SubPool));
+
       PPChar(apr_array_push(Result))^ := P;
     end;
   finally

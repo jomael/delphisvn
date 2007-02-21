@@ -41,6 +41,7 @@ type
   PNodeData = ^TNodeData;
   TNodeData = record
     Item: TSvnItem;
+    Hide: Boolean;
   end;
 
   TFrameSvnListView = class(TFrame)
@@ -261,12 +262,15 @@ begin
 
   SortDirection := TVirtualStringTree(Sender).Header.SortDirection;
 
-  case SortDirection of
-    sdAscending:
-      Result := Ord(Item2.IsDirectory) - Ord(Item1.IsDirectory);
-    sdDescending:
-      Result := Ord(Item1.IsDirectory) - Ord(Item2.IsDirectory);
-  end;
+  if FFullPaths then
+    Result := 0
+  else
+    case SortDirection of
+      sdAscending:
+        Result := Ord(Item2.IsDirectory) - Ord(Item1.IsDirectory);
+      sdDescending:
+        Result := Ord(Item1.IsDirectory) - Ord(Item2.IsDirectory);
+    end;
   if Result = 0 then
     case TColumnIndex(Column) of
       cxPathName:
@@ -317,7 +321,12 @@ begin
       cxFileAttr:
         Result := Item1.FileAttr - Item2.FileAttr;
       else
-        Result := AnsiCompareText(ExtractFileName(Item1.PathName), ExtractFileName(Item2.PathName));
+      begin
+        if FFullPaths then
+          Result := AnsiCompareText(Item1.PathName, Item2.PathName)
+        else
+          Result := AnsiCompareText(ExtractFileName(Item1.PathName), ExtractFileName(Item2.PathName));
+      end;
     end;
 end;
 

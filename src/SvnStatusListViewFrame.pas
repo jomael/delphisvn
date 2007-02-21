@@ -40,14 +40,20 @@ type
 
     procedure FrameSvnListViewTreeFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
   private
+    FConflicts: TStringList;
     FItem: TSvnItem;
+    FShowUnversioned: Boolean;
     FStatusException: string;
 
+    procedure CheckUnversionedConflictFiles;
     procedure ItemDestroy(Sender: TObject);
+    procedure SetShowUnversioned(Value: Boolean);
+    procedure ShowUnversionedChanged;
 
     procedure AMUpdate(var Message: TMessage); message AM_UPDATE;
   public
     constructor Create(AOwner: TComponent); override;
+    destructor Destroy; override;
 
     procedure HandleAddExecute(Action: TAction); override;
     procedure HandleAddUpdate(Action: TAction); override;
@@ -57,6 +63,8 @@ type
     procedure HandleShowBlameUpdate(Action: TAction); override;
     procedure HandleShowDiffExecute(Action: TAction); override;
     procedure HandleShowDiffUpdate(Action: TAction); override;
+    procedure HandleShowUnversionedExecute(Action: TAction); override;
+    procedure HandleShowUnversionedUpdate(Action: TAction); override;
     procedure StartCheckModifications(AClient: TSvnClient; ADirectories: TStrings; ARecurse: Boolean = True;
       AUpdate: Boolean = True; AIgnoreExternals: Boolean = False; ARecurseUnversioned: Boolean = False);
   end;
@@ -168,6 +176,67 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+procedure TFrameSvnStatusListView.CheckUnversionedConflictFiles;
+
+var
+  I: Integer;
+  ConflictItem: TSvnItem;
+  Node: PVirtualNode;
+  Data: PNodeData;
+  NewFileFound, OldFileFound, WorkingFileFound: Boolean;
+
+begin
+  if not Assigned(FConflicts) then
+    Exit;
+
+  for I := 0 to FConflicts.Count - 1 do
+  begin
+    ConflictItem := TSvnItem(FConflicts.Objects[I]);
+
+    NewFileFound := False;
+    OldFileFound := False;
+    WorkingFileFound := False;
+    Node := FrameSvnListView.Tree.GetFirst;
+    while Assigned(Node) do
+    begin
+      Data := FrameSvnListView.Tree.GetNodeData(Node);
+      if Assigned(Data) and Assigned(Data^.Item) then
+      begin
+        if not Data^.Hide and not NewFileFound then
+        begin
+          NewFileFound := AnsiSameText(Data^.Item.PathName, ExtractFilePath(ConflictItem.PathName) +
+            ConflictItem.ConflictNewFile);
+          if NewFileFound then
+            Data^.Hide := True;
+        end;
+
+        if not Data^.Hide and not OldFileFound then
+        begin
+          OldFileFound := AnsiSameText(Data^.Item.PathName, ExtractFilePath(ConflictItem.PathName) +
+            ConflictItem.ConflictOldFile);
+          if OldFileFound then
+            Data^.Hide := True;
+        end;
+
+        if not Data^.Hide and not WorkingFileFound then
+        begin
+          WorkingFileFound := AnsiSameText(Data^.Item.PathName, ExtractFilePath(ConflictItem.PathName) +
+            ConflictItem.ConflictWorkingFile);
+          if WorkingFileFound then
+            Data^.Hide := True;
+        end;
+      end;
+
+      if NewFileFound and OldFileFound and WorkingFileFound then
+        Break;
+
+      Node := FrameSvnListView.Tree.GetNext(Node);
+    end;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
 procedure TFrameSvnStatusListView.ItemDestroy(Sender: TObject);
 
 var
@@ -177,6 +246,45 @@ begin
   Data := Pointer(TSvnItem(Sender).Tag);
   if Assigned(Data) then
     Data^.Item := nil;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFrameSvnStatusListView.SetShowUnversioned(Value: Boolean);
+
+begin
+  if Value <> FShowUnversioned then
+  begin
+    FShowUnversioned := Value;
+    ShowUnversionedChanged;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFrameSvnStatusListView.ShowUnversionedChanged;
+
+var
+  Node: PVirtualNode;
+  Data: PNodeData;
+
+begin
+  FrameSvnListView.Tree.BeginUpdate;
+  try
+    FrameSvnListView.Tree.Cursor := crHourGlass;
+    Node := FrameSvnListView.Tree.GetFirst;
+    while Assigned(Node) do
+    begin
+      Data := FrameSvnListView.Tree.GetNodeData(Node);
+      if Assigned(Data) and Assigned(Data^.Item) and (Data^.Item.TextStatus = svnWcStatusUnversioned) then
+        FrameSvnListView.Tree.IsVisible[Node] := FShowUnversioned and not Data^.Hide;
+
+      Node := FrameSvnListView.Tree.GetNext(Node);
+    end;
+  finally
+    FrameSvnListView.Tree.EndUpdate;
+    FrameSvnListView.Tree.Cursor := crDefault;
+  end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -192,7 +300,12 @@ begin
   inherited;
 
   if Message.WParam <> 0 then
+  begin
+    CheckUnversionedConflictFiles;
+    FreeAndNil(FConflicts);
+    ShowUnversionedChanged;
     Finished;
+  end;
 
   if not Running then
     FrameSvnListView.Tree.Cursor := crDefault;
@@ -201,18 +314,35 @@ begin
     raise Exception.Create(FStatusException);
 
   if Running and Assigned(FItem) and (FItem.TextStatus <> svnWcStatusExternal) then
-    with FrameSvnListView do
+  begin
+    if FItem.TextStatus = svnWcStatusConflicted then
     begin
-      Node := AddItem(FItem);
+      if not Assigned(FConflicts) then
+        FConflicts := TStringList.Create;
+      FConflicts.AddObject(FItem.PathName, FItem);
+    end;
+
+    Node := FrameSvnListView.AddItem(FItem);
+    if Assigned(Node) then
+    begin
       Data := FrameSvnListView.Tree.GetNodeData(Node);
       FItem.Tag := Integer(Data);
       FItem.AddDestroyNotification(ItemDestroy);
 
-      Tree.ScrollIntoView(Node, False);
-      TextWidth := Tree.Canvas.TextWidth(FItem.PathName);
-      if TextWidth + Tree.Images.Width + 16 > Tree.Header.Columns[Ord(cxPathName)].Width then
-        Tree.Header.Columns[Ord(cxPathName)].Width := TextWidth + Tree.Images.Width + 16;
-    end;
+      if FItem.TextStatus = svnWcStatusUnversioned then
+        FrameSvnListView.Tree.IsVisible[Node] := False
+      else
+      begin
+        FrameSvnListView.Tree.ScrollIntoView(Node, False);
+        TextWidth := FrameSvnListView.Tree.Canvas.TextWidth(FItem.PathName);
+        with FrameSvnListView do
+          if TextWidth + Tree.Images.Width + 16 > Tree.Header.Columns[Ord(cxPathName)].Width then
+            Tree.Header.Columns[Ord(cxPathName)].Width := TextWidth + Tree.Images.Width + 16;
+      end;
+    end
+    else
+      FreeAndNil(FItem);
+  end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -226,8 +356,18 @@ constructor TFrameSvnStatusListView.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
   FItem := nil;
+  FConflicts := nil;
   FrameSvnListView.Tree.Images := SvnImageModule.ShellImagesSmall;
   FrameSvnListView.FullPaths := True;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+destructor TFrameSvnStatusListView.Destroy;
+
+begin
+  FConflicts.Free;
+  inherited Destroy;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -378,12 +518,31 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+procedure TFrameSvnStatusListView.HandleShowUnversionedExecute(Action: TAction);
+
+begin
+  SetShowUnversioned(not FShowUnversioned);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFrameSvnStatusListView.HandleShowUnversionedUpdate(Action: TAction);
+
+begin
+  Action.Visible := True;
+  Action.Enabled := True;
+  Action.Checked := FShowUnversioned;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
 procedure TFrameSvnStatusListView.StartCheckModifications(AClient: TSvnClient; ADirectories: TStrings;
   ARecurse, AUpdate, AIgnoreExternals, ARecurseUnversioned: Boolean);
 
 begin
   Starting;
   FItem := nil;
+  FreeAndNil(FConflicts);
   FStatusException := '';
   FrameSvnListView.Tree.Clear;
   FrameSvnListView.Tree.Header.SortColumn := NoColumn;
