@@ -51,6 +51,8 @@ type
     procedure HandleShowBlameUpdate(Action: TAction); virtual;
     procedure HandleShowDiffExecute(Action: TAction); virtual;
     procedure HandleShowDiffUpdate(Action: TAction); virtual;
+    procedure HandleShowUnversionedExecute(Action: TAction); virtual;
+    procedure HandleShowUnversionedUpdate(Action: TAction); virtual;
     function IsRunning: Boolean;
     procedure Starting;
 
@@ -153,6 +155,23 @@ end;
 procedure TFrameSvnBase.HandleShowDiffUpdate(Action: TAction);
 
 begin
+  Action.Enabled := False;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFrameSvnBase.HandleShowUnversionedExecute(Action: TAction);
+
+begin
+
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFrameSvnBase.HandleShowUnversionedUpdate(Action: TAction);
+
+begin
+  Action.Visible := False;
   Action.Enabled := False;
 end;
 

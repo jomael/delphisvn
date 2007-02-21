@@ -1133,7 +1133,7 @@ var
 //----- svn_diff.h -----------------------------------------------------------------------------------------------------
 
 type
-  TSvnDiffType = (svnDifftypeCommon, svnDiffTypeDiffModified, svnDiffTypeDiffLatest, svnDiffTypeDiffCommon,
+  TSvnDiffType = (svnDiffTypeCommon, svnDiffTypeDiffModified, svnDiffTypeDiffLatest, svnDiffTypeDiffCommon,
     svnDiffTypeConflict);
   PSvnDiff = ^TSvnDiff;
   TSvnDiff = record

@@ -5,7 +5,6 @@ object FrameSvnEditorView: TFrameSvnEditorView
   Height = 627
   VertScrollBar.Smooth = True
   VertScrollBar.Tracking = True
-  AutoScroll = True
   Color = clWindow
   ParentColor = False
   TabOrder = 0
@@ -16,7 +15,7 @@ object FrameSvnEditorView: TFrameSvnEditorView
     Left = 0
     Top = 0
     Width = 681
-    Height = 22
+    Height = 26
     AutoSize = True
     Caption = 'ToolBar'
     Images = ImageList
@@ -25,22 +24,22 @@ object FrameSvnEditorView: TFrameSvnEditorView
     Transparent = False
     object ToolButtonReload: TToolButton
       Left = 0
-      Top = 0
+      Top = 2
       Action = ActionReload
     end
     object ToolButton1: TToolButton
       Left = 23
-      Top = 0
+      Top = 2
       Action = ActionCheckModifications
     end
     object ToolButtonDiff: TToolButton
       Left = 46
-      Top = 0
+      Top = 2
       Action = ActionDiff
     end
     object ToolButtonSep: TToolButton
       Left = 69
-      Top = 0
+      Top = 2
       Width = 8
       Caption = 'ToolButtonSep'
       ImageIndex = 0
@@ -48,7 +47,7 @@ object FrameSvnEditorView: TFrameSvnEditorView
     end
     object ComboBox: TComboBox
       Left = 77
-      Top = 0
+      Top = 2
       Width = 185
       Height = 21
       Style = csDropDownList
@@ -59,9 +58,9 @@ object FrameSvnEditorView: TFrameSvnEditorView
   end
   object ScrollBox: TScrollBox
     Left = 0
-    Top = 22
+    Top = 26
     Width = 681
-    Height = 605
+    Height = 601
     VertScrollBar.Smooth = True
     VertScrollBar.Tracking = True
     Align = alClient
@@ -77,7 +76,7 @@ object FrameSvnEditorView: TFrameSvnEditorView
     object LabelURL: TLabel
       Left = 16
       Top = 43
-      Width = 23
+      Width = 25
       Height = 13
       Caption = '&URL:'
       FocusControl = EditURL
@@ -85,7 +84,7 @@ object FrameSvnEditorView: TFrameSvnEditorView
     object LabelBaseRevision: TLabel
       Left = 16
       Top = 179
-      Width = 70
+      Width = 71
       Height = 13
       Caption = '&Base Revision:'
       FocusControl = EditBaseRevision
@@ -93,7 +92,7 @@ object FrameSvnEditorView: TFrameSvnEditorView
     object LabelCommittedRevision: TLabel
       Left = 16
       Top = 203
-      Width = 98
+      Width = 96
       Height = 13
       Caption = '&Committed Revision:'
       FocusControl = EditCommittedRevision
@@ -101,7 +100,7 @@ object FrameSvnEditorView: TFrameSvnEditorView
     object LabelCommitTime: TLabel
       Left = 16
       Top = 251
-      Width = 64
+      Width = 63
       Height = 13
       Caption = 'Commit &Time:'
       FocusControl = EditCommitTime
@@ -109,7 +108,7 @@ object FrameSvnEditorView: TFrameSvnEditorView
     object LabelLockOwner: TLabel
       Left = 16
       Top = 347
-      Width = 60
+      Width = 61
       Height = 13
       Caption = '&Lock Owner:'
       FocusControl = EditLockOwner
@@ -117,7 +116,7 @@ object FrameSvnEditorView: TFrameSvnEditorView
     object LabelLockTime: TLabel
       Left = 16
       Top = 456
-      Width = 50
+      Width = 53
       Height = 13
       Caption = 'L&ock Time:'
       FocusControl = EditLockTime
@@ -125,7 +124,7 @@ object FrameSvnEditorView: TFrameSvnEditorView
     object LabelCommitAuthor: TLabel
       Left = 16
       Top = 227
-      Width = 75
+      Width = 71
       Height = 13
       Caption = 'Commit &Author:'
       FocusControl = EditCommitAuthor
@@ -133,7 +132,7 @@ object FrameSvnEditorView: TFrameSvnEditorView
     object LabelLockComment: TLabel
       Left = 16
       Top = 371
-      Width = 73
+      Width = 74
       Height = 13
       Caption = 'Lock Co&mment:'
       FocusControl = EditLockTime
@@ -141,7 +140,7 @@ object FrameSvnEditorView: TFrameSvnEditorView
     object LabelProps: TLabel
       Left = 16
       Top = 483
-      Width = 53
+      Width = 50
       Height = 13
       Caption = 'Prop&erties:'
       FocusControl = MemoProps
@@ -149,7 +148,7 @@ object FrameSvnEditorView: TFrameSvnEditorView
     object LabelRepository: TLabel
       Left = 16
       Top = 67
-      Width = 56
+      Width = 53
       Height = 13
       Caption = '&Repository:'
       FocusControl = EditRepository
@@ -157,7 +156,7 @@ object FrameSvnEditorView: TFrameSvnEditorView
     object LabelLastCommitRevision: TLabel
       Left = 16
       Top = 275
-      Width = 105
+      Width = 104
       Height = 13
       Caption = '&Last Commit Revision:'
       FocusControl = EditLastCommitRevision
@@ -165,7 +164,7 @@ object FrameSvnEditorView: TFrameSvnEditorView
     object LabelLastCommitTime: TLabel
       Left = 16
       Top = 323
-      Width = 87
+      Width = 86
       Height = 13
       Caption = '&Last Commit Time:'
       FocusControl = EditLastCommitTime
@@ -173,7 +172,7 @@ object FrameSvnEditorView: TFrameSvnEditorView
     object LabelLastCommitAuthor: TLabel
       Left = 16
       Top = 299
-      Width = 98
+      Width = 94
       Height = 13
       Caption = '&Last Commit Author:'
       FocusControl = EditLastCommitAuthor
@@ -311,7 +310,7 @@ object FrameSvnEditorView: TFrameSvnEditorView
       object LabelTextStatus: TLabel
         Left = 13
         Top = 22
-        Width = 28
+        Width = 29
         Height = 13
         Caption = '&Local:'
         FocusControl = EditTextStatus
@@ -319,7 +318,7 @@ object FrameSvnEditorView: TFrameSvnEditorView
       object LabelRemoteTextStatus: TLabel
         Left = 13
         Top = 46
-        Width = 41
+        Width = 40
         Height = 13
         Caption = '&Remote:'
         FocusControl = EditRemoteTextStatus
@@ -358,7 +357,7 @@ object FrameSvnEditorView: TFrameSvnEditorView
       object LabelPropStatus: TLabel
         Left = 13
         Top = 22
-        Width = 28
+        Width = 29
         Height = 13
         Caption = '&Local:'
         FocusControl = EditPropStatus
@@ -366,7 +365,7 @@ object FrameSvnEditorView: TFrameSvnEditorView
       object LabelRemotePropStatus: TLabel
         Left = 13
         Top = 46
-        Width = 41
+        Width = 40
         Height = 13
         Caption = '&Remote:'
         FocusControl = EditRemotePropStatus

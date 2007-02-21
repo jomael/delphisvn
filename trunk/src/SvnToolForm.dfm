@@ -91,6 +91,12 @@ inherited FormSvnTools: TFormSvnTools
       OnExecute = ActionAddExecute
       OnUpdate = ActionAddUpdate
     end
+    object ActionShowUnversioned: TAction
+      Caption = 'Show &Unversioned'
+      Hint = 'Show unversioned files'
+      OnExecute = ActionShowUnversionedExecute
+      OnUpdate = ActionShowUnversionedUpdate
+    end
   end
   inherited PopupMenu1: TPopupActionBar
     OnPopup = PopupMenu1Popup
@@ -107,7 +113,10 @@ inherited FormSvnTools: TFormSvnTools
     object MenuAdd: TMenuItem [3]
       Action = ActionAdd
     end
-    object MenuSeparator1: TMenuItem [4]
+    object MenuShowUnversioned: TMenuItem [4]
+      Action = ActionShowUnversioned
+    end
+    object MenuSeparator1: TMenuItem [5]
       Caption = '-'
       Visible = False
     end
