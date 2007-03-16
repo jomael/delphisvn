@@ -36,7 +36,8 @@ requires
   xmlrtl,
   vclactnband,
   vclx,
-  VirtualTreesD10;
+  VirtualTreesD10,
+  SynEdit_R2006;
 
 contains
   SvnIDEClient in 'SvnIDEClient.pas',
@@ -51,6 +52,7 @@ contains
   SvnTreeView in 'SvnTreeView.pas',
   SvnOptionsDialog in 'SvnOptionsDialog.pas',
   SvnLogMessagePrompt in 'SvnLogMessagePrompt.pas',
-  SvnSimpleFrame in 'SvnSimpleFrame.pas';
+  SvnSimpleFrame in 'SvnSimpleFrame.pas',
+  SvnDiff3Frame in 'SvnDiff3Frame.pas';
 
 end.

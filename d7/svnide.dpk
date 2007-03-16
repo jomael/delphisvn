@@ -55,6 +55,7 @@ contains
   SvnTreeView in '..\src\SvnTreeView.pas',
   SvnOptionsDialog in '..\src\SvnOptionsDialog.pas',
   SvnLogMessagePrompt in '..\src\SvnLogMessagePrompt.pas',
-  SvnSimpleFrame in '..\src\SvnSimpleFrame.pas';
+  SvnSimpleFrame in '..\src\SvnSimpleFrame.pas',
+  SvnDiff3Frame in '..\src\SvnDiff3Frame.pas';
 
 end.

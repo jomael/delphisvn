@@ -57,6 +57,8 @@ type
 
     procedure HandleAddExecute(Action: TAction); override;
     procedure HandleAddUpdate(Action: TAction); override;
+    procedure HandleMergeConflictsExecute(Action: TAction); override;
+    procedure HandleMergeConflictsUpdate(Action: TAction); override;
     procedure HandleOpenExecute(Action: TAction); override;
     procedure HandleOpenUpdate(Action: TAction); override;
     procedure HandleShowBlameExecute(Action: TAction); override;
@@ -425,7 +427,7 @@ begin
   SelectedNodes := FrameSvnListView.Tree.GetSortedSelection(True);
   if Length(SelectedNodes) = 0 then
     Exit;
-    
+
   for I := Low(SelectedNodes) to High(SelectedNodes) do
   begin
     Data := FrameSvnListView.Tree.GetNodeData(SelectedNodes[I]);
@@ -433,6 +435,50 @@ begin
       Exit;
   end;
   Action.Enabled := True;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFrameSvnStatusListView.HandleMergeConflictsExecute(Action: TAction);
+
+var
+  SelectedNodes: TNodeArray;
+  Data: PNodeData;
+
+begin
+  SelectedNodes := FrameSvnListView.Tree.GetSortedSelection(True);
+  if Length(SelectedNodes) <> 1 then
+    Exit;
+
+  Data := FrameSvnListView.Tree.GetNodeData(SelectedNodes[Low(SelectedNodes)]);
+  if not Assigned(Data) or not Assigned(Data^.Item) or (Data^.Item.TextStatus <> svnWcStatusConflicted) then
+    Exit;
+
+  SvnIDEModule.ShowConflicts(Data^.Item.PathName);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFrameSvnStatusListView.HandleMergeConflictsUpdate(Action: TAction);
+
+var
+  SelectedNodes: TNodeArray;
+  Data: PNodeData;
+
+begin
+  Action.Visible := False;
+  Action.Enabled := False;
+
+  SelectedNodes := FrameSvnListView.Tree.GetSortedSelection(True);
+  if Length(SelectedNodes) <> 1 then
+    Exit;
+
+  Data := FrameSvnListView.Tree.GetNodeData(SelectedNodes[Low(SelectedNodes)]);
+  if not Assigned(Data) or not Assigned(Data^.Item) or (Data^.Item.TextStatus <> svnWcStatusConflicted) then
+    Exit;
+
+  Action.Enabled := True;
+  Action.Visible := True;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

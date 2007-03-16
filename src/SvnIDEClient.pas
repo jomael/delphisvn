@@ -36,8 +36,9 @@ uses
   {$IFDEF COMPILER_9_UP}
   FileHistoryAPI,
   {$ENDIF}
+  SynEdit, SynEditHighlighter,
   SvnIDEHistory, EditorViewSupport, Dockform,
-  svn_client, SvnClient;
+  svn_client, SvnClient, SvnDiff3Frame;
 
 type
   TSvnIDESettings = class
@@ -130,19 +131,32 @@ type
     procedure SyncSSLClientPasswordPrompt;
     procedure SyncSSLServerTrustPrompt;
     procedure SyncUserNamePrompt;
+    {$IFDEF COMPILER_9_UP}
+    procedure TabSheetShow(Sender: TObject);
+    {$ENDIF}
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
 
     function FindFirstSvnHistoryNode(Tree: TObject): Pointer;
     function FindSvnHistoryNode(Tree: TObject; Revision: Integer): Pointer;
+    procedure FrameSvnDiff3ItemResolved(Sender: TObject; Kind: TResolutionKind);
+    function GetCurrentModuleFileName: string;
     function GetEditWindow: TCustomForm;
+    function GetModule(const FileName: string): IOTAModule;
+    function GetSvnHistory(const FileName: string): ISvnFileHistory;
     function GetSvnHistoryNodeItem(Tree: TObject; Node: Pointer): TSvnHistoryItem;
+    procedure InitializeEdit(Edit: TSynEdit; const FileName: string);
+    procedure InitializeHighlighter(const FileName: string; var Highlighter: TSynCustomHighlighter);
     {$IFNDEF COMPILER_9_UP}
     function SelectEditorView(const TabCaption: string): Boolean;
     {$ENDIF}
     procedure SetupBlameControl;
+    {$IFDEF COMPILER_9_UP}
+    procedure SetupDiff3Frame;
+    {$ENDIF}
     function ShowBlame(const FileName: string): Boolean;
+    function ShowConflicts(const FileName: string): Boolean;
     function ShowDiff(const FileName: string; FromRevision, ToRevision: Integer): Boolean;
     procedure ShowEditor(const FileName: string);
     procedure ShowHistoryEditControls;
@@ -166,9 +180,11 @@ implementation
 uses
   Registry, ActnMan, StdCtrls, Tabs, ComCtrls, ExtCtrls,
   {$IFNDEF COMPILER_9_UP}
-  DesignIntf, VirtualTrees, SynEdit, SvnHistoryManager, SvnHistoryView, SvnHistoryViewFrame, 
+  DesignIntf, VirtualTrees, SvnHistoryManager, SvnHistoryView, SvnHistoryViewFrame,
   {$ENDIF}
   DeskUtil,
+  SynHighlighterPas, SynHighlighterCpp, SynHighlighterCS, SynHighlighterHtml, SynHighlighterXML, SynHighlighterSQL,
+  SynHighlighterIDL,
   SvnImages, SvnClientLoginPrompt, SvnClientSSLClientCertPrompt, SvnClientSSLServerTrustPrompt, SvnLogMessagePrompt,
   SvnEditorView, SvnOptionsDialog, SvnToolForm;
 
@@ -409,6 +425,145 @@ begin
   begin
     FRecurseUnversioned := Value;
     FModified := True;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+{ TSvnIDESettings public }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+constructor TSvnIDESettings.Create;
+
+begin
+  inherited Create;
+  FDirectories := '';
+  FDirHistory := TStringList.Create;
+  FAllowEmptyCommitMsg := False;
+  FCommitExternals := False;
+  FConfirmAdd := True;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+destructor TSvnIDESettings.Destroy;
+
+begin
+  if FModified then
+    SaveSettings;
+  FDirHistory.Free;
+  inherited Destroy;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnIDESettings.LoadSettings;
+
+var
+  Services: IOTAServices;
+  Registry: TRegistry;
+  SKey: string;
+  Count, I: Integer;
+
+begin
+  FDirectories := '';
+  FDirHistory.Clear;
+  if not Assigned(BorlandIDEServices) or
+    {$IFDEF COMPILER_9_UP}
+    not BorlandIDEServices.GetService(IOTAServices, Services) then
+    {$ELSE}
+    not Supports(BorlandIDEServices, IOTAServices, Services) then
+    {$ENDIF}
+    Exit;
+
+  Registry := TRegistry.Create(KEY_READ);
+  try
+    Registry.RootKey := HKEY_CURRENT_USER;
+    SKey := Format('%s\Subversion', [Services.GetBaseRegistryKey]);
+    if Registry.OpenKeyReadOnly(SKey) then
+    begin
+      FDirectories := Registry.ReadString('Directories');
+      if Registry.ValueExists('AllowEmptyCommitMsg') then
+        FAllowEmptyCommitMsg := Registry.ReadBool('AllowEmptyCommitMsg')
+      else
+        FAllowEmptyCommitMsg := False;
+      if Registry.ValueExists('CommitExternals') then
+        FCommitExternals := Registry.ReadBool('CommitExternals')
+      else
+        FCommitExternals := False;
+      if Registry.ValueExists('ConfirmAdd') then
+        FConfirmAdd := Registry.ReadBool('ConfirmAdd')
+      else
+        FConfirmAdd := True;
+      if Registry.ValueExists('RecurseUnversioned') then
+        FRecurseUnversioned := Registry.ReadBool('RecurseUnversioned')
+      else
+        FRecurseUnversioned := False;
+    end;
+
+    SKey := Format('%s\Subversion\hlDirectories', [Services.GetBaseRegistryKey]);
+    if Registry.OpenKeyReadOnly(SKey) then
+    begin
+      Count := Registry.ReadInteger('Count');
+      for I := 0 to Count - 1 do
+        FDirHistory.Add(Registry.ReadString(Format('Item%d', [I])));
+    end;
+
+    FModified := False;
+  finally
+    Registry.Free;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnIDESettings.SaveSettings;
+
+var
+  Services: IOTAServices;
+  Registry: TRegistry;
+  SKey: string;
+  I: Integer;
+
+begin
+  if not Assigned(BorlandIDEServices) or
+    {$IFDEF COMPILER_9_UP}
+    not BorlandIDEServices.GetService(IOTAServices, Services) then
+    {$ELSE}
+    not Supports(BorlandIDEServices, IOTAServices, Services) then
+    {$ENDIF}
+    Exit;
+
+  Registry := TRegistry.Create;
+  try
+    Registry.RootKey := HKEY_CURRENT_USER;
+    SKey := Format('%s\Subversion', [Services.GetBaseRegistryKey]);
+    if Registry.OpenKey(SKey, True) then
+    begin
+      Registry.WriteString('Directories', FDirectories);
+      Registry.WriteBool('AllowEmptyCommitMsg', FAllowEmptyCommitMsg);
+      Registry.WriteBool('CommitExternals', FCommitExternals);
+      Registry.WriteBool('ConfirmAdd', FConfirmAdd);
+      Registry.WriteBool('RecurseUnversioned', FRecurseUnversioned);
+    end;
+    SKey := Format('%s\Subversion\hlDirectories', [Services.GetBaseRegistryKey]);
+    if Registry.OpenKey(SKey, True) then
+    begin
+      Registry.WriteInteger('Count', FDirHistory.Count);
+      for I := 0 to FDirHistory.Count - 1 do
+        Registry.WriteString(Format('Item%d', [I]), FDirHistory[I]);
+      I := FDirHistory.Count;
+      while Registry.ValueExists(Format('Item%d', [I])) do
+      begin
+        Registry.DeleteValue(Format('Item%d', [I]));
+        Inc(I);
+      end;
+    end;
+
+    FModified := False;
+  finally
+    Registry.Free;
   end;
 end;
 
@@ -739,145 +894,6 @@ begin
   FControl.WindowProc := FControlProc;
   FControlProc := nil;
   inherited Destroy;
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-{ TSvnIDESettings public }
-
-//----------------------------------------------------------------------------------------------------------------------
-
-constructor TSvnIDESettings.Create;
-
-begin
-  inherited Create;
-  FDirectories := '';
-  FDirHistory := TStringList.Create;
-  FAllowEmptyCommitMsg := False;
-  FCommitExternals := False;
-  FConfirmAdd := True;
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-destructor TSvnIDESettings.Destroy;
-
-begin
-  if FModified then
-    SaveSettings;
-  FDirHistory.Free;
-  inherited Destroy;
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-procedure TSvnIDESettings.LoadSettings;
-
-var
-  Services: IOTAServices;
-  Registry: TRegistry;
-  SKey: string;
-  Count, I: Integer;
-
-begin
-  FDirectories := '';
-  FDirHistory.Clear;
-  if not Assigned(BorlandIDEServices) or
-    {$IFDEF COMPILER_9_UP}
-    not BorlandIDEServices.GetService(IOTAServices, Services) then
-    {$ELSE}
-    not Supports(BorlandIDEServices, IOTAServices, Services) then
-    {$ENDIF}
-    Exit;
-
-  Registry := TRegistry.Create(KEY_READ);
-  try
-    Registry.RootKey := HKEY_CURRENT_USER;
-    SKey := Format('%s\Subversion', [Services.GetBaseRegistryKey]);
-    if Registry.OpenKeyReadOnly(SKey) then
-    begin
-      FDirectories := Registry.ReadString('Directories');
-      if Registry.ValueExists('AllowEmptyCommitMsg') then
-        FAllowEmptyCommitMsg := Registry.ReadBool('AllowEmptyCommitMsg')
-      else
-        FAllowEmptyCommitMsg := False;
-      if Registry.ValueExists('CommitExternals') then
-        FCommitExternals := Registry.ReadBool('CommitExternals')
-      else
-        FCommitExternals := False;
-      if Registry.ValueExists('ConfirmAdd') then
-        FConfirmAdd := Registry.ReadBool('ConfirmAdd')
-      else
-        FConfirmAdd := True;
-      if Registry.ValueExists('RecurseUnversioned') then
-        FRecurseUnversioned := Registry.ReadBool('RecurseUnversioned')
-      else
-        FRecurseUnversioned := False;
-    end;
-
-    SKey := Format('%s\Subversion\hlDirectories', [Services.GetBaseRegistryKey]);
-    if Registry.OpenKeyReadOnly(SKey) then
-    begin
-      Count := Registry.ReadInteger('Count');
-      for I := 0 to Count - 1 do
-        FDirHistory.Add(Registry.ReadString(Format('Item%d', [I])));
-    end;
-
-    FModified := False;
-  finally
-    Registry.Free;
-  end;
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-procedure TSvnIDESettings.SaveSettings;
-
-var
-  Services: IOTAServices;
-  Registry: TRegistry;
-  SKey: string;
-  I: Integer;
-
-begin
-  if not Assigned(BorlandIDEServices) or
-    {$IFDEF COMPILER_9_UP}
-    not BorlandIDEServices.GetService(IOTAServices, Services) then
-    {$ELSE}
-    not Supports(BorlandIDEServices, IOTAServices, Services) then
-    {$ENDIF}
-    Exit;
-
-  Registry := TRegistry.Create;
-  try
-    Registry.RootKey := HKEY_CURRENT_USER;
-    SKey := Format('%s\Subversion', [Services.GetBaseRegistryKey]);
-    if Registry.OpenKey(SKey, True) then
-    begin
-      Registry.WriteString('Directories', FDirectories);
-      Registry.WriteBool('AllowEmptyCommitMsg', FAllowEmptyCommitMsg);
-      Registry.WriteBool('CommitExternals', FCommitExternals);
-      Registry.WriteBool('ConfirmAdd', FConfirmAdd);
-      Registry.WriteBool('RecurseUnversioned', FRecurseUnversioned);
-    end;
-    SKey := Format('%s\Subversion\hlDirectories', [Services.GetBaseRegistryKey]);
-    if Registry.OpenKey(SKey, True) then
-    begin
-      Registry.WriteInteger('Count', FDirHistory.Count);
-      for I := 0 to FDirHistory.Count - 1 do
-        Registry.WriteString(Format('Item%d', [I]), FDirHistory[I]);
-      I := FDirHistory.Count;
-      while Registry.ValueExists(Format('Item%d', [I])) do
-      begin
-        Registry.DeleteValue(Format('Item%d', [I]));
-        Inc(I);
-      end;
-    end;
-
-    FModified := False;
-  finally
-    Registry.Free;
-  end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -1341,7 +1357,83 @@ begin
     Cancel := ShowSvnClientLoginPrompt(SvnClient, Realm, UserName, Password, Save, [lpoUserName]) <> mrOK;
 end;
 
+{$IFDEF COMPILER_9_UP}
 //----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnIDEClient.TabSheetShow(Sender: TObject);
+
+var
+  FileName: string;
+  Frame: TFrameSvnDiff3;
+  SvnHistory: ISvnFileHistory;
+  SvnItem: TSvnItem;
+  Diff: PSvnDiff;
+  DiffOptions: TSvnDiffFileOptions;
+  OriginalFileName, ModifiedFileName, LatestFileName: string;
+  OriginalLines, ModifiedLines, LatestLines: TStringList;
+
+begin
+  Frame := TFrameSvnDiff3(FindChildControl(Sender as TTabSheet, 'TFrameSvnDiff3'));
+  if not Assigned(Frame) then
+    Exit;
+  FileName := GetCurrentModuleFileName;
+  if FileName = '' then
+    Exit;
+  SvnHistory := GetSvnHistory(FileName);
+  if not Assigned(SvnHistory) then
+    Exit;
+  SvnItem := SvnHistory.Item;
+  if not Assigned(SvnItem) or (SvnItem = Frame.Item) then
+    Exit;
+  SvnHistory := nil;
+
+  if SvnItem.TextStatus = svnWcStatusConflicted then
+  begin
+    OriginalFileName := ExtractFilePath(SvnItem.PathName) + SvnItem.ConflictOldFile;
+    ModifiedFileName := ExtractFilePath(SvnItem.PathName) + SvnItem.ConflictWorkingFile;
+    LatestFileName := ExtractFilePath(SvnItem.PathName) + SvnItem.ConflictNewFile;
+
+    DiffOptions.ignore_space := svnIgnoreSpaceAll;
+    DiffOptions.ignore_eol_style := True;
+
+    if Assigned(@svn_diff_file_diff3_2) then
+      SvnCheck(svn_diff_file_diff3_2(Diff, PChar(OriginalFileName), PChar(ModifiedFileName), PChar(LatestFileName),
+        @DiffOptions, SvnItem.SvnClient.Pool))
+    else
+      SvnCheck(svn_diff_file_diff3(Diff, PChar(OriginalFileName), PChar(ModifiedFileName), PChar(LatestFileName),
+        SvnItem.SvnClient.Pool));
+
+    OriginalLines := nil;
+    ModifiedLines := nil;
+    LatestLines := nil;
+    try
+      OriginalLines := TStringList.Create;
+      OriginalLines.LoadFromFile(OriginalFileName);
+      ModifiedLines := TStringList.Create;
+      ModifiedLines.LoadFromFile(ModifiedFileName);
+      LatestLines := TStringList.Create;
+      LatestLines.LoadFromFile(LatestFileName);
+
+      InitializeEdit(Frame.Edit1, FileName);
+      InitializeEdit(Frame.Edit2, FileName);
+      InitializeEdit(Frame.Edit3, FileName);
+      Frame.Item := SvnItem;
+      Frame.Initialize(OriginalLines, ModifiedLines, LatestLines, Diff);
+    finally
+      OriginalLines.Free;
+      ModifiedLines.Free;
+      LatestLines.Free;
+    end;
+  end
+  else
+  begin
+    Frame.Item := nil;
+    Frame.Initialize(nil, nil, nil, nil);
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+{$ENDIF}
 
 { TSvnIDEClient public }
 
@@ -1433,6 +1525,49 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+procedure TSvnIDEClient.FrameSvnDiff3ItemResolved(Sender: TObject; Kind: TResolutionKind);
+
+var
+  Frame: TFrameSvnDiff3;
+  ActionServices: IOTAActionServices;
+
+begin
+  Frame := Sender as TFrameSvnDiff3;
+  if not Assigned(Frame.Item) then
+    Exit;
+
+  {$IFDEF COMPILER_9_UP}
+  if BorlandIDEServices.GetService(IOTAActionServices, ActionServices) then
+  {$ELSE}
+  if Supports(BorlandIDEServices, IOTAActionServices, ActionServices) then
+  {$ENDIF}
+    ActionServices.ReloadFile(Frame.Item.PathName);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TSvnIDEClient.GetCurrentModuleFileName: string;
+
+var
+  ModuleServices: IOTAModuleServices;
+  Module: IOTAModule;
+
+begin
+  Result := '';
+
+  {$IFDEF COMPILER_9_UP}
+  if not BorlandIDEServices.GetService(IOTAModuleServices, ModuleServices) then
+  {$ELSE}
+  if not Supports(BorlandIDEServices, IOTAModuleServices, ModuleServices) then
+  {$ENDIF}
+    Exit;
+  Module := ModuleServices.CurrentModule;
+  if Assigned(Module) then
+    Result := Module.FileName;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
 function TSvnIDEClient.GetEditWindow: TCustomForm;
 
 var
@@ -1459,6 +1594,67 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+function TSvnIDEClient.GetModule(const FileName: string): IOTAModule;
+
+var
+  ModuleServices: IOTAModuleServices;
+  {$IFNDEF COMPILER_9_UP}
+  ActionServices: IOTAActionServices;
+  {$ENDIF}
+
+begin
+  Result := nil;
+  {$IFDEF COMPILER_9_UP}
+  if BorlandIDEServices.GetService(IOTAModuleServices, ModuleServices) then
+  {$ELSE}
+  if Supports(BorlandIDEServices, IOTAModuleServices, ModuleServices) then
+  {$ENDIF}
+  begin
+    Result := ModuleServices.FindModule(FileName);
+    if not Assigned(Result) then
+    {$IFDEF COMPILER_9_UP}
+      Result := ModuleServices.OpenModule(FileName);
+    {$ELSE}
+    begin
+      if Supports(BorlandIDEServices, IOTAActionServices, ActionServices) then
+        ActionServices.OpenFile(FileName);
+      Result := ModuleServices.FindModule(FileName);
+    end;
+    {$ENDIF}
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TSvnIDEClient.GetSvnHistory(const FileName: string): ISvnFileHistory;
+
+var
+  {$IFDEF COMPILER_9_UP}
+  FileHistoryManager: IOTAFileHistoryManager;
+  {$ENDIF}
+  SvnHistoryProvider: IOTAFileHistoryProvider;
+  History: IOTAFileHistory;
+
+begin
+  Result := nil;
+
+  if (FHistoryProviderIndex = -1) or
+    {$IFDEF COMPILER_9_UP}
+    not BorlandIDEServices.GetService(IOTAFileHistoryManager, FileHistoryManager) then
+    {$ELSE}
+    not Assigned(FileHistoryManager) then
+    {$ENDIF}
+    Exit;
+  SvnHistoryProvider := FileHistoryManager.FileHistoryProvider[FHistoryProviderIndex];
+  if not Assigned(SvnHistoryProvider) then
+    Exit;
+  History := SvnHistoryProvider.GetFileHistory(FileName);
+  if Assigned(History) then
+    Supports(History, ISvnFileHistory, Result);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
 function TSvnIDEClient.GetSvnHistoryNodeItem(Tree: TObject; Node: Pointer): TSvnHistoryItem;
 
 var
@@ -1479,6 +1675,236 @@ begin
     if Assigned(Item) and (Data^.Index >= 0) and (Data^.Index < Item.HistoryCount) then
       Result := Item.HistoryItems[Data^.Index];
   end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnIDEClient.InitializeEdit(Edit: TSynEdit; const FileName: string);
+
+var
+  Services: IOTAServices;
+  EditorServices: IOTAEditorServices;
+  EditOptions: IOTAEditOptions;
+  S: string;
+  Reg: TRegistry;
+
+begin
+  if not Supports(BorlandIDEServices, IOTAEditorServices, EditorServices) then
+    Exit;
+  EditOptions := EditorServices.GetEditOptionsForFile(FileName);
+  if not Assigned(EditOptions) then
+    Exit;
+
+  Edit.Font.Name := EditOptions.FontName;
+  Edit.Font.Size := EditOptions.FontSize;
+  Edit.RightEdge := EditOptions.BufferOptions.RightMargin;
+  Edit.SelectedColor.Background := clHighlight;
+  Edit.SelectedColor.Foreground := clHighlightText;
+  if Supports(BorlandIDEServices, IOTAServices, Services) then
+  begin
+    S := IncludeTrailingBackslash(Services.GetBaseRegistryKey) + 'Editor\Highlight';
+    Reg := TRegistry.Create(KEY_READ);
+    try
+      Reg.RootKey := HKEY_CURRENT_USER;
+      if Reg.OpenKeyReadOnly(IncludeTrailingBackslash(S) + 'Right margin') and
+        Reg.ValueExists('Foreground Color New') then
+        Edit.RightEdgeColor := StringToColor(Reg.ReadString('Foreground Color New'));
+    finally
+      Reg.Free;
+    end;
+  end;
+  Edit.Gutter.Font := Edit.Font;
+  Edit.Gutter.Color := $F4F4F4;
+  Edit.Gutter.Font.Color := $CC9999;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnIDEClient.InitializeHighlighter(const FileName: string; var Highlighter: TSynCustomHighlighter);
+
+
+var
+  Services: IOTAServices;
+  EditorServices: IOTAEditorServices;
+  EditOptions: IOTAEditOptions;
+  SID, SRegKey: string;
+
+begin
+  if not Supports(BorlandIDEServices, IOTAServices, Services) or
+    not Supports(BorlandIDEServices, IOTAEditorServices, EditorServices) then
+    Exit;
+
+  SRegKey := IncludeTrailingBackslash(Services.GetBaseRegistryKey) + 'Editor\Highlight';
+  EditOptions := EditorServices.GetEditOptionsForFile(FileName);
+  if not Assigned(EditOptions) then
+    Exit;
+
+  SID := EditOptions.IDString;
+  if AnsiSameText(SID, cDefEdDefault) then
+    FreeAndNil(Highlighter)
+  else if AnsiSameText(SID, cDefEdPascal) then
+  begin
+    if not (Highlighter is TSynPasSyn) then
+    begin
+      FreeAndNil(Highlighter);
+      Highlighter := TSynPasSyn.Create(Self);
+      with TSynPasSyn(Highlighter) do
+      begin
+        AsmAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Assembler', False);
+        CharAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Character', False);
+        CommentAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Comment', False);
+        DirectiveAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Preprocessor', False);
+        FloatAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Float', False);
+        HexAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Hex', False);
+        IdentifierAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Identifier', False);
+        KeyAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Reserved word', False);
+        NumberAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Number', False);
+        SpaceAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Whitespace', False);
+        StringAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'String', False);
+        SymbolAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Symbol', False);
+      end;
+    end;
+  end
+  else if AnsiSameText(SID, cDefEdC) then
+  begin
+    if not (Highlighter is TSynCppSyn) then
+    begin
+      FreeAndNil(Highlighter);
+      Highlighter := TSynCppSyn.Create(Self);
+      with TSynCppSyn(Highlighter) do
+      begin
+        AsmAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Assembler', False);
+        CommentAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Comment', False);
+        DirecAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Preprocessor', False);
+        IdentifierAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Identifier', False);
+        InvalidAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Illegal Char', False);
+        KeyAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Reserved word', False);
+        NumberAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Number', False);
+        FloatAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Float', False);
+        HexAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Hex', False);
+        OctalAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Octal', False);
+        SpaceAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Whitespace', False);
+        StringAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'String', False);
+        CharAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Character', False);
+        SymbolAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Symbol', False);
+      end;
+    end;
+  end
+  else if AnsiSameText(SID, cDefEdCSharp) then
+  begin
+    if not (Highlighter is TSynCSSyn) then
+    begin
+      FreeAndNil(Highlighter);
+      Highlighter := TSynCSSyn.Create(Self);
+      with TSynCSSyn(Highlighter) do
+      begin
+        AsmAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Assembler', False);
+        CommentAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Comment', False);
+        DirecAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Preprocessor', False);
+        IdentifierAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Identifier', False);
+        InvalidAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Illegal Char', False);
+        KeyAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Reserved word', False);
+        NumberAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Number', False);
+        SpaceAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Whitespace', False);
+        StringAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'String', False);
+        SymbolAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Symbol', False);
+      end;
+    end;
+  end
+  else if AnsiSameText(SID, cDefEdHTML) then
+  begin
+    if not (Highlighter is TSynHTMLSyn) then
+    begin
+      FreeAndNil(Highlighter);
+      Highlighter := TSynHTMLSyn.Create(Self);
+      with TSynHTMLSyn(Highlighter) do
+      begin
+        // AndAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, '', False);
+        CommentAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Comment', False);
+        IdentifierAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Attribute Names', False);
+        KeyAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Reserved word', False);
+        SpaceAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Whitespace', False);
+        SymbolAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Symbol', False);
+        TextAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Plain text', False);
+        // UndefKeyAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, '', False);
+        ValueAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Attribute Values', False);
+      end;
+    end;
+  end
+  else if AnsiSameText(SID, cDefEdXML) then
+  begin
+    if not (Highlighter is TSynXMLSyn) then
+    begin
+      FreeAndNil(Highlighter);
+      Highlighter := TSynXMLSyn.Create(Self);
+      with TSynXMLSyn(Highlighter) do
+      begin
+        ElementAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Reserved word', False);
+        AttributeAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Attribute Names', False);
+        NamespaceAttributeAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Attribute Names', False);
+        AttributeValueAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Attribute Values', False);
+        NamespaceAttributeValueAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Attribute Values', False);
+        TextAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Plain text', False);
+        CDATAAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'String', False);
+        EntityRefAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'String', False);
+        ProcessingInstructionAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Preprocessor', False);
+        CommentAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Comment', False);
+        // DocTypeAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, '', False);
+        SpaceAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Whitespace', False);
+        SymbolAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Symbol', False);
+      end;
+    end;
+  end
+  else if AnsiSameText(SID, cDefEdSQL) then
+  begin
+    if not (Highlighter is TSynSQLSyn) then
+    begin
+      FreeAndNil(Highlighter);
+      Highlighter := TSynSQLSyn.Create(Self);
+      with TSynSQLSyn(Highlighter) do
+      begin
+        CommentAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Comment', False);
+        ConditionalCommentAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Preprocessor', False);
+        // DataTypeAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, '', False);
+        // DefaultPackageAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, '', False);
+        // DelimitedIdentifierAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, '', False);
+        ExceptionAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Reserved word', False);
+        FunctionAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Reserved word', False);
+        IdentifierAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Identifier', False);
+        KeyAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Reserved word', False);
+        NumberAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Number', False);
+        // PLSQLAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, '', False);
+        SpaceAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Whitespace', False);
+        // SQLPlusAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, '', False);
+        StringAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'String', False);
+        SymbolAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Symbol', False);
+        // TableNameAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, '', False);
+        // VariableAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, '', False);
+      end;
+    end;
+  end
+  else if AnsiSameText(SID, cDefEdIDL) then
+  begin
+    if not (Highlighter is TSynIdlSyn) then
+    begin
+      FreeAndNil(Highlighter);
+      Highlighter := TSynIdlSyn.Create(Self);
+      with TSynIdlSyn(Highlighter) do
+      begin
+        CommentAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Comment', False);
+        // DatatypeAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, '', False);
+        IdentifierAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Identifier', False);
+        KeyAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Reserved word', False);
+        NumberAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Number', False);
+        PreprocessorAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Preprocessor', False);
+        SpaceAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Whitespace', False);
+        StringAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'String', False);
+        SymbolAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Symbol', False);
+      end;
+    end;
+  end
+  else
+    FreeAndNil(Highlighter);
 end;
 
 {$IFNDEF COMPILER_9_UP}
@@ -1515,7 +1941,55 @@ begin
   InsertBlameControl(GetEditWindow);
 end;
 
+{$IFDEF COMPILER_9_UP}
 //----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnIDEClient.SetupDiff3Frame;
+
+var
+  Form: TCustomForm;
+  HistoryFrame: TCustomFrame;
+  TabSet1: TTabSet;
+  Index: Integer;
+  PageControl1: TPageControl;
+  TabSheet: TTabSheet;
+  Frame: TFrameSvnDiff3;
+
+begin
+  Form := GetEditWindow;
+  if not Assigned(Form) then
+    Exit;
+  HistoryFrame := TCustomFrame(FindChildControl(Form, 'TFileHistoryFrame'));
+  if not Assigned(HistoryFrame) then
+    Exit;
+  TabSet1 := TTabSet(HistoryFrame.FindComponent('TabSet1'));
+  if not Assigned(TabSet1) then
+    Exit;
+  Index := TabSet1.Tabs.IndexOf('Merge Conflicts');
+  if Index <> -1 then
+    Exit;
+  TabSet1.Tabs.Insert(3, 'Merge Conflicts');
+  PageControl1 := TPageControl(HistoryFrame.FindComponent('PageControl1'));
+  if not Assigned(PageControl1) then
+    Exit;
+  Index := PageControl1.ActivePageIndex;
+  try
+    TabSheet := TTabSheet.Create(SvnIDEModule);
+    TabSheet.PageControl := PageControl1;
+    TabSheet.Caption := 'Merge Conflicts';
+    TabSheet.TabVisible := False;
+    TabSheet.OnShow := TabSheetShow;
+    Frame := TFrameSvnDiff3.Create(SvnIDEModule);
+    Frame.Parent := TabSheet;
+    Frame.Align := alClient;
+    Frame.OnItemResolved := FrameSvnDiff3ItemResolved;
+  finally
+    PageControl1.ActivePageIndex := Index;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+{$ENDIF}
 
 function TSvnIDEClient.ShowBlame(const FileName: string): Boolean;
 
@@ -1628,6 +2102,107 @@ begin
   // select and show node
   BaseVirtualTreeSetSelected(Tree, Node, True);
   BaseVirtualTreeScrollIntoView(Tree, Node, True, False);
+
+  Result := True;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TSvnIDEClient.ShowConflicts(const FileName: string): Boolean;
+
+var
+  Module: IOTAModule;
+  {$IFDEF COMPILER_9_UP}
+  TabSet1: TTabSet;
+  {$ENDIF}
+  SourceEditor: IOTASourceEditor;
+  I: Integer;
+  Form: TCustomForm;
+  HistoryFrame: TCustomFrame;
+  Index: Integer;
+  FileSelector: TComboBox;
+
+begin
+  Result := False;
+
+  // open and show the file in source code editor
+  Module := GetModule(FileName);
+  if not Assigned(Module) then
+    Exit;
+  SourceEditor := nil;
+  for I := 0 to Module.ModuleFileCount - 1 do
+    if Succeeded(Module.ModuleFileEditors[I].QueryInterface(IOTASourceEditor, SourceEditor)) then
+      Break;
+
+  // switch to 'History' tab
+  if not Assigned(SourceEditor) then
+    Exit;
+  SourceEditor.Show;
+  {$IFDEF COMPILER_9_UP}
+  SourceEditor.SwitchToView('Borland.FileHistoryView');
+
+  // find the history frame
+  Form := GetEditWindow;
+  if not Assigned(Form) then
+    Exit;
+  HistoryFrame := TCustomFrame(FindChildControl(Form, 'TFileHistoryFrame'));
+  if not Assigned(HistoryFrame) then
+    Exit;
+
+  // order is important; first select file, then switch tabs
+  // otherwise selecting file reactivates first tab sheet
+
+  // select file
+  if Module.ModuleFileCount > 1 then
+  begin
+    FileSelector := TComboBox(HistoryFrame.FindComponent('FileSelector'));
+    if not Assigned(FileSelector) then
+      Exit;
+    Index := FileSelector.Items.IndexOf(ExtractFileName(FileName));
+    if Index = -1 then
+      Exit;
+    FileSelector.ItemIndex := Index;
+    if Assigned(FileSelector.OnClick) then
+      FileSelector.OnClick(FileSelector);
+  end;
+
+  // switch to 'Merge Conflicts' tab
+  TabSet1 := TTabSet(HistoryFrame.FindComponent('TabSet1'));
+  if not Assigned(TabSet1) then
+    Exit;
+  Index := TabSet1.Tabs.IndexOf('Merge Conflicts');
+  if Index = -1 then
+    Exit;
+  TabSet1.TabIndex := Index;
+  if Assigned(TabSet1.OnClick) then
+    TabSet1.OnClick(TabSet1);
+  {$ELSE}
+  SelectEditorView('History');
+  // find the history frame
+  Form := GetEditWindow;
+  HistoryFrame := TFrameSvnHistoryView(FindChildControl(Form, 'TFrameSvnHistoryView'));
+  if not Assigned(HistoryFrame) then
+    Exit;
+
+  // select file
+  if Module.ModuleFileCount > 1 then
+  begin
+    FileSelector := TFrameSvnHistoryView(HistoryFrame).ComboBoxFileSelector;
+    if not Assigned(FileSelector) then
+      Exit;
+    Index := FileSelector.Items.IndexOf(ExtractFileName(FileName));
+    if Index = -1 then
+      Exit;
+    FileSelector.ItemIndex := Index;
+    if Assigned(FileSelector.OnClick) then
+      FileSelector.OnClick(FileSelector);
+  end;
+
+  // switch to 'Merge Conflicts' tab
+  TFrameSvnHistoryView(HistoryFrame).PageControl.ActivePageIndex := 3;
+  if Assigned(TFrameSvnHistoryView(HistoryFrame).PageControl.OnChange) then
+    TFrameSvnHistoryView(HistoryFrame).PageControl.OnChange(TFrameSvnHistoryView(HistoryFrame).PageControl);
+  {$ENDIF}
 
   Result := True;
 end;
@@ -1789,34 +2364,12 @@ end;
 procedure TSvnIDEClient.ShowEditor(const FileName: string);
 
 var
-  ModuleServices: IOTAModuleServices;
   Module: IOTAModule;
-  {$IFNDEF COMPILER_9_UP}
-  ActionServices: IOTAActionServices;
-  {$ENDIF}
   Editor: IOTAEditor;
   I: Integer;
 
 begin
-  Module := nil;
-  {$IFDEF COMPILER_9_UP}
-  if BorlandIDEServices.GetService(IOTAModuleServices, ModuleServices) then
-  {$ELSE}
-  if Supports(BorlandIDEServices, IOTAModuleServices, ModuleServices) then
-  {$ENDIF}
-  begin
-    Module := ModuleServices.FindModule(FileName);
-    if not Assigned(Module) then
-    {$IFDEF COMPILER_9_UP}
-      Module := ModuleServices.OpenModule(FileName);
-    {$ELSE}
-    begin
-      if Supports(BorlandIDEServices, IOTAActionServices, ActionServices) then
-        ActionServices.OpenFile(FileName);
-      Module := ModuleServices.FindModule(FileName);
-    end;
-    {$ENDIF}
-  end;
+  Module := GetModule(FileName);
   if not Assigned(Module) then
     Exit;
 
