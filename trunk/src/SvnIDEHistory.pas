@@ -130,11 +130,14 @@ type
     function SafeCallException(ExceptObject: TObject; ExceptAddr: Pointer): HResult; override;
   end;
 
-  ISvnFileHistory = interface
+  ISvnFileHistory = interface(IOTAFileHistory)
     ['{BA13BDFA-7E77-409E-9FEB-E282BD0F809D}']
     function GetItem: TSvnItem; safecall;
     property Item: TSvnItem read GetItem;
   end;
+
+const
+  SvnFileHistoryProvider = 'TOndrej.SubversionFileHistoryProvider';
 
 implementation
 
@@ -146,7 +149,6 @@ type
   TSvnFileHistory = class(TDispInterfacedObject, IOTAFileHistory, ISvnFileHistory)
   private
     FItem: TSvnItem;
-    FItems: TList;
 
     { IOTAFileHistory }
     function Get_Count: Integer; safecall;
@@ -216,7 +218,7 @@ end;
 function TSvnFileHistory.Get_Count: Integer;
 
 begin
-  Result := FItems.Count;
+  Result := FItem.HistoryCount;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -224,7 +226,7 @@ end;
 function TSvnFileHistory.GetAuthor(Index: Integer): WideString;
 
 begin
-  Result := TSvnHistoryItem(FItems[Index]).Author;
+  Result := TSvnHistoryItem(FItem.HistoryItems[Index]).Author;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -232,7 +234,7 @@ end;
 function TSvnFileHistory.GetComment(Index: Integer): WideString;
 
 begin
-  Result := TSvnHistoryItem(FItems[Index]).LogMessage;
+  Result := TSvnHistoryItem(FItem.HistoryItems[Index]).LogMessage;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -243,7 +245,7 @@ var
   Item: TSvnHistoryItem;
 
 begin
-  Item := FItems[Index];
+  Item := FItem.HistoryItems[Index];
   if Item.Revision = Item.Owner.BaseRevision then
     Result := TStreamAdapter.Create(TStringStream.Create(Item.Owner.GetBaseFile), soOwned)
   else if Item.Revision = Item.Owner.CommittedRevision then
@@ -257,7 +259,7 @@ end;
 function TSvnFileHistory.GetDate(Index: Integer): TDateTime;
 
 begin
-  Result := TzToUTCDateTime(TSvnHistoryItem(FItems[Index]).Time);
+  Result := TzToUTCDateTime(TSvnHistoryItem(FItem.HistoryItems[Index]).Time);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -268,7 +270,7 @@ var
   Item: TSvnHistoryItem;
 
 begin
-  Item := FItems[Index];
+  Item := FItem.HistoryItems[Index];
   if Item.Revision = Item.Owner.CommittedRevision then
     Result := hsActiveRevision
   else
@@ -280,7 +282,7 @@ end;
 function TSvnFileHistory.GetIdent(Index: Integer): WideString;
 
 begin
-  Result := IntToStr(TSvnHistoryItem(FItems[Index]).Revision);
+  Result := IntToStr(FItem.HistoryItems[Index].Revision);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -324,16 +326,9 @@ end;
 
 constructor TSvnFileHistory.Create(AItem: TSvnItem);
 
-var
-  I: Integer;
-
 begin
   inherited Create;
-  FItems := TList.Create;
   FItem := AItem;
-  if Assigned(FItem) then
-    for I := 0 to FItem.HistoryCount - 1 do
-      FItems.Add(FItem.HistoryItems[I]);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -342,7 +337,6 @@ destructor TSvnFileHistory.Destroy;
 
 begin
   FItem.Tag := 1;
-  FItems.Free;
   inherited Destroy;
 end;
 
@@ -411,6 +405,9 @@ begin
 
   SvnIDEModule.SetupBlameControl;
   SvnIDEModule.ShowHistoryEditControls;
+  {$IFDEF COMPILER_9_UP}
+  SvnIDEModule.SetupDiff3Frame;
+  {$ENDIF}
 
   Result := TSvnFileHistory.Create(Item);
 end;
@@ -420,7 +417,7 @@ end;
 function TSvnFileHistoryProvider.Get_Ident: WideString;
 
 begin
-  Result := 'TOndrej.SubversionFileHistoryProvider';
+  Result := SvnFileHistoryProvider;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
