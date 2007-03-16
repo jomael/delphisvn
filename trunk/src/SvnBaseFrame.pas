@@ -45,6 +45,8 @@ type
     procedure Finished;
     procedure HandleAddExecute(Action: TAction); virtual;
     procedure HandleAddUpdate(Action: TAction); virtual;
+    procedure HandleMergeConflictsExecute(Action: TAction); virtual;
+    procedure HandleMergeConflictsUpdate(Action: TAction); virtual;
     procedure HandleOpenExecute(Action: TAction); virtual;
     procedure HandleOpenUpdate(Action: TAction); virtual;
     procedure HandleShowBlameExecute(Action: TAction); virtual;
@@ -105,6 +107,22 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TFrameSvnBase.HandleAddUpdate(Action: TAction);
+
+begin
+
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFrameSvnBase.HandleMergeConflictsExecute(Action: TAction);
+
+begin
+
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFrameSvnBase.HandleMergeConflictsUpdate(Action: TAction);
 
 begin
 

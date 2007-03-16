@@ -62,6 +62,7 @@ type
 
   TFormSvnTools = class(TDockableToolbarForm)
     ActionAdd: TAction;
+    ActionMergeConflicts: TAction;
     ActionOpen: TAction;
     ActionShowBlame: TAction;
     ActionShowDiff: TAction;
@@ -82,12 +83,15 @@ type
     ToolButtonRevert: TToolButton;
     ToolButtonSeparator1: TToolButton;
     ToolButtonUpdate: TToolButton;
+    MenuMergeConflicts: TMenuItem;
 
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
 
     procedure ActionAddExecute(Sender: TObject);
     procedure ActionAddUpdate(Sender: TObject);
+    procedure ActionMergeConflictsExecute(Sender: TObject);
+    procedure ActionMergeConflictsUpdate(Sender: TObject);
     procedure ActionOpenExecute(Sender: TObject);
     procedure ActionOpenUpdate(Sender: TObject);
     procedure ActionShowBlameExecute(Sender: TObject);
@@ -511,6 +515,28 @@ begin
   inherited;
   if Assigned(FFrame) then
     FFrame.HandleAddUpdate(Sender as TAction);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFormSvnTools.ActionMergeConflictsExecute(Sender: TObject);
+
+begin
+  inherited;
+  if Assigned(FFrame) then
+    FFrame.HandleMergeConflictsExecute(Sender as TAction);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TFormSvnTools.ActionMergeConflictsUpdate(Sender: TObject);
+
+begin
+  inherited;
+  if Assigned(FFrame) then
+    FFrame.HandleMergeConflictsUpdate(Sender as TAction)
+  else
+    (Sender as TAction).Visible := False;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

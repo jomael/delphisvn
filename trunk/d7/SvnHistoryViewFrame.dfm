@@ -25,6 +25,10 @@ object FrameSvnHistoryView: TFrameSvnHistoryView
       Caption = 'Diff'
       ImageIndex = 2
     end
+    object TabSheet4: TTabSheet
+      Caption = 'Merge Conflicts'
+      ImageIndex = 3
+    end
   end
   object ToolBar: TToolBar
     Left = 0

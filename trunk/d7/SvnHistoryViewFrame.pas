@@ -32,7 +32,7 @@ uses
   ToolsAPI,
   VirtualTrees,
   SynEdit, SynEditHighlighter,
-  svn_client, SvnIDEHistory;
+  svn_client, SvnClient, SvnIDEHistory, SvnDiff3Frame;
 
 type
   TFrameSvnHistoryView = class(TFrame)
@@ -48,6 +48,7 @@ type
     TabSheet1: TTabSheet;
     TabSheet2: TTabSheet;
     TabSheet3: TTabSheet;
+    TabSheet4: TTabSheet;
     ToolBar: TToolBar;
     ToolButtonDiffNext: TToolButton;
     ToolButtonDiffPrev: TToolButton;
@@ -75,7 +76,6 @@ type
     procedure EditDiffSpecialLineColors(Sender: TObject; Line: Integer; var Special: Boolean; var FG, BG: TColor);
     function GetDiffCount: Integer;
     procedure HeaderControlSectionResize(HeaderControl: THeaderControl; Section: THeaderSection);
-    procedure InitializeEdit(Edit: TSynEdit);
     procedure InitializeHighlighter;
     procedure LoadDiff(OriginalLines, ModifiedLines: TStrings; Diff: PSvnDiff);
     procedure ShowFile(Index: Integer);
@@ -126,18 +126,19 @@ type
     TreeDiffLeft: TVirtualStringTree;
     TreeDiffRight: TVirtualStringTree;
 
+    // Merge Conflicts tab
+    FrameSvnDiff3: TFrameSvnDiff3;
+
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
 
-    procedure Display(const Module: IOTAModule); overload;
+    procedure Display(const Module: IOTAModule); 
   end;
 
 implementation
 
 uses
   Registry, Math, StrUtils,
-  SynHighlighterPas, SynHighlighterCpp, SynHighlighterCS, SynHighlighterHtml, SynHighlighterXML, SynHighlighterSQL,
-  SynHighlighterIDL,
   SvnIDEClient, SvnHistoryManager;
 
 {$R *.dfm}
@@ -762,228 +763,10 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TFrameSvnHistoryView.InitializeEdit(Edit: TSynEdit);
-
-var
-  Services: IOTAServices;
-  EditorServices: IOTAEditorServices;
-  EditOptions: IOTAEditOptions;
-  S: string;
-  Reg: TRegistry;
-
-begin
-  if not Supports(BorlandIDEServices, IOTAEditorServices, EditorServices) then
-    Exit;
-  EditOptions := EditorServices.GetEditOptionsForFile(FFileName);
-  if not Assigned(EditOptions) then
-    Exit;
-
-  Edit.Font.Name := EditOptions.FontName;
-  Edit.Font.Size := EditOptions.FontSize;
-  Edit.RightEdge := EditOptions.BufferOptions.RightMargin;
-  if Supports(BorlandIDEServices, IOTAServices, Services) then
-  begin
-    S := IncludeTrailingBackslash(Services.GetBaseRegistryKey) + 'Editor\Highlight';
-    Reg := TRegistry.Create(KEY_READ);
-    try
-      Reg.RootKey := HKEY_CURRENT_USER;
-      if Reg.OpenKeyReadOnly(IncludeTrailingBackslash(S) + 'Right margin') and
-        Reg.ValueExists('Foreground Color New') then
-        Edit.RightEdgeColor := StringToColor(Reg.ReadString('Foreground Color New'));
-    finally
-      Reg.Free;
-    end;
-  end;
-  Edit.Gutter.Font := Edit.Font;
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
 procedure TFrameSvnHistoryView.InitializeHighlighter;
 
-var
-  Services: IOTAServices;
-  EditorServices: IOTAEditorServices;
-  EditOptions: IOTAEditOptions;
-  SID, SRegKey: string;
-
 begin
-  if not Supports(BorlandIDEServices, IOTAServices, Services) or
-    not Supports(BorlandIDEServices, IOTAEditorServices, EditorServices) then
-    Exit;
-
-  SRegKey := IncludeTrailingBackslash(Services.GetBaseRegistryKey) + 'Editor\Highlight';
-  EditOptions := EditorServices.GetEditOptionsForFile(FFileName);
-  if not Assigned(EditOptions) then
-    Exit;
-
-  SID := EditOptions.IDString;
-  if AnsiSameText(SID, cDefEdDefault) then
-    FreeAndNil(FHighlighter)
-  else if AnsiSameText(SID, cDefEdPascal) then
-  begin
-    if not (FHighlighter is TSynPasSyn) then
-    begin
-      FreeAndNil(FHighlighter);
-      FHighlighter := TSynPasSyn.Create(Self);
-      with TSynPasSyn(FHighlighter) do
-      begin
-        AsmAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Assembler', False);
-        CharAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Character', False);
-        CommentAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Comment', False);
-        DirectiveAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Preprocessor', False);
-        FloatAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Float', False);
-        HexAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Hex', False);
-        IdentifierAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Identifier', False);
-        KeyAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Reserved word', False);
-        NumberAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Number', False);
-        SpaceAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Whitespace', False);
-        StringAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'String', False);
-        SymbolAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Symbol', False);
-      end;
-    end;
-  end
-  else if AnsiSameText(SID, cDefEdC) then
-  begin
-    if not (FHighlighter is TSynCppSyn) then
-    begin
-      FreeAndNil(FHighlighter);
-      FHighlighter := TSynCppSyn.Create(Self);
-      with TSynCppSyn(FHighlighter) do
-      begin
-        AsmAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Assembler', False);
-        CommentAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Comment', False);
-        DirecAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Preprocessor', False);
-        IdentifierAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Identifier', False);
-        InvalidAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Illegal Char', False);
-        KeyAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Reserved word', False);
-        NumberAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Number', False);
-        FloatAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Float', False);
-        HexAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Hex', False);
-        OctalAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Octal', False);
-        SpaceAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Whitespace', False);
-        StringAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'String', False);
-        CharAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Character', False);
-        SymbolAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Symbol', False);
-      end;
-    end;
-  end
-  else if AnsiSameText(SID, cDefEdCSharp) then
-  begin
-    if not (FHighlighter is TSynCSSyn) then
-    begin
-      FreeAndNil(FHighlighter);
-      FHighlighter := TSynCSSyn.Create(Self);
-      with TSynCSSyn(FHighlighter) do
-      begin
-        AsmAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Assembler', False);
-        CommentAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Comment', False);
-        DirecAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Preprocessor', False);
-        IdentifierAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Identifier', False);
-        InvalidAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Illegal Char', False);
-        KeyAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Reserved word', False);
-        NumberAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Number', False);
-        SpaceAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Whitespace', False);
-        StringAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'String', False);
-        SymbolAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Symbol', False);
-      end;
-    end;
-  end
-  else if AnsiSameText(SID, cDefEdHTML) then
-  begin
-    if not (FHighlighter is TSynHTMLSyn) then
-    begin
-      FreeAndNil(FHighlighter);
-      FHighlighter := TSynHTMLSyn.Create(Self);
-      with TSynHTMLSyn(FHighlighter) do
-      begin
-        // AndAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, '', False);
-        CommentAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Comment', False);
-        IdentifierAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Attribute Names', False);
-        KeyAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Reserved word', False);
-        SpaceAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Whitespace', False);
-        SymbolAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Symbol', False);
-        TextAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Plain text', False);
-        // UndefKeyAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, '', False);
-        ValueAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Attribute Values', False);
-      end;
-    end;
-  end
-  else if AnsiSameText(SID, cDefEdXML) then
-  begin
-    if not (FHighlighter is TSynXMLSyn) then
-    begin
-      FreeAndNil(FHighlighter);
-      FHighlighter := TSynXMLSyn.Create(Self);
-      with TSynXMLSyn(FHighlighter) do
-      begin
-        ElementAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Reserved word', False);
-        AttributeAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Attribute Names', False);
-        NamespaceAttributeAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Attribute Names', False);
-        AttributeValueAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Attribute Values', False);
-        NamespaceAttributeValueAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Attribute Values', False);
-        TextAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Plain text', False);
-        CDATAAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'String', False);
-        EntityRefAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'String', False);
-        ProcessingInstructionAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Preprocessor', False);
-        CommentAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Comment', False);
-        // DocTypeAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, '', False);
-        SpaceAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Whitespace', False);
-        SymbolAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Symbol', False);
-      end;
-    end;
-  end
-  else if AnsiSameText(SID, cDefEdSQL) then
-  begin
-    if not (FHighlighter is TSynSQLSyn) then
-    begin
-      FreeAndNil(FHighlighter);
-      FHighlighter := TSynSQLSyn.Create(Self);
-      with TSynSQLSyn(FHighlighter) do
-      begin
-        CommentAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Comment', False);
-        ConditionalCommentAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Preprocessor', False);
-        // DataTypeAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, '', False);
-        // DefaultPackageAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, '', False);
-        // DelimitedIdentifierAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, '', False);
-        ExceptionAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Reserved word', False);
-        FunctionAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Reserved word', False);
-        IdentifierAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Identifier', False);
-        KeyAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Reserved word', False);
-        NumberAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Number', False);
-        // PLSQLAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, '', False);
-        SpaceAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Whitespace', False);
-        // SQLPlusAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, '', False);
-        StringAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'String', False);
-        SymbolAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Symbol', False);
-        // TableNameAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, '', False);
-        // VariableAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, '', False);
-      end;
-    end;
-  end
-  else if AnsiSameText(SID, cDefEdIDL) then
-  begin
-    if not (FHighlighter is TSynIdlSyn) then
-    begin
-      FreeAndNil(FHighlighter);
-      FHighlighter := TSynIdlSyn.Create(Self);
-      with TSynIdlSyn(FHighlighter) do
-      begin
-        CommentAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Comment', False);
-        // DatatypeAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, '', False);
-        IdentifierAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Identifier', False);
-        KeyAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Reserved word', False);
-        NumberAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Number', False);
-        PreprocessorAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Preprocessor', False);
-        SpaceAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Whitespace', False);
-        StringAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'String', False);
-        SymbolAttri.LoadFromBorlandRegistry(HKEY_CURRENT_USER, SRegKey, 'Symbol', False);
-      end;
-    end;
-  end
-  else
-    FreeAndNil(FHighlighter);
-
+  SvnIDEModule.InitializeHighlighter(FFileName, FHighlighter);
   EditContent.Highlighter := FHighlighter;
   EditDiff.Highlighter := FHighlighter;
 end;
@@ -1089,8 +872,16 @@ var
   FileHistory: IOTAFileHistory;
   Node: PVirtualNode;
   Data: PNodeData;
+  SvnHistory: ISvnFileHistory;
+  SvnItem: TSvnItem;
+  Diff: PSvnDiff;
+  DiffOptions: TSvnDiffFileOptions;
+  OriginalFileName, ModifiedFileName, LatestFileName: string;
+  OriginalLines, ModifiedLines, LatestLines: TStringList;
+  Highlighter: TSynCustomHighlighter;
 
 begin
+  SvnHistory := nil;
   FileName := ExtractFilePath(FFileName) + ComboBoxFileSelector.Items[Index];
 
   TreeContent.BeginUpdate;
@@ -1109,8 +900,8 @@ begin
         try
           TreeDiffRight.Clear;
 
-          InitializeEdit(EditContent);
-          InitializeEdit(EditDiff);
+          SvnIDEModule.InitializeEdit(EditContent, FileName);
+          SvnIDEModule.InitializeEdit(EditDiff, FileName);
           InitializeHighlighter;
 
           Node := TreeContent.AddChild(nil);
@@ -1143,6 +934,9 @@ begin
             FileHistory := FileHistoryManager.FileHistoryProvider[I].GetFileHistory(FileName);
             if Assigned(FileHistory) then
             begin
+              if not Assigned(SvnHistory) then
+                FileHistory.QueryInterface(ISvnFileHistory, SvnHistory);
+
               for J := 0 to FileHistory.Count - 1 do
               begin
                 Node := TreeContent.AddChild(nil);
@@ -1190,6 +984,60 @@ begin
     end;
   finally
     TreeContent.EndUpdate;
+  end;
+
+  if Assigned(SvnHistory) then
+  begin
+    SvnItem := SvnHistory.Item;
+    if Assigned(SvnItem) and (SvnItem.TextStatus = svnWcStatusConflicted) then
+    begin
+      OriginalFileName := ExtractFilePath(SvnItem.PathName) + SvnItem.ConflictOldFile;
+      ModifiedFileName := ExtractFilePath(SvnItem.PathName) + SvnItem.ConflictWorkingFile;
+      LatestFileName := ExtractFilePath(SvnItem.PathName) + SvnItem.ConflictNewFile;
+
+      DiffOptions.ignore_space := svnIgnoreSpaceAll;
+      DiffOptions.ignore_eol_style := True;
+
+      if Assigned(@svn_diff_file_diff3_2) then
+        SvnCheck(svn_diff_file_diff3_2(Diff, PChar(OriginalFileName), PChar(ModifiedFileName), PChar(LatestFileName),
+          @DiffOptions, SvnItem.SvnClient.Pool))
+      else
+        SvnCheck(svn_diff_file_diff3(Diff, PChar(OriginalFileName), PChar(ModifiedFileName), PChar(LatestFileName),
+          SvnItem.SvnClient.Pool));
+
+      OriginalLines := nil;
+      ModifiedLines := nil;
+      LatestLines := nil;
+      try
+        OriginalLines := TStringList.Create;
+        OriginalLines.LoadFromFile(OriginalFileName);
+        ModifiedLines := TStringList.Create;
+        ModifiedLines.LoadFromFile(ModifiedFileName);
+        LatestLines := TStringList.Create;
+        LatestLines.LoadFromFile(LatestFileName);
+
+        SvnIDEModule.InitializeEdit(FrameSvnDiff3.Edit1, FileName);
+        SvnIDEModule.InitializeEdit(FrameSvnDiff3.Edit2, FileName);
+        SvnIDEModule.InitializeEdit(FrameSvnDiff3.Edit3, FileName);
+        Highlighter := FrameSvnDiff3.Highlighter;
+        SvnIDEModule.InitializeHighlighter(FileName, Highlighter);
+        FrameSvnDiff3.Highlighter := Highlighter;
+        FrameSvnDiff3.Item := SvnItem;
+        FrameSvnDiff3.Initialize(OriginalLines, ModifiedLines, LatestLines, Diff);
+      finally
+        OriginalLines.Free;
+        ModifiedLines.Free;
+        LatestLines.Free;
+      end;
+
+      TabSheet4.TabVisible := True;
+    end
+    else
+    begin
+      FrameSvnDiff3.Item := nil;
+      FrameSvnDiff3.Initialize(nil, nil, nil, nil);
+      TabSheet4.TabVisible := False;
+    end;
   end;
 
   PageControlChange(PageControl);
@@ -1959,6 +1807,12 @@ begin
   EditDiff.Gutter.ShowLineNumbers := False;
   EditDiff.OnGutterPaint := EditDiffGutterPaint;
   EditDiff.OnSpecialLineColors := EditDiffSpecialLineColors;
+
+  // Merge Conflicts tab
+  FrameSvnDiff3 := TFrameSvnDiff3.Create(Self);
+  FrameSvnDiff3.Parent := TabSheet4;
+  FrameSvnDiff3.Align := alClient;
+  FrameSvnDiff3.OnItemResolved := SvnIDEModule.FrameSvnDiff3ItemResolved;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -2040,7 +1894,7 @@ var
 begin
   case PageControl.ActivePageIndex of
     0:
-      Tree := TreeContent;
+      Tree := TreeContent;  
     1:
       Tree := TreeInfo;
     else

@@ -195,6 +195,7 @@ type
     procedure ReloadStatus;
     procedure Remove(Item: TSvnItem);
     procedure RemoveDestroyNotification(Notification: TNotifyEvent);
+    procedure Resolved(Recurse: Boolean = False);
 
     property Absent: Boolean read FAbsent;
     property BaseRevision: Integer read FBaseRevision;
@@ -345,6 +346,7 @@ type
     function PathNamesToAprArray(PathNames: TStrings; SubPool: PAprPool = nil): PAprArrayHeader; overload;
     function PathNamesToAprArray(const PathNames: array of string; SubPool: PAprPool = nil): PAprArrayHeader; overload;    procedure Revert(PathNames: TStrings; Callback: TSvnNotifyCallback = nil; Recurse: Boolean = True;
       SubPool: PAprPool = nil);
+    procedure Resolved(const SvnPath: string; Recurse: Boolean = False; SubPool: PAprPool = nil);
     function SvnPathToNativePath(const SvnPath: string; SubPool: PAprPool = nil): string;
     procedure Update(PathNames: TStrings; Callback: TSvnNotifyCallback = nil; Recurse: Boolean = True;
       IgnoreExternals: Boolean = False; SubPool: PAprPool = nil);
@@ -1553,7 +1555,6 @@ var
   Status: TSvnWCStatus2;
   Item: TSvnItem;
   Error: PSvnError;
-  Cancel: Boolean;
 
 begin
   R := FindFirst(IncludeTrailingPathDelimiter(FPathName) + '*.*', faAnyFile, F);
@@ -1565,18 +1566,26 @@ begin
     begin
       if (F.Name <> '.') and (F.Name <> '..') and not FSvnClient.MatchGlobalIgnores(F.Name) then
       begin
+        if (F.Attr and faDirectory <> 0) and
+          FSvnClient.IsPathVersioned(IncludeTrailingPathDelimiter(FPathName) + F.Name) then
+        begin
+          OutputDebugString(PChar(Format('versioned subdirectory ''%s'' in unversioned directory ''%s''',
+            [F.Name, FPathName])));
+        end
+        else
+        begin
           FillChar(Status, SizeOf(TSvnWcStatus2), 0);
           Status.entry := nil;
           Status.text_status := svnWcStatusUnversioned;
           Item := TSvnItem.Create(FSvnClient, Self,
             FSvnClient.NativePathToSvnPath(IncludeTrailingPathDelimiter(FPathName) + F.Name), Status);
 
-          Cancel := False;
           if Assigned(FSvnClient.FStatusCallback) then
-            FSvnClient.FStatusCallback(FSvnClient, Item, Cancel);
+            FSvnClient.FStatusCallback(FSvnClient, Item, FSvnClient.FCancelled);
           Error := SvnContextCancel(FSvnClient);
           if Assigned(Error) then
             RaiseSvnError(Error);
+        end;
       end;
 
       R := FindNext(F);
@@ -2240,13 +2249,22 @@ begin
        Index := I;
        Break;
      end;
-     
+
      if Index <> -1 then
      begin
        FDestroyNotifications.Delete(Index);
        Dispose(P);
      end;
   end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnItem.Resolved(Recurse: Boolean = False);
+
+begin
+  FSvnClient.Resolved(FSvnPathName, Recurse);
+  ReloadStatus;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -3041,6 +3059,25 @@ begin
     SvnCheck(svn_client_revert(Paths, Recurse, FCtx, SubPool));
   finally
     FNotifyCallback := nil;
+    if NewPool then
+      apr_pool_destroy(SubPool);
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnClient.Resolved(const SvnPath: string; Recurse: Boolean = False; SubPool: PAprPool = nil);
+
+var
+  NewPool: Boolean;
+
+begin
+  NewPool := not Assigned(SubPool);
+  if NewPool then
+    AprCheck(apr_pool_create_ex(SubPool, FPool, nil, FAllocator));
+  try
+    SvnCheck(svn_client_resolved(PChar(SvnPath), Recurse, FCtx, SubPool));
+  finally
     if NewPool then
       apr_pool_destroy(SubPool);
   end;

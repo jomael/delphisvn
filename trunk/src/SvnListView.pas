@@ -272,7 +272,7 @@ begin
         Result := Ord(Item1.IsDirectory) - Ord(Item2.IsDirectory);
     end;
   if Result = 0 then
-    case TColumnIndex(Column) of
+    case Column of
       cxPathName:
         if FFullPaths then
           Result := AnsiCompareText(Item1.PathName, Item2.PathName)
@@ -344,7 +344,7 @@ begin
   if not Assigned(Data) or not Assigned(Data^.Item) then
     Exit;
 
-  case TColumnIndex(Column) of
+  case Column of
     cxPathName:
       case Kind of
         ikNormal, ikSelected:
@@ -379,7 +379,7 @@ begin
   if not Assigned(Data) or not Assigned(Data^.Item) then
     Exit;
 
-  case TColumnIndex(Column) of
+  case Column of
     cxPathName:
       case TextType of
         ttNormal:

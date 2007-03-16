@@ -97,6 +97,12 @@ inherited FormSvnTools: TFormSvnTools
       OnExecute = ActionShowUnversionedExecute
       OnUpdate = ActionShowUnversionedUpdate
     end
+    object ActionMergeConflicts: TAction
+      Caption = 'Merge &Conflicts'
+      Hint = 'Merge conflicts'
+      OnExecute = ActionMergeConflictsExecute
+      OnUpdate = ActionMergeConflictsUpdate
+    end
   end
   inherited PopupMenu1: TPopupActionBar
     OnPopup = PopupMenu1Popup
@@ -110,13 +116,16 @@ inherited FormSvnTools: TFormSvnTools
     object MenuShowBlame: TMenuItem [2]
       Action = ActionShowBlame
     end
-    object MenuAdd: TMenuItem [3]
+    object MenuMergeConflicts: TMenuItem [3]
+      Action = ActionMergeConflicts
+    end
+    object MenuAdd: TMenuItem [4]
       Action = ActionAdd
     end
-    object MenuShowUnversioned: TMenuItem [4]
+    object MenuShowUnversioned: TMenuItem [5]
       Action = ActionShowUnversioned
     end
-    object MenuSeparator1: TMenuItem [5]
+    object MenuSeparator1: TMenuItem [6]
       Caption = '-'
       Visible = False
     end
