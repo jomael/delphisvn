@@ -33,7 +33,6 @@ requires
   svnui,
   designide,
   vcl,
-  xmlrtl,
   vclactnband,
   vclx,
   VirtualTreesD7,
