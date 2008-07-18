@@ -46,7 +46,7 @@
 			<Compiler Name="ShowWarnings">True</Compiler>
 			<Compiler Name="UnitAliases">WinTypes=Windows;WinProcs=Windows;DbiTypes=BDE;DbiProcs=BDE;DbiErrs=BDE;</Compiler>
 			<Compiler Name="NamespacePrefix"></Compiler>
-			<Compiler Name="GenerateDocumentation">False</Compiler>
+			<Compiler Name="GenerateDocumentation">True</Compiler>
 			<Compiler Name="DefaultNamespace"></Compiler>
 			<Compiler Name="SymbolDeprecated">True</Compiler>
 			<Compiler Name="SymbolLibrary">True</Compiler>
@@ -104,6 +104,15 @@
 			<Compiler Name="LocalPInvoke">True</Compiler>
 			<Compiler Name="MessageDirective">True</Compiler>
 			<Compiler Name="CodePage"></Compiler>
+			<Compiler Name="TypeInfoImplicitlyAdded">True</Compiler>
+			<Compiler Name="XMLWhitespaceNotAllowed">True</Compiler>
+			<Compiler Name="XMLUnknownEntity">True</Compiler>
+			<Compiler Name="XMLInvalidNameStart">True</Compiler>
+			<Compiler Name="XMLInvalidName">True</Compiler>
+			<Compiler Name="XMLExpectedCharacter">True</Compiler>
+			<Compiler Name="XMLCRefNoResolve">True</Compiler>
+			<Compiler Name="XMLNoParm">True</Compiler>
+			<Compiler Name="XMLNoMatchingParm">True</Compiler>
 		</Compiler>
 		<Linker>
 			<Linker Name="MapFile">0</Linker>
@@ -139,11 +148,6 @@
 			<Parameters Name="LoadAllSymbols">True</Parameters>
 			<Parameters Name="LoadUnspecifiedSymbols">False</Parameters>
 		</Parameters>
-		<Language>
-			<Language Name="ActiveLang"></Language>
-			<Language Name="ProjectLang">$00000000</Language>
-			<Language Name="RootDir"></Language>
-		</Language>
 		<VersionInfo>
 			<VersionInfo Name="IncludeVerInfo">True</VersionInfo>
 			<VersionInfo Name="AutoIncBuild">False</VersionInfo>
@@ -171,5 +175,9 @@
 			<VersionInfoKeys Name="ProductVersion">1.0.0.0</VersionInfoKeys>
 			<VersionInfoKeys Name="Comments"></VersionInfoKeys>
 		</VersionInfoKeys>
+		<Signing>
+			<Signing Name="SignAssembly">False</Signing>
+		</Signing>
+		<buildevents/>
 	</Delphi.Personality>
 </BorlandProject>

@@ -26,6 +26,7 @@ package svnide;
 {$LIBSUFFIX '100'}
 {$DESIGNONLY}
 {$IMPLICITBUILD ON}
+{$DEFINE DEBUG}
 
 requires
   rtl,

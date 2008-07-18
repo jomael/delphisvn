@@ -415,6 +415,13 @@ resourcestring
   SWcNotifyUnlocked = 'Unlocked';
   SWcNotifyFailedLock = 'Lock Failed';
   SWcNotifyFailedUnlock = 'Unlock Failed';
+  SWcNotifyExists = 'Exists';
+  SWcNotifyChangelistSet = 'Changelist Set';
+  SWcNotifyChangelistClear = 'Changelist Clear';
+  SWcNotifyChangelistMoved = 'Changelist Moved';
+  SWcNotifyMergeBegin = 'Merge Begin';
+  SWcNotifyForeignMergeBegin = 'Foreign Merge Begin';
+  SWcNotifyUpdateReplace = 'Update Replace';
 
 const
   SvnLineBreak = #10;
@@ -629,7 +636,9 @@ const
     SWcNotifyUpdateAdd, SWcNotifyUpdateUpdate, SWcNotifyUpdateCompleted, SWcNotifyUpdateExternal,
     SWcNotifyStatusCompleted, SWcNotifyStatusExternal, SWcNotifyCommitModified, SWcNotifyCommitAdded,
     SWcNotifyCommitDeleted, SWcNotifyCommitReplaced, SWcNotifyCommitPostfixTxdelta, SWcNotifyBlameRevision,
-    SWcNotifyLocked, SWcNotifyUnlocked, SWcNotifyFailedLock, SWcNotifyFailedUnlock);
+    SWcNotifyLocked, SWcNotifyUnlocked, SWcNotifyFailedLock, SWcNotifyFailedUnlock, SWcNotifyExists,
+    SWcNotifyChangelistSet, SWcNotifyChangelistClear, SWcNotifyChangelistMoved, SWcNotifyMergeBegin,
+    SWcNotifyForeignMergeBegin, SWcNotifyUpdateReplace);
 
 begin
   Result := NotifyActionStrings[Action];
@@ -2742,7 +2751,8 @@ begin
 
   if not SvnClientLibLoaded then
   begin
-    if not LoadSvnClientLib then
+    if not LoadSvnClientLib or not LoadSvnDeltaLib or not LoadSvnDiffLib or not LoadSvnFsLib or not LoadSvnRaLib or
+      not LoadSvnReposLib or not LoadSvnSubrLib or not LoadSvnWcLib then
       RaiseLastOSError;
     FSvnClientLibLoaded := True;
   end;

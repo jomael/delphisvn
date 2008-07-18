@@ -26,8 +26,6 @@ package svnui;
 {$LIBSUFFIX '100'}
 {$RUNONLY}
 {$IMPLICITBUILD OFF}
-{%RC '..\res\svnimg.rc'}
-{%RC '..\res\tortoise.rc'}
 
 requires
   rtl,

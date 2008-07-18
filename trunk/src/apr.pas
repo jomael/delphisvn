@@ -90,6 +90,7 @@ const
   APR_EPATHWILD          = APR_OS_START_ERROR + 25;
   APR_ESYMNOTFOUND       = APR_OS_START_ERROR + 26;
   APR_EPROC_UNKNOWN      = APR_OS_START_ERROR + 27;
+  APR_ENOTENOUGHENTROPY  = APR_OS_START_ERROR + 28;
 
   APR_INCHILD            = APR_OS_START_STATUS + 1;
   APR_INPARENT           = APR_OS_START_STATUS + 2;
@@ -143,8 +144,8 @@ const
 //----- apr_version.h --------------------------------------------------------------------------------------------------
 
 const
-  AprMajorVersion = 0;
-  AprMinorVersion = 9;
+  AprMajorVersion = 1;
+  AprMinorVersion = 2;
   AprPatchVersion = 12;
 
 type
@@ -161,6 +162,20 @@ var
 
 //----- apr_version.h --------------------------------------------------------------------------------------------------
 
+//----- apr_arch_utf8.h ------------------------------------------------------------------------------------------------
+
+type
+  PAprWChar = ^TAprWChar;
+  TAprWChar = WideChar;
+
+var
+  apr_conv_utf8_to_ucs2: function(_in: PChar; var inbytes: TAprSize; _out: PAprWChar; var outwords: TAprSize): TAprStatus;
+    stdcall;
+  apr_conv_ucs2_to_utf8: function(_in: PAprWChar; var inwords: TAprSize; _out: PChar; var outbytes: TAprSize): TAprStatus;
+    stdcall;
+
+//----- apr_arch_utf8.h ------------------------------------------------------------------------------------------------
+
 //----- apr_lib.h ------------------------------------------------------------------------------------------------------
 
 const
@@ -176,7 +191,6 @@ type
 
 var
   apr_filepath_name_get: function(pathname: PChar): PChar; stdcall;
-  apr_filename_of_pathname: function(pathname: PChar): PChar; stdcall;
   apr_vformatter: function(flush_func: TFlushFunc; c: PAprVFormatterBuf; fmt: PChar; ap: array of const): Integer;
     stdcall;
   apr_password_get: function(prompt, pwbuf: PChar; var bufsize: TAprSize): TAprStatus; stdcall;
@@ -221,11 +235,8 @@ var
   apr_pcalloc: function(p: PAprPool; size: TAprSize): Pointer; stdcall;
   apr_pcalloc_debug: function(p: PAprPool; size: TAprSize; file_line: PChar): Pointer;
   apr_pool_abort_set: procedure(abortfunc: TAprAbortFunc; pool: PAprPool); stdcall;
-  apr_pool_set_abort: procedure(abortfunc: TAprAbortFunc; pool: PAprPool); stdcall;
   apr_pool_abort_get: function(pool: PAprPool): TAprAbortFunc; stdcall;
-  apr_pool_get_abort: function(pool: PAprPool): TAprAbortFunc; stdcall;
   apr_pool_parent_get: function(pool: PAprPool): PAprPool; stdcall;
-  apr_pool_get_parent: function(pool: PAprPool): PAprPool; stdcall;
   apr_pool_is_ancestor: function(a, b: PAprPool): LongBool; stdcall;
   apr_pool_tag: procedure(pool: PAprPool; tag: PChar); stdcall;
   apr_pool_userdata_set: function(data: Pointer; key: PChar; cleanup: TUserDataCleanup;
@@ -243,6 +254,66 @@ var
   apr_pool_cleanup_for_exec: procedure; stdcall;
 
 //----- apr_pools.h ----------------------------------------------------------------------------------------------------
+
+//----- apr_atomic.h ---------------------------------------------------------------------------------------------------
+
+var
+  apr_atomic_init: function(p: PAprPool): TAprStatus; stdcall;
+  apr_atomic_read32: function(mem: PCardinal): Cardinal; stdcall;
+  apr_atomic_set32: procedure(mem: PCardinal; val: Cardinal); stdcall;
+  apr_atomic_add32: function(mem: PCardinal; val: Cardinal): Cardinal; stdcall;
+  apr_atomic_sub32: function(mem: PCardinal; val: Cardinal): Cardinal; stdcall;
+  apr_atomic_inc32: function(mem: PCardinal): Cardinal; stdcall;
+  apr_atomic_dec32: function(mem: PCardinal): Integer; stdcall;
+  apr_atomic_cas32: function(mem: PCardinal; _with, cmp: Cardinal): Cardinal; stdcall;
+  apr_atomic_xchg32: function(mem: PCardinal; val: Cardinal): Cardinal; stdcall;
+  apr_atomic_casptr: function(mem, _with, cmp: Pointer): Pointer; stdcall;
+
+//----- apr_atomic.h ---------------------------------------------------------------------------------------------------
+
+//----- apr_random.h ---------------------------------------------------------------------------------------------------
+
+type
+  TAprCryptoHashInit = procedure(hash: Pointer); cdecl;
+  TAprCryptoHashAdd = procedure(hash: Pointer; data: Pointer; bytes: TAprSize); cdecl;
+  TAprCryptoHashFinish = procedure(hash: Pointer; result: Pointer); cdecl;
+
+  PAprCryptoHash = ^TAprCryptoHash;
+  TAprCryptoHash = packed record
+    init: TAprCryptoHashInit;
+    add: TAprCryptoHashAdd;
+    finish: TAprCryptoHashFinish;
+    size: TAprSize;
+    data: Pointer;
+  end;
+
+var
+  apr_crypto_sha256_new: function(p: PAprPool): PAprCryptoHash; stdcall;
+
+type
+  PAprRandom = ^TAprRandom;
+  TAprRandom = THandle;
+
+var
+  apr_random_init: procedure(g: PAprRandom; p: PAprPool; pool_hash, key_hash, prng_hash: PAprCryptoHash); stdcall;
+  apr_random_standard_new: function(p: PAprPool): PAprRandom; stdcall;
+  apr_random_add_entropy: procedure(g: PAprRandom; entropy_: Pointer; bytes: TAprSize); stdcall;
+  apr_random_insecure_bytes: function(g: PAprRandom; random: Pointer; bytes: TAprSize): TAprStatus; stdcall;
+  apr_random_secure_bytes: function(g: PAprRandom; random: Pointer; bytes: TAprSize): TAprStatus; stdcall;
+  apr_random_barrier: procedure(g: PAprRandom); stdcall;
+  apr_random_secure_ready: function(r: PAprRandom): TAprStatus; stdcall;
+  apr_random_insecure_ready: function(r: PAprRandom): TAprStatus; stdcall;
+  apr_random_after_fork: procedure(proc: Pointer); stdcall;
+
+//----- apr_random.h ---------------------------------------------------------------------------------------------------
+
+//----- apr_signal.h ---------------------------------------------------------------------------------------------------
+
+var
+  apr_signal_block: function(signum: Integer): TAprStatus; stdcall;
+  apr_signal_unblock: function(signum: Integer): TAprStatus; stdcall;
+
+//----- apr_signal.h ---------------------------------------------------------------------------------------------------
 
 //----- apr_strings.h --------------------------------------------------------------------------------------------------
 
@@ -266,6 +337,7 @@ var
   apr_itoa: function(p: PAprPOol; n: Integer): PChar; stdcall;
   apr_ltoa: function(p: PAprPool; n: Longint): PChar; stdcall;
   apr_off_t_toa: function(p: PAprPool; n: TAprOff): PChar; stdcall;
+  apr_strtoff: function(var offset: TAprOff; buf: PChar; cend: PPChar; base: Integer): Integer; stdcall;
   apr_strtoi64: function(buf: PChar; pend: PPChar; base: Integer): Int64; stdcall;
   apr_atoi64: function(buf: PChar): Int64; stdcall;
   apr_strfsize: function(size: TAprOff; buf: PChar): PChar; stdcall;
@@ -280,6 +352,7 @@ type
 
 var
   apr_shm_create: function(out m: PAprShm; reqsize: TAprSize; filename: PChar; pool: PAprPool): TAprStatus; stdcall;
+  apr_shm_remove: function(filename: PChar; pool: PAprPool): TAprStatus; stdcall;
   apr_shm_destroy: function(m: PAprShm): TAprStatus; stdcall;
   apr_shm_attach: function(out m: PAprShm; filename: PChar; pool: PAprPool): TAprStatus; stdcall;
   apr_shm_detach: function(m: PAprShm): TAprStatus; stdcall;
@@ -299,10 +372,13 @@ type
   TAprHash = THandle;
   PAprHashIndex = ^TAprHashIndex;
   TAprHashIndex = THandle;
+  TAprHashFunc = function(key: PChar; var klen: TAprSize): Cardinal; cdecl;
   THashMergeFunc = function(p: PAprPool; key: Pointer; klen: TAprSize; h1_val, h2_val, data: Pointer): Pointer; stdcall;
 
 var
+  apr_hashfunc_default: TAprHashFunc;
   apr_hash_make: function(pool: PAprPool): PAprHash; stdcall;
+  apr_hash_make_custom: function(pool: PAprPool; hash_func: TAprHashFunc): PAprHash; stdcall;
   apr_hash_copy: function(pool: PAprPool; h: PAprHash): PAprHash; stdcall;
   apr_hash_set: procedure(ht: PAprHash; key: Pointer; klen: TAprSize; val: Pointer); stdcall;
   apr_hash_get: function(ht: PAprHash; key: Pointer; klen: TAprSize): Pointer; stdcall;
@@ -439,23 +515,13 @@ type
 
 var
   apr_uid_current: function(out userid: TAprUID; var groupid: TAprGID; p: PAprPool): TAprStatus; stdcall;
-  apr_current_userid: function(userid: TAprUID; var groupid: TAprGID; p: PAprPool): TAprStatus; stdcall;
   apr_uid_name_get: function(out username: PChar; userid: TAprUID; p: PAprPool): TAprStatus; stdcall;
-  apr_get_username: function(out username: PChar; userid: TAprUID; p: PAprPool): TAprStatus; stdcall;
   apr_uid_get: function(out userid: TAprUID; out groupid: TAprGID; username: PChar; p: PAprPool): TAprStatus; stdcall;
-  apr_get_userid: function(out userid: TAprUID; var groupid: TAprGID; username: PChar;
-    p: PAprPool): TAprStatus; stdcall;
   apr_uid_homepath_get: function(out dirname: PChar; username: PChar; p: PAprPool): TAprStatus; stdcall;
-  apr_get_home_directory: function(out dirname: PChar; username: PChar; p: PAprPool): TAprStatus; stdcall;
   apr_uid_compare: function(left, right: TAprUID): TAprStatus; stdcall;
-  apr_compare_users: function(left, right: TAprUID): TAprStatus; stdcall;
   apr_gid_name_get: function(out groupname: PChar; groupid: TAprGID; p: PAprPool): TAprStatus; stdcall;
-  apr_group_name_get: function(out groupname: PChar; groupid: TAprGID; p: PAprPool): TAprStatus; stdcall;
-  apr_get_groupname: function(out groupname: PChar; groupid: TAprGID; p: PAprPool): TAprStatus; stdcall;
   apr_gid_get: function(out groupid: TAprGID; groupname: PChar; p: PAprPool): TAprStatus; stdcall;
-  apr_get_groupid: function(out groupid: TAprGID; groupname: PChar; p: PAprPool): TAprStatus; stdcall;
   apr_gid_compare: function(left, right: TAprGID): TAprStatus; stdcall;
-  apr_compare_groups: function(left, right: TAprGID): TAprStatus; stdcall;
 
 //----- apr_user.h -----------------------------------------------------------------------------------------------------
 
@@ -505,13 +571,10 @@ var
   apr_time_now: function: TAprTime; stdcall;
   apr_time_ansi_put: function(out result: TAprTime; input: Longint): TAprStatus; stdcall;
   apr_time_exp_tz: function(out result: TAprTimeExp; input: TAprTime; offs: Integer): TAprStatus; stdcall;
-  apr_explode_time: function(out result: TAprTimeExp; input: TAprTime; offs: Integer): TAprStatus; stdcall;
   apr_time_exp_gmt: function(out result: TAprTimeExp; input: TAprTime): TAprStatus; stdcall;
   apr_time_exp_lt: function(out result: TAprTimeExp; input: TAprTime): TAprStatus; stdcall;
-  apr_explode_localtime: function(out result: TAprTimeExp; input: TAprTime): TAprStatus; stdcall;
   apr_time_exp_get: function(out result: TAprTimeExp; input: PAprTimeExp): TAprStatus; stdcall;
   apr_time_exp_gmt_get: function(out result: TAprTime; input: PAprTimeExp): TAprStatus; stdcall;
-  apr_implode_gmt: function(out result: TAprTime; input: PAprTimeExp): TAprStatus; stdcall;
   apr_sleep: procedure(t: TAprIntervalTime); stdcall;
   apr_rfc822_date: function(date_str: PChar; t: TAprTime): TAprStatus; stdcall;
   apr_ctime: function(date_str: PChar; t: TAprTime): TAprStatus; stdcall;
@@ -521,25 +584,44 @@ var
 
 //----- apr_time.h -----------------------------------------------------------------------------------------------------
 
+//----- apr_arch_time.h ------------------------------------------------------------------------------------------------
+
+type
+  TATime = packed record
+    cntxt: PAprPool;
+    currtime: TAprTime;
+    explodedtime: PSystemTime;
+  end;
+
+const
+  // Number of micro-seconds between the beginning of the Windows epoch (Jan. 1, 1601)
+  // and the Unix epoch (Jan. 1, 1970)
+  APR_DELTA_EPOCH_IN_USEC: TAprTime = 11644473600000000;
+
+function FileTimeToAprTime(t: TFileTime): TAprTime; inline;
+function AprTimeToFileTime(t: TAprTime): TFileTime; inline;
+
+//----- apr_arch_time.h ------------------------------------------------------------------------------------------------
+
 //----- apr_file_info.h ------------------------------------------------------------------------------------------------
 
 const
-  APR_USETID      = $8000;
-  APR_UREAD       = $0400;
-  APR_UWRITE      = $0200;
-  APR_UEXECUTE    = $0100;
+  APR_FPROT_USETID      = $8000;
+  APR_FPROT_UREAD       = $0400;
+  APR_FPROT_UWRITE      = $0200;
+  APR_FPROT_UEXECUTE    = $0100;
 
-  APR_GSETID      = $4000;
-  APR_GREAD       = $0040;
-  APR_GWRITE      = $0020;
-  APR_GEXECUTE    = $0010;
+  APR_FPROT_GSETID      = $4000;
+  APR_FPROT_GREAD       = $0040;
+  APR_FPROT_GWRITE      = $0020;
+  APR_FPROT_GEXECUTE    = $0010;
 
-  APR_WSTICKY     = $2000;
-  APR_WREAD       = $0004;
-  APR_WWRITE      = $0002;
-  APR_WEXECUTE    = $0001;
+  APR_FPROT_WSTICKY     = $2000;
+  APR_FPROT_WREAD       = $0004;
+  APR_FPROT_WWRITE      = $0002;
+  APR_FPROT_WEXECUTE    = $0001;
 
-  APR_OS_DEFAULT  = $0FFF;
+  APR_FPROT_OS_DEFAULT  = $0FFF;
 
   APR_FILE_SOURCE_PERMS = $1000;
 
@@ -612,9 +694,8 @@ type
   end;
 
 var
-  apr_stat: function(out finfo: TAprFInfo; fname: PChar; wanted: Integer; cont: PAprPool): TAprStatus; stdcall;
-  apr_lstat: function(out finfo: TAprFInfo; fname: PChar; wanted: Integer; cont: PAprPool): TAprStatus; stdcall;
-  apr_dir_open: function(out new_dir: PAprDir; dirname: PChar; cont: PAprPool): TAprStatus; stdcall;
+  apr_stat: function(out finfo: TAprFInfo; fname: PChar; wanted: Integer; pool: PAprPool): TAprStatus; stdcall;
+  apr_dir_open: function(out new_dir: PAprDir; dirname: PChar; pool: PAprPool): TAprStatus; stdcall;
   apr_dir_close: function(thedir: PAprDir): TAprStatus; stdcall;
   apr_dir_read: function(finfo: PAprFInfo; wanted: Integer; thedir: PAprDir): TAprStatus; stdcall;
   apr_dir_rewind: function(thedir: PAprDir): TAprStatus; stdcall;
@@ -632,24 +713,26 @@ var
 //----- apr_file_io.h --------------------------------------------------------------------------------------------------
 
 const
-  APR_READ             = $00001;
-  APR_WRITE            = $00002;
-  APR_CREATE           = $00004;
-  APR_APPEND           = $00008;
-  APR_TRUNCATE         = $00010;
-  APR_BINARY           = $00020;
-  APR_EXCL             = $00040;
-  APR_BUFFERED         = $00080;
-  APR_DELONCLOSE       = $00100;
-  APR_XTHREAD          = $00200;
-  APR_SHARELOCK        = $00400;
-  APR_FILE_NOCLEANUP   = $00800;
-  APR_SENDFILE_ENABLED = $01000;
-  APR_LARGEFILE        = $04000;
+  APR_FOPEN_READ             = $00001;
+  APR_FOPEN_WRITE            = $00002;
+  APR_FOPEN_CREATE           = $00004;
+  APR_FOPEN_APPEND           = $00008;
+  APR_FOPEN_TRUNCATE         = $00010;
+  APR_FOPEN_BINARY           = $00020;
+  APR_FOPEN_EXCL             = $00040;
+  APR_FOPEN_BUFFERED         = $00080;
+  APR_FOPEN_DELONCLOSE       = $00100;
+  APR_FOPEN_XTHREAD          = $00200;
+  APR_FOPEN_SHARELOCK        = $00400;
+  APR_FOPEN_FILE_NOCLEANUP   = $00800;
+  APR_FOPEN_SENDFILE_ENABLED = $01000;
+  APR_FOPEN_LARGEFILE        = $04000;
 
   APR_FILE_ATTR_READONLY   = $01;
   APR_FILE_ATTR_EXECUTABLE = $02;
   APR_FILE_ATTR_HIDDEN     = $04;
+
+  APR_MAX_IOVEC_SIZE       = 1024;
 
   APR_FLOCK_SHARED        = 1;
   APR_FLOCK_EXCLUSIVE     = 2;
@@ -666,14 +749,14 @@ var
   apr_file_open: function(out newf: PAprFile; fname: PChar; flag: Integer; perm: TAprFilePerms;
     pool: PAprPool): TAprStatus; stdcall;
   apr_file_close: function(afile: PAprFile): TAprStatus; stdcall;
-  apr_file_remove: function(path: PChar; cont: PAprPool): TAprStatus; stdcall;
+  apr_file_remove: function(path: PChar; pool: PAprPool): TAprStatus; stdcall;
   apr_file_rename: function(from_path, to_path: PChar; pool: PAprPool): TAprStatus; stdcall;
   apr_file_copy: function(from_path, to_path: PChar; perms: TAprFilePerms; pool: PAprPool): TAprStatus; stdcall;
   apr_file_append: function(from_path, to_path: PChar; perms: TAprFilePerms; pool: PAprPool): TAprStatus; stdcall;
   apr_file_eof: function(fptr: PAprFile): TAprStatus; stdcall;
-  apr_file_open_stderr: function(out thefile: PAprFile; cont: PAprPool): TAprStatus; stdcall;
-  apr_file_open_stdout: function(out thefile: PAprFile; cont: PAprPool): TAprStatus; stdcall;
-  apr_file_open_stdin: function(out thefile: PAprFile; cont: PAprPool): TAprStatus; stdcall;
+  apr_file_open_stderr: function(out thefile: PAprFile; pool: PAprPool): TAprStatus; stdcall;
+  apr_file_open_stdout: function(out thefile: PAprFile; pool: PAprPool): TAprStatus; stdcall;
+  apr_file_open_stdin: function(out thefile: PAprFile; pool: PAprPool): TAprStatus; stdcall;
   apr_file_read: function(thefile: PAprFile; buf: Pointer; var nbytes: TAprSize): TAprStatus; stdcall;
   apr_file_write: function(thefile: PAprFile; buf: Pointer; var nbytes: TAprSize): TAprStatus; stdcall;
   apr_file_writev: function(thefile: PAprFile; vec: PIOVec; nvec: TAprSize; var nbytes: TAprSize): TAprStatus; stdcall;
@@ -681,6 +764,7 @@ var
     bytes_read: PAprSize): TAprStatus; stdcall;
   apr_file_write_full: function(thefile: PAprFile; buf: Pointer; nbytes: TAprSize;
     bytes_written: PAprSize): TAprStatus; stdcall;
+  apr_file_writev_full: function(thefile: PAprFile; vec: PIOVec; nvec: TAprSize; nbytes: PAprSize): TAprStatus; stdcall;
   apr_file_putc: function(ch: Char; thefile: PAprFile): TAprStatus; stdcall;
   apr_file_getc: function(out ch: Char; thefile: PAprFile): TAprStatus; stdcall;
   apr_file_ungetc: function(ch: Char; thefile: PAprFile): TAprStatus; stdcall;
@@ -691,7 +775,8 @@ var
   apr_file_dup2: function(new_file, old_file: PAprFile; p: PAprPool): TAprStatus; stdcall;
   apr_file_setaside: function(out new_file: PAprFile; old_file: PAprFile; p: PAprPool): TAprStatus; stdcall;
   apr_file_seek: function(thefile: PAprFile; where: TAprSeekWhere; var offset: TAprOff): TAprStatus; stdcall;
-  apr_file_pipe_create: function(ain, aout: PPAprFile; cont: PAprPool): TAprStatus; stdcall;
+  apr_file_pipe_create: function(var ain, aout: PPAprFile; pool: PAprPool): TAprStatus; stdcall;
+  apr_file_namedpipe_create: function(filename: PChar; perm: TAprFilePerms; pool: PAprPool): TAprStatus; stdcall;
   apr_file_pipe_timeout_get: function(thepipe: PAprFile; out timeout: TAprIntervalTime): TAprStatus; stdcall;
   apr_file_pipe_timeout_set: function(thepipe: PAprFile; timeout: TAprIntervalTime): TAprStatus; stdcall;
   apr_file_lock: function(thefile: PAprFile; atype: Integer): TAprStatus; stdcall;
@@ -706,15 +791,13 @@ var
   apr_file_mtime_set: function(fname: PChar; mtime: TAprTime; pool: PAprPool): TAprStatus; stdcall;
   apr_dir_make: function(path: PChar; perm: TAprTime; cont: PAprPool): TAprStatus; stdcall;
   apr_dir_make_recursive: function(path: PChar; perm: TAprFilePerms; pool: PAprPool): TAprStatus; stdcall;
-  apr_dir_remove: function(path: PChar; cont: PAprPool): TAprStatus; stdcall;
+  apr_dir_remove: function(path: PChar; pool: PAprPool): TAprStatus; stdcall;
   apr_file_info_get: function(out finfo: TAprFInfo; wanted: Integer; thefile: PAprFile): TAprStatus; stdcall;
   apr_file_trunc: function(fp: PAprFile; offset: TAprOff): TAprStatus; stdcall;
   apr_file_flags_get: function(f: PAprFile): Integer; stdcall;
   apr_file_pool_get: function(f: PAprFile): PAprPool; stdcall;
   apr_file_inherit_set: function(thefile: PAprFile): TAprStatus; stdcall;
-  apr_file_set_inherit: procedure(thefile: PAprFile); stdcall;
   apr_file_inherit_unset: function(thefile: PAprFile): TAprStatus; stdcall;
-  apr_file_unset_inherit: procedure(thefile: PAprFile); stdcall;
   apr_file_mktemp: function(out fp: PAprFile; templ: PChar; flags: Integer; p: PAprPool): TAprStatus; stdcall;
   apr_temp_dir_get: function(temp_dir: PPChar; p: PAprPool): TAprStatus; stdcall;
   
@@ -741,7 +824,6 @@ type
     poffset: TAprOff;
     mm: Pointer;
     size: TAprSize;
-    unused: Integer;
     link: TAprMMapRingEntry;
   end;
 
@@ -754,8 +836,7 @@ function AprMMapCandidate(filelength: Int64): Boolean;
 var
   apr_mmap_create: function(out newmmap: PAprMMap; afile: PAprFile; offset: TAprOff; size: TAprSize; flag: Integer;
     cntxt: PAprPool): TAprStatus; stdcall;
-  apr_mmap_dup: function(out new_mmap: PAprMMap; old_mmap: PAprMMap; p: PAprPool;
-    transfer_ownership: LongBool): TAprStatus; stdcall;
+  apr_mmap_dup: function(out new_mmap: PAprMMap; old_mmap: PAprMMap; p: PAprPool): TAprStatus; stdcall;
   apr_mmap_delete: function(mm: PAprMMap): TAprStatus; stdcall;
   apr_mmap_offset: function(out addr: Pointer; mm: PAprMMap; offset: TAprOff): TAprStatus; stdcall;
 
@@ -773,7 +854,6 @@ const
   APR_SO_DEBUG          = 4;
   APR_SO_NONBLOCK       = 8;
   APR_SO_REUSEADDR      = 16;
-  APR_SO_TIMEOUT        = 32;
   APR_SO_SNDBUF         = 64;
   APR_SO_RCVBUF         = 128;
   APR_SO_DISCONNECTED   = 256;
@@ -784,8 +864,12 @@ const
   APR_INCOMPLETE_WRITE  = 8192;
   APR_IPV6_V6ONLY       = 16384;
 
+  APR_TCP_DEFER_ACCEPT  = 32768;
+
   APR_IPV4_ADDR_OK  = $01;
   APR_IPV6_ADDR_OK  = $02;
+
+  APR_INADDR_NONE = $FFFFFFFF;
 
   APR_PROTO_TCP       = 6;
   APR_PROTO_UDP       = 17;
@@ -808,12 +892,12 @@ type
     servname: PChar;
     port: TAprPort;
     family: Integer;
-    sin: TSockAddrIn;
     salen: TAprSockLen;
     ipaddr_len: Integer;
     addr_str_len: Integer;
     ipaddr_ptr: Pointer;
     next: PAprSockAddr;
+    sin: TSockAddrIn;
   end;
   PAprHdtr = ^TAprHdtr;
   TAprHdtr = packed record
@@ -828,19 +912,13 @@ type
 
 var
   apr_socket_create: function(out new_sock: PAprSocket; family, atype: Integer; cont: PAprPool): TAprStatus; stdcall;
-  apr_socket_create_ex: function(out new_sock: PAprSocket; family, atype, protocol: Integer;
-    cont: PAprPool): TAprStatus; stdcall;
   apr_socket_shutdown: function(thesocket: PAprSocket; how: TAprShutdownHow): TAprStatus; stdcall;
-  apr_shutdown: function(thesocket: PAprSocket; how: TAprShutdownHow): TAprStatus; stdcall;
   apr_socket_close: function(thesocket: PAprSocket): TAprStatus; stdcall;
   apr_socket_bind: function(sock: PAprSocket; sa: PAprSockAddr): TAprStatus; stdcall;
-  apr_bind: function(sock: PAprSocket; sa: PAprSockAddr): TAprStatus; stdcall;
   apr_socket_listen: function(sock: PAprSocket; backlog: Integer): TAprStatus; stdcall;
-  apr_listen: function(sock: PAprSocket; backlog: Integer): TAprStatus; stdcall;
   apr_socket_accept: function(out new_sock: PAprSocket; sock: PAprSocket;
     connection_pool: PAprPool): TAprStatus; stdcall;
   apr_socket_connect: function(sock: PAprSocket; sa: PAprSockAddr): TAprStatus; stdcall;
-  apr_connect: function(sock: PAprSocket; sa: PAprSockAddr): TAprStatus; stdcall;
   apr_sockaddr_info_get: function(out sa: PAprSockAddr; hostname: PChar; family: Integer; port: TAprPort;
     flags: Integer; p: PAprPool): TAprStatus; stdcall;
   apr_getnameinfo: function(out hostname: PChar; sa: PAprSockAddr; flags: Integer): TAprPort; stdcall;
@@ -851,36 +929,23 @@ var
   apr_socket_data_set: function(sock: PAprSocket; data: Pointer; key: PChar; cleanup: TSocketDataCleanup): TAprStatus;
     stdcall;
   apr_socket_send: function(sock: PAprSocket; buf: PChar; var len: TAprSize): TAprStatus; stdcall;
-  apr_send: function(sock: PAprSocket; buf: PChar; var len: TAprSize): TAprStatus; stdcall;
   apr_socket_sendv: function(sock: PAprSocket; vec: PIOVec; nvec: Integer; var len: TAprSize): TAprStatus; stdcall;
-  apr_sendv: function(sock: PAprSocket; vec: PIOVec; nvec: Integer; var len: TAprSize): TAprStatus; stdcall;
   apr_socket_sendto: function(sock: PAprSocket; where: PAprSockAddr; flags: Integer; buf: PChar;
-    var len: TAprSize): TAprStatus; stdcall;
-  apr_sendto: function(sock: PAprSocket; where: PAprSockAddr; flags: Integer; buf: PChar;
     var len: TAprSize): TAprStatus; stdcall;
   apr_socket_recvfrom: function(out from: TAprSockAddr; sock: PAprSocket; flags: Integer; buf: PChar;
     var len: TAprSize): TAprStatus; stdcall;
-  apr_recvfrom: function(out from: TAprSockAddr; sock: PAprSocket; flags: Integer; buf: PChar;
-    var len: TAprSize): TAprStatus; stdcall;
   apr_socket_sendfile: function(sock: PAprSocket; afile: PAprFile; hdtr: PAprHdtr; offset: PAprOff; var len: TAprSize;
     flags: Integer): TAprStatus; stdcall;
-  apr_sendfile: function(sock: PAprSocket; thefile: PAprFile; hdtr: PAprHdtr; offset: PAprOff; var len: TAprSize;
-    flags: Integer): TAprStatus; stdcall;
   apr_socket_recv: function(sock: PAprSocket; buf: PChar; var len: TAprSize): TAprStatus; stdcall;
-  apr_recv: function(sock: PAprSocket; buf: PChar; var len: TAprSize): TAprStatus; stdcall;
   apr_socket_opt_set: function(sock: PAprSocket; opt, aon: Integer): TAprStatus; stdcall;
-  apr_setsocketopt: function(sock: PAprSocket; opt, aon: Integer): TAprStatus; stdcall;
   apr_socket_timeout_set: function(sock: PAprSocket; t: TAprIntervalTime): TAprStatus; stdcall;
   apr_socket_opt_get: function(sock: PAprSocket; opt: Integer; out aon: Integer): TAprStatus; stdcall;
-  apr_getsocketopt: function(sock: PAprSocket; opt: Integer; out aon: Integer): TAprStatus; stdcall;
   apr_socket_timeout_get: function(sock: PAprSocket; out t: TAprIntervalTime): TAprStatus; stdcall;
   apr_socket_atmark: function(sock: PAprSocket; out atmark: LongBool): TAprStatus; stdcall;
   apr_socket_addr_get: function(out sa: PAprSockAddr; which: TAprInterface; sock: PAprSocket): TAprStatus; stdcall;
-  apr_sockaddr_port_set: function(sockaddr: PAprSockAddr; port: TAprPort): TAprStatus; stdcall;
-  apr_sockaddr_port_get: function(out port: TAprPort; sockaddr: PAprSockAddr): TAprStatus; stdcall;
-  apr_sockaddr_ip_set: function(sockaddr: PAprSockAddr; addr: PChar): TAprStatus; stdcall;
   apr_sockaddr_ip_get: function(out addr: PChar; sockaddr: PAprSockAddr): TAprStatus; stdcall;
   apr_sockaddr_equal: function(addr1, addr2: PAprSockAddr): LongBool; stdcall;
+  apr_socket_type_get: function(sock: PAprSocket; out _type: Integer): TAprStatus; stdcall;
   apr_getservbyname: function(sockaddr: PAprSockAddr; servname: PChar): TAprStatus; stdcall;
   apr_ipsubnet_create: function(out ipsub: PAprIPSubnet; ipstr, mask_or_numbits: PChar; p: PAprPool): TAprStatus;
     stdcall;
@@ -890,6 +955,11 @@ var
   apr_socket_set_inherit: procedure(skt: PAprSocket); stdcall;
   apr_socket_inherit_unset: function(thesocket: PAprSocket): TAprStatus; stdcall;
   apr_socket_unset_inherit: procedure(skt: PAprSocket); stdcall;
+  apr_mcast_join: function(sock, join, iface, source: PAprSockAddr): TAprStatus; stdcall;
+  apr_mcast_leave: function(sock, join, iface, source: PAprSockAddr): TAprStatus; stdcall;
+  apr_mcast_hops: function(sock: PAprSocket; ttl: Byte): TAprStatus; stdcall;
+  apr_mcast_loopback: function(sock: PAprSocket; opt: Byte): TAprStatus; stdcall;
+  apr_mcast_interface: function(sock: PAprSocket; iface: PAprSockAddr): TAprStatus; stdcall;
 
 //----- apr_network_io.h -----------------------------------------------------------------------------------------------
 
@@ -902,6 +972,8 @@ const
   APR_POLLERR   = $010;
   APR_POLLHUP   = $020;
   APR_POLLNVAL  = $040;
+
+  APR_POLLSET_THREADSAFE = $001;
 
 type
   TAprDataType = (APR_NO_DESC, APR_POLL_SOCKET, APR_POLL_FILE, APR_POLL_LASTDESC);
@@ -924,14 +996,6 @@ type
   TAprPollSet = THandle;
 
 var
-  apr_poll_setup: function(out new_poll: PAprPollFD; num: Integer; cont: PAprPool): TAprStatus; stdcall;
-  apr_poll: function(aprset: PAprPollFD; numsock: Integer; out nsds: Integer; timeout: TAprIntervalTime): TAprStatus;
-    stdcall;
-  apr_poll_socket_add: function(aprset: PAprPollFD; sock: PAprSocket; event: Word): TAprStatus; stdcall;
-  apr_poll_socket_mask: function(aprset: PAprPollFD; sock: PAprSocket; events: Word): TAprStatus; stdcall;
-  apr_poll_socket_remove: function(aprset: PAprPollFD; sock: PAprSocket): TAprStatus; stdcall;
-  apr_poll_socket_clear: function(aprset: PAprPollFD; events: Word): TAprStatus; stdcall;
-  apr_poll_revents_get: function(out event: Word; sock: PAprSocket; aprset: PAprPollFD): TAprStatus; stdcall;
   apr_pollset_create: function(out pollset: PAprPollSet; size: Integer; p: PAprPool; flags: Cardinal): TAprStatus;
     stdcall;
   apr_pollset_destroy: function(pollset: PAprPollSet): TAprStatus; stdcall;
@@ -939,6 +1003,8 @@ var
   apr_pollset_remove: function(pollset: PAprPollSet; descriptor: PAprPollFD): TAprStatus; stdcall;
   apr_pollset_poll: function(pollset: PAprPollSet; timeout: TAprIntervalTime; out num: Integer;
     descriptors: PPAprPollFD): TAprStatus; stdcall;
+  apr_poll: function(aprset: PAprPollFD; numsock: Longint; nsds: PLongint; timeout: TAprIntervalTime): TAprStatus;
+    stdcall;
 
 //----- apr_poll.h -----------------------------------------------------------------------------------------------------
 
@@ -1002,10 +1068,6 @@ var
 //----- apr_thread_proc.h ----------------------------------------------------------------------------------------------
 
 const
-  APR_PROC_EXIT = 1;
-  APR_PROC_SIGNAL = 2;
-  APR_PROC_SIGNAL_CORE = 4;
-
   APR_NO_PIPE          = 0;
 
   APR_FULL_BLOCK       = 1;
@@ -1028,6 +1090,7 @@ const
 type
   TAprCmdType = (APR_SHELLCMD, APR_PROGRAM, APR_PROGRAM_ENV, APR_PROGRAM_PATH, APR_SHELLCMD_ENV);
   TAprWaitHow = (APR_WAIT, APR_NOWAIT);
+  TAprExitWhy = (APR_PROC_EXIT = 1, APR_PROC_SIGNAL = 2, APR_PROC_SIGNAL_CORE = 4);
   PAprThread = ^TAprThread;
   TAprThread = THandle;
   PAprThreadAttr = ^TAprThreadAttr;
@@ -1061,6 +1124,7 @@ var
   apr_threadattr_detach_set: function(attr: PAprThreadAttr; aon: LongBool): TAprStatus; stdcall;
   apr_threadattr_detach_get: function(attr: PAprThreadAttr): TAprStatus; stdcall;
   apr_threadattr_stacksize_set: function(attr: PAprThreadAttr; stacksize: TAprSize): TAprStatus; stdcall;
+  apr_threadattr_guardsize_set: function(attr: PAprThreadAttr; guardsize: TAprSize): TAprStatus; stdcall;
   apr_thread_create: function(out new_thread: PAprThread; attr: PAprThreadAttr; func: TAprThreadStart; data: Pointer;
     cont: PAprPool): TAprStatus; stdcall;
   apr_thread_exit: function(thd: PAprThread; retval: TAprStatus): TAprStatus; stdcall;
@@ -1091,19 +1155,20 @@ var
   apr_procattr_child_errfn_set: function(attr: PAprProcAttr; errfn: TAprChildErrFn): TAprStatus; stdcall;
   apr_procattr_error_check_set: function(attr: PAprProcAttr; chk: LongBool): TAprStatus; stdcall;
   apr_procattr_addrspace_set: function(attr: PAprProcAttr; addrspace: LongBool): TAprStatus; stdcall;
+  apr_procattr_user_set: function(attr: PAprProcAttr; username, password: PChar): TAprStatus; stdcall;
+  apr_procattr_group_set: function(attr: PAprProcAttr; groupname: PChar): TAprStatus; stdcall;
   apr_proc_create: function(out new_proc: TAprProc; progname, args, env: PChar; attr: PAprProcAttr;
-    cont: PAprPool): TAprStatus; stdcall;
+    pool: PAprPool): TAprStatus; stdcall;
   apr_proc_wait: function(proc: PAprProc; out exitcode, exitwhy: Integer; waithow: TAprWaitHow): TAprStatus; stdcall;
   apr_proc_wait_all_procs: function(proc: PAprProc; out exitcode, exitwhy: Integer; waithow: TAprWaitHow;
     p: PAprPool): TAprStatus; stdcall;
+  apr_proc_detach: function(daemonize: Integer): TAprStatus; stdcall;
   apr_proc_other_child_register: procedure(proc: PAprProc; maintenance: TChildRegProc; data: Pointer;
     write_fd: PAprFile; p: PAprPool); stdcall;
   apr_proc_other_child_unregister: procedure(data: Pointer); stdcall;
   apr_proc_other_child_alert: function(proc: PAprProc; reason, status: Integer): TAprStatus; stdcall;
   apr_proc_other_child_refresh: procedure(ocr: PAprOtherChild; reason: Integer); stdcall;
   apr_proc_other_child_refresh_all: procedure(reason: Integer); stdcall;
-  apr_proc_other_child_check: procedure; stdcall;
-  apr_proc_other_child_read: function(proc: PAprProc; status: Integer): TAprStatus; stdcall;
   apr_proc_kill: function(proc: PAprProc; sig: Integer): TAprStatus; stdcall;
   apr_pool_note_subprocess: procedure(a: PAprPool; proc: PAprProc; how: TAprKillConditions); stdcall;
   apr_thread_pool_get: function(thread: PAprThread): PAprPool; stdcall;
@@ -1126,6 +1191,7 @@ var
   apr_proc_mutex_trylock: function(mutex: PAprProcMutex): TAprStatus; stdcall;
   apr_proc_mutex_unlock: function(mutex: PAprProcMutex): TAprStatus; stdcall;
   apr_proc_mutex_destroy: function(mutex: PAprProcMutex): TAprStatus; stdcall;
+  apr_proc_mutex_cleanup: function(mutex: Pointer): TAprStatus; stdcall;
   apr_proc_mutex_lockfile: function(mutex: PAprProcMutex): PChar; stdcall;
   apr_proc_mutex_name: function(mutex: PAprProcMutex): PChar; stdcall;
   apr_proc_mutex_defname: function: PChar; stdcall;
@@ -1156,32 +1222,20 @@ var
   apr_allocator_alloc: function(allocator: PAprAllocator; size: TAprSize): PAprMemNode; stdcall;
   apr_allocator_free: procedure(allocator: PAprAllocator; memnode: PAprMemNode); stdcall;
   apr_allocator_owner_set: procedure(allocator: PAprAllocator; pool: PAprPool); stdcall;
-  apr_allocator_set_owner: procedure(allocator: PAprAllocator; pool: PAprPool); stdcall;
   apr_allocator_owner_get: function(allocator: PAprAllocator): PAprPool; stdcall;
-  apr_allocator_get_owner: function(allocator: PAprAllocator): PAprPool; stdcall;
   apr_allocator_max_free_set: procedure(allocator: PAprAllocator; size: TAprSize); stdcall;
-  apr_allocator_set_max_free: procedure(allocator: PAprAllocator; size: TAprSize); stdcall;
   apr_allocator_mutex_set: procedure(allocator: PAprAllocator; mutex: PAprThreadMutex); stdcall;
-  apr_allocator_set_mutex: procedure(allocator: PAprAllocator; mutex: PAprThreadMutex); stdcall;
   apr_allocator_mutex_get: function(allocator: PAprAllocator):PAprThreadMutex; stdcall;
-  apr_allocator_get_mutex: function(allocator: PAprAllocator): PAprThreadMutex; stdcall;
 
 //----- apr_allocator.h ------------------------------------------------------------------------------------------------
 
 //----- apr_fnmatch.h --------------------------------------------------------------------------------------------------
 
-const
-  APR_FNM_NOMATCH     = 1;
-
-  APR_FNM_NOESCAPE    = $01;
-  APR_FNM_PATHNAME    = $02;
-  APR_FNM_PERIOD      = $04;
-  APR_FNM_CASE_BLIND  = $08;
-
 var
   apr_fnmatch: function(pattern, strings: PChar; flags: Integer): TAprStatus; stdcall;
   apr_fnmatch_test: function(pattern: PChar): Integer; stdcall;
   apr_is_fnmatch: function(pattern: PChar): Integer; stdcall;
+  apr_match_glob: function(pattern: PChar; out result: PAprArrayHeader; p: PAprPool): TAprStatus; stdcall;
 
 //----- apr_fnmatch.h --------------------------------------------------------------------------------------------------
 
@@ -1220,9 +1274,7 @@ type
     remote: PSockAddr;
     family: Integer;
     stype: Integer;
-    {$IFDEF APR_ENABLE_FOR_1_0}
     protocol: Integer;
-    {$ENDIF}
   end;
 
   PAprOSGlobalMutex = ^TAprOSGlobalMutex;
@@ -1243,6 +1295,9 @@ var
   apr_os_thread_current: function: TAprOSThread; stdcall;
   apr_os_thread_equal: function(tid1, tid2: TAprOSThread): LongBool; stdcall;
   apr_os_file_put: function(out f: PAprFile; thefile: PAprOSFile; flags: Integer; cont: PAprPool): TAprStatus; stdcall;
+  apr_os_pipe_put: function(out f: PAprFile; thefile: PAprOSFile; cont: PAprPool): TAprStatus; stdcall;
+  apr_os_pipe_put_ex: function(out f: PAprFile; thefile: PAprOSFile; register_cleanup: Integer;
+    cont: PAprPool): TAprStatus; stdcall;
   apr_os_dir_put: function(out dir: PAprDir; thedir: PAprOSDir; cont: PAprPool): TAprStatus; stdcall;
   apr_os_sock_put: function(out sock: PAprSocket; thesock: PAprOSSock; cont: PAprPool): TAprStatus; stdcall;
   apr_os_sock_make: function(out apr_sock: PAprSocket; os_sock_info: PAprOSSockInfo; cont: PAprPool): TAprStatus;
@@ -1341,6 +1396,32 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+function FileTimeToAprTime(t: TFileTime): TAprTime;
+
+var
+  L: LARGE_INTEGER;
+
+begin
+  L.LowPart := t.dwLowDateTime;
+  L.HighPart := t.dwHighDateTime;
+  Result := TAprTime(L.QuadPart div 10) - APR_DELTA_EPOCH_IN_USEC;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function AprTimeToFileTime(t: TAprTime): TFileTime;
+
+var
+  L: LARGE_INTEGER;
+
+begin
+  L.QuadPart := (t + APR_DELTA_EPOCH_IN_USEC) * 10;
+  Result.dwLowDateTime := L.LowPart;
+  Result.dwHighDateTime := L.HighPart;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
 function AprLibLoaded: Boolean;
 
 begin
@@ -1350,21 +1431,15 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 const
-  sapr_accept = '_apr_accept@12';
   sapr_allocator_alloc = '_apr_allocator_alloc@8';
   sapr_allocator_create = '_apr_allocator_create@4';
   sapr_allocator_destroy = '_apr_allocator_destroy@4';
   sapr_allocator_free = '_apr_allocator_free@8';
-  sapr_allocator_get_mutex = '_apr_allocator_get_mutex@4';
-  sapr_allocator_get_owner = '_apr_allocator_get_owner@4';
   sapr_allocator_max_free_set = '_apr_allocator_max_free_set@8';
   sapr_allocator_mutex_get = '_apr_allocator_mutex_get@4';
   sapr_allocator_mutex_set = '_apr_allocator_mutex_set@8';
   sapr_allocator_owner_get = '_apr_allocator_owner_get@4';
   sapr_allocator_owner_set = '_apr_allocator_owner_set@8';
-  sapr_allocator_set_max_free = '_apr_allocator_set_max_free@8';
-  sapr_allocator_set_mutex = '_apr_allocator_set_mutex@8';
-  sapr_allocator_set_owner = '_apr_allocator_set_owner@8';
   sapr_app_init_complete = 'apr_app_init_complete';
   sapr_app_initialize = '_apr_app_initialize@12';
   sapr_array_append = '_apr_array_append@12';
@@ -1376,16 +1451,22 @@ const
   sapr_array_pstrcat = '_apr_array_pstrcat@12';
   sapr_array_push = '_apr_array_push@4';
   sapr_atoi64 = '_apr_atoi64@4';
-  sapr_bind = '_apr_bind@8';
+  sapr_atomic_add32 = '_apr_atomic_add32@8';
+  sapr_atomic_cas32 = '_apr_atomic_cas32@12';
+  sapr_atomic_casptr = '_apr_atomic_casptr@12';
+  sapr_atomic_dec32 = '_apr_atomic_dec32@4';
+  sapr_atomic_inc32 = '_apr_atomic_inc32@4';
+  sapr_atomic_init  = '_apr_atomic_init@4';
+  sapr_atomic_read32 = '_apr_atomic_read32@4';
+  sapr_atomic_set32 = '_apr_atomic_set32@8';
+  sapr_atomic_sub32 = '_apr_atomic_sub32@8';
+  sapr_atomic_xchg32 = '_apr_atomic_xchg32@8';
   sapr_collapse_spaces = '_apr_collapse_spaces@8';
-  sapr_compare_groups = '_apr_compare_groups@8';
-  sapr_compare_users = '_apr_compare_users@8';
-  sapr_connect = '_apr_connect@8';
   sapr_conv_ucs2_to_utf8 = '_apr_conv_ucs2_to_utf8@16';
   sapr_conv_utf8_to_ucs2 = '_apr_conv_utf8_to_ucs2@16';
   sapr_cpystrn = '_apr_cpystrn@12';
+  sapr_crypto_sha256_new = '_apr_crypto_sha256_new@4';
   sapr_ctime = '_apr_ctime@12';
-  sapr_current_userid = '_apr_current_userid@12';
   sapr_day_snames = 'apr_day_snames';
   sapr_dbg_log = 'apr_dbg_log';
   sapr_dir_close = '_apr_dir_close@4';
@@ -1402,16 +1483,14 @@ const
   sapr_env_delete = '_apr_env_delete@8';
   sapr_env_get = '_apr_env_get@12';
   sapr_env_set = '_apr_env_set@12';
-  sapr_explode_localtime = '_apr_explode_localtime@12';
-  sapr_explode_time = '_apr_explode_time@16';
   sapr_file_append = '_apr_file_append@16';
   sapr_file_attrs_set = '_apr_file_attrs_set@16';
   sapr_file_close = '_apr_file_close@4';
   sapr_file_copy = '_apr_file_copy@16';
   sapr_file_data_get = '_apr_file_data_get@12';
   sapr_file_data_set = '_apr_file_data_set@16';
-  sapr_file_dup2 = '_apr_file_dup2@12';
   sapr_file_dup = '_apr_file_dup@12';
+  sapr_file_dup2 = '_apr_file_dup2@12';
   sapr_file_eof = '_apr_file_eof@4';
   sapr_file_flags_get = '_apr_file_flags_get@4';
   sapr_file_flush = '_apr_file_flush@4';
@@ -1424,6 +1503,7 @@ const
   sapr_file_mktemp = '_apr_file_mktemp@16';
   sapr_file_mtime_set = '_apr_file_mtime_set@16';
   sapr_file_name_get = '_apr_file_name_get@8';
+  sapr_file_namedpipe_create = '_apr_file_namedpipe_create@12';
   sapr_file_open = '_apr_file_open@20';
   sapr_file_open_stderr = '_apr_file_open_stderr@8';
   sapr_file_open_stdin = '_apr_file_open_stdin@8';
@@ -1441,16 +1521,14 @@ const
   sapr_file_remove = '_apr_file_remove@8';
   sapr_file_rename = '_apr_file_rename@12';
   sapr_file_seek = '_apr_file_seek@12';
-  sapr_file_set_inherit = '_apr_file_set_inherit@4';
   sapr_file_setaside = '_apr_file_setaside@12';
   sapr_file_trunc = '_apr_file_trunc@12';
   sapr_file_ungetc = '_apr_file_ungetc@8';
   sapr_file_unlock = '_apr_file_unlock@4';
-  sapr_file_unset_inherit = '_apr_file_unset_inherit@4';
   sapr_file_write = '_apr_file_write@12';
   sapr_file_write_full = '_apr_file_write_full@16';
   sapr_file_writev = '_apr_file_writev@16';
-  sapr_filename_of_pathname = '_apr_filename_of_pathname@4';
+  sapr_file_writev_full = '_apr_file_writev_full@16';
   sapr_filepath_encoding = '_apr_filepath_encoding@8';
   sapr_filepath_get = '_apr_filepath_get@12';
   sapr_filepath_list_merge = '_apr_filepath_list_merge@12';
@@ -1462,34 +1540,28 @@ const
   sapr_fnmatch = '_apr_fnmatch@12';
   sapr_fnmatch_test = '_apr_fnmatch_test@4';
   sapr_generate_random_bytes = '_apr_generate_random_bytes@8';
-  sapr_get_groupid = '_apr_get_groupid@12';
-  sapr_get_groupname = '_apr_get_groupname@12';
-  sapr_get_home_directory = '_apr_get_home_directory@12';
-  sapr_get_userid = '_apr_get_userid@16';
-  sapr_get_username = '_apr_get_username@12';
   sapr_gethostname = '_apr_gethostname@12';
   sapr_getnameinfo = '_apr_getnameinfo@12';
   sapr_getopt = '_apr_getopt@16';
   sapr_getopt_init = '_apr_getopt_init@16';
   sapr_getopt_long = '_apr_getopt_long@16';
   sapr_getservbyname = '_apr_getservbyname@8';
-  sapr_getsocketopt = '_apr_getsocketopt@12';
   sapr_gid_compare = '_apr_gid_compare@8';
   sapr_gid_get = '_apr_gid_get@12';
   sapr_gid_name_get = '_apr_gid_name_get@12';
-  sapr_group_name_get = '_apr_group_name_get@12';
   sapr_hash_copy = '_apr_hash_copy@8';
   sapr_hash_count = '_apr_hash_count@4';
   sapr_hash_first = '_apr_hash_first@8';
   sapr_hash_get = '_apr_hash_get@12';
   sapr_hash_make = '_apr_hash_make@4';
+  sapr_hash_make_custom = '_apr_hash_make_custom@8';
   sapr_hash_merge = '_apr_hash_merge@20';
   sapr_hash_next = '_apr_hash_next@4';
   sapr_hash_overlay = '_apr_hash_overlay@12';
   sapr_hash_pool_get = '_apr_hash_pool_get@4';
   sapr_hash_set = '_apr_hash_set@16';
   sapr_hash_this = '_apr_hash_this@16';
-  sapr_implode_gmt = '_apr_implode_gmt@8';
+  sapr_hashfunc_default = 'apr_hashfunc_default';
   sapr_initialize = '_apr_initialize@0';
   sapr_ipsubnet_create = '_apr_ipsubnet_create@16';
   sapr_ipsubnet_test = '_apr_ipsubnet_test@8';
@@ -1497,12 +1569,16 @@ const
   sapr_is_empty_table = '_apr_is_empty_table@4';
   sapr_is_fnmatch = '_apr_is_fnmatch@4';
   sapr_itoa = '_apr_itoa@8';
-  sapr_listen = '_apr_listen@8';
-  sapr_lstat = '_apr_lstat@16';
   sapr_ltoa = '_apr_ltoa@8';
+  sapr_match_glob = '_apr_match_glob@12';
+  sapr_mcast_hops = '_apr_mcast_hops@8';
+  sapr_mcast_interface = '_apr_mcast_interface@8';
+  sapr_mcast_join = '_apr_mcast_join@16';
+  sapr_mcast_leave = '_apr_mcast_leave@16';
+  sapr_mcast_loopback = '_apr_mcast_loopback@8';
   sapr_mmap_create = '_apr_mmap_create@28';
   sapr_mmap_delete = '_apr_mmap_delete@4';
-  sapr_mmap_dup = '_apr_mmap_dup@16';
+  sapr_mmap_dup = '_apr_mmap_dup@12';
   sapr_mmap_offset = '_apr_mmap_offset@16';
   sapr_month_snames = 'apr_month_snames';
   sapr_off_t_toa = '_apr_off_t_toa@12';
@@ -1519,6 +1595,8 @@ const
   sapr_os_imp_time_put = '_apr_os_imp_time_put@12';
   sapr_os_level = 'apr_os_level';
   sapr_os_locale_encoding = '_apr_os_locale_encoding@4';
+  sapr_os_pipe_put = '_apr_os_pipe_put@12';
+  sapr_os_pipe_put_ex = '_apr_os_pipe_put_ex@16';
   sapr_os_proc_mutex_get = '_apr_os_proc_mutex_get@8';
   sapr_os_proc_mutex_put = '_apr_os_proc_mutex_put@12';
   sapr_os_shm_get = '_apr_os_shm_get@8';
@@ -1541,12 +1619,6 @@ const
   sapr_pcalloc_debug = '_apr_pcalloc_debug@12';
   sapr_pmemdup = '_apr_pmemdup@12';
   sapr_poll = '_apr_poll@20';
-  sapr_poll_revents_get = '_apr_poll_revents_get@12';
-  sapr_poll_setup = '_apr_poll_setup@12';
-  sapr_poll_socket_add = '_apr_poll_socket_add@12';
-  sapr_poll_socket_clear = '_apr_poll_socket_clear@8';
-  sapr_poll_socket_mask = '_apr_poll_socket_mask@12';
-  sapr_poll_socket_remove = '_apr_poll_socket_remove@8';
   sapr_pollset_add = '_apr_pollset_add@8';
   sapr_pollset_create = '_apr_pollset_create@16';
   sapr_pollset_destroy = '_apr_pollset_destroy@4';
@@ -1567,21 +1639,20 @@ const
   sapr_pool_create_ex_debug = '_apr_pool_create_ex_debug@20';
   sapr_pool_destroy = '_apr_pool_destroy@4';
   sapr_pool_destroy_debug = '_apr_pool_destroy_debug@8';
-  sapr_pool_get_abort = '_apr_pool_get_abort@4';
-  sapr_pool_get_parent = '_apr_pool_get_parent@4';
   sapr_pool_initialize = '_apr_pool_initialize@0';
   sapr_pool_is_ancestor = '_apr_pool_is_ancestor@8';
   sapr_pool_note_subprocess = '_apr_pool_note_subprocess@12';
   sapr_pool_parent_get = '_apr_pool_parent_get@4';
-  sapr_pool_set_abort = '_apr_pool_set_abort@8';
   sapr_pool_tag = '_apr_pool_tag@8';
   sapr_pool_terminate = '_apr_pool_terminate@0';
   sapr_pool_userdata_get = '_apr_pool_userdata_get@12';
   sapr_pool_userdata_set = '_apr_pool_userdata_set@16';
   sapr_pool_userdata_setn = '_apr_pool_userdata_setn@16';
   sapr_proc_create = '_apr_proc_create@24';
+  sapr_proc_detach = '_apr_proc_detach@4';
   sapr_proc_kill = '_apr_proc_kill@8';
   sapr_proc_mutex_child_init = '_apr_proc_mutex_child_init@12';
+  sapr_proc_mutex_cleanup = '_apr_proc_mutex_cleanup@4';
   sapr_proc_mutex_create = '_apr_proc_mutex_create@16';
   sapr_proc_mutex_defname = '_apr_proc_mutex_defname@0';
   sapr_proc_mutex_destroy = '_apr_proc_mutex_destroy@4';
@@ -1592,8 +1663,6 @@ const
   sapr_proc_mutex_trylock = '_apr_proc_mutex_trylock@4';
   sapr_proc_mutex_unlock = '_apr_proc_mutex_unlock@4';
   sapr_proc_other_child_alert = '_apr_proc_other_child_alert@12';
-  sapr_proc_other_child_check = '_apr_proc_other_child_check@0';
-  sapr_proc_other_child_read = '_apr_proc_other_child_read@8';
   sapr_proc_other_child_refresh = '_apr_proc_other_child_refresh@8';
   sapr_proc_other_child_refresh_all = '_apr_proc_other_child_refresh_all@4';
   sapr_proc_other_child_register = '_apr_proc_other_child_register@20';
@@ -1610,7 +1679,9 @@ const
   sapr_procattr_detach_set = '_apr_procattr_detach_set@8';
   sapr_procattr_dir_set = '_apr_procattr_dir_set@8';
   sapr_procattr_error_check_set = '_apr_procattr_error_check_set@8';
+  sapr_procattr_group_set = '_apr_procattr_group_set@8';
   sapr_procattr_io_set = '_apr_procattr_io_set@16';
+  sapr_procattr_user_set = '_apr_procattr_user_set@12';
   sapr_psprintf = 'apr_psprintf';
   sapr_pstrcat = 'apr_pstrcat';
   sapr_pstrcatv = '_apr_pstrcatv@16';
@@ -1618,38 +1689,38 @@ const
   sapr_pstrmemdup = '_apr_pstrmemdup@12';
   sapr_pstrndup = '_apr_pstrndup@12';
   sapr_pvsprintf = '_apr_pvsprintf@12';
-  sapr_recv = '_apr_recv@12';
-  sapr_recvfrom = '_apr_recvfrom@20';
+  sapr_random_add_entropy = '_apr_random_add_entropy@12';
+  sapr_random_after_fork = '_apr_random_after_fork@4';
+  sapr_random_barrier = '_apr_random_barrier@4';
+  sapr_random_init = '_apr_random_init@20';
+  sapr_random_insecure_bytes = '_apr_random_insecure_bytes@12';
+  sapr_random_insecure_ready = '_apr_random_insecure_ready@4';
+  sapr_random_secure_bytes = '_apr_random_secure_bytes@12';
+  sapr_random_secure_ready = '_apr_random_secure_ready@4';
+  sapr_random_standard_new = '_apr_random_standard_new@4';
   sapr_rfc822_date = '_apr_rfc822_date@12';
-  sapr_send = '_apr_send@12';
-  sapr_sendfile = '_apr_sendfile@24';
-  sapr_sendto = '_apr_sendto@20';
-  sapr_sendv = '_apr_sendv@16';
-  sapr_setsocketopt = '_apr_setsocketopt@12';
   sapr_shm_attach = '_apr_shm_attach@12';
   sapr_shm_baseaddr_get = '_apr_shm_baseaddr_get@4';
   sapr_shm_create = '_apr_shm_create@16';
   sapr_shm_destroy = '_apr_shm_destroy@4';
   sapr_shm_detach = '_apr_shm_detach@4';
   sapr_shm_pool_get = '_apr_shm_pool_get@4';
+  sapr_shm_remove = '_apr_shm_remove@8';
   sapr_shm_size_get = '_apr_shm_size_get@4';
-  sapr_shutdown = '_apr_shutdown@8';
+  sapr_signal_block = '_apr_signal_block@4';
+  sapr_signal_unblock = '_apr_signal_unblock@4';
   sapr_sleep = '_apr_sleep@8';
   sapr_snprintf = 'apr_snprintf';
   sapr_sockaddr_equal = '_apr_sockaddr_equal@8';
   sapr_sockaddr_info_get = '_apr_sockaddr_info_get@24';
   sapr_sockaddr_ip_get = '_apr_sockaddr_ip_get@8';
-  sapr_sockaddr_ip_set = '_apr_sockaddr_ip_set@8';
-  sapr_sockaddr_port_get = '_apr_sockaddr_port_get@8';
-  sapr_sockaddr_port_set = '_apr_sockaddr_port_set@8';
   sapr_socket_accept = '_apr_socket_accept@12';
   sapr_socket_addr_get = '_apr_socket_addr_get@12';
   sapr_socket_atmark = '_apr_socket_atmark@8';
   sapr_socket_bind = '_apr_socket_bind@8';
   sapr_socket_close = '_apr_socket_close@4';
   sapr_socket_connect = '_apr_socket_connect@8';
-  sapr_socket_create = '_apr_socket_create@16';
-  sapr_socket_create_ex = '_apr_socket_create_ex@20';
+  sapr_socket_create = '_apr_socket_create@20';
   sapr_socket_data_get = '_apr_socket_data_get@12';
   sapr_socket_data_set = '_apr_socket_data_set@16';
   sapr_socket_inherit_set = '_apr_socket_inherit_set@4';
@@ -1659,7 +1730,7 @@ const
   sapr_socket_opt_set = '_apr_socket_opt_set@12';
   sapr_socket_protocol_get = '_apr_socket_protocol_get@8';
   sapr_socket_recv = '_apr_socket_recv@12';
-  sapr_socket_recvfrom = '_apr_socket_recvfrom@20';
+  sapr_socket_recvfrom = '_apr_recvfrom@20';
   sapr_socket_send = '_apr_socket_send@12';
   sapr_socket_sendfile = '_apr_socket_sendfile@24';
   sapr_socket_sendto = '_apr_socket_sendto@20';
@@ -1668,6 +1739,7 @@ const
   sapr_socket_shutdown = '_apr_socket_shutdown@8';
   sapr_socket_timeout_get = '_apr_socket_timeout_get@8';
   sapr_socket_timeout_set = '_apr_socket_timeout_set@12';
+  sapr_socket_type_get = '_apr_socket_type_get@8';
   sapr_socket_unset_inherit = '_apr_socket_unset_inherit@4';
   sapr_stat = '_apr_stat@16';
   sapr_strerror = '_apr_strerror@12';
@@ -1675,6 +1747,7 @@ const
   sapr_strftime = '_apr_strftime@20';
   sapr_strnatcasecmp = '_apr_strnatcasecmp@8';
   sapr_strnatcmp = '_apr_strnatcmp@8';
+  sapr_strtoff = '_apr_strtoff@16';
   sapr_strtoi64 = '_apr_strtoi64@12';
   sapr_strtok = '_apr_strtok@12';
   sapr_table_add = '_apr_table_add@12';
@@ -1731,6 +1804,7 @@ const
   sapr_threadattr_create = '_apr_threadattr_create@8';
   sapr_threadattr_detach_get = '_apr_threadattr_detach_get@4';
   sapr_threadattr_detach_set = '_apr_threadattr_detach_set@8';
+  sapr_threadattr_guardsize_set = '_apr_threadattr_guardsize_set@8';
   sapr_threadattr_stacksize_set = '_apr_threadattr_stacksize_set@8';
   sapr_threadkey_data_get = '_apr_threadkey_data_get@12';
   sapr_threadkey_data_set = '_apr_threadkey_data_set@16';
@@ -1768,7 +1842,7 @@ begin
   if Result then
   begin
     if FileName = '' then
-      LibFileName := 'libapr.dll'
+      LibFileName := 'libapr-1.dll'
     else
       LibFileName := FileName;
 
@@ -1783,9 +1857,11 @@ begin
       // apr_version.h
       @apr_version := GetProcAddress(AprLib, sapr_version);
       @apr_version_string := GetProcAddress(AprLib, sapr_version_string);
+      // apr_arch_utf8.h
+      @apr_conv_utf8_to_ucs2 := GetProcAddress(AprLib, sapr_conv_utf8_to_ucs2);
+      @apr_conv_ucs2_to_utf8 := GetProcAddress(AprLib, sapr_conv_ucs2_to_utf8);
       // apr_lib.h
       @apr_filepath_name_get := GetProcAddress(AprLib, sapr_filepath_name_get);
-      @apr_filename_of_pathname := GetProcAddress(AprLib, sapr_filename_of_pathname);
       @apr_vformatter := GetProcAddress(AprLib, sapr_vformatter);
       @apr_password_get := GetProcAddress(AprLib, sapr_password_get);
       // apr_general.h
@@ -1809,11 +1885,8 @@ begin
       @apr_pcalloc := GetProcAddress(AprLib, sapr_pcalloc);
       @apr_pcalloc_debug := GetProcAddress(AprLib, sapr_pcalloc_debug);
       @apr_pool_abort_set := GetProcAddress(AprLib, sapr_pool_abort_set);
-      @apr_pool_set_abort := GetProcAddress(AprLib, sapr_pool_set_abort);
       @apr_pool_abort_get := GetProcAddress(AprLib, sapr_pool_abort_get);
-      @apr_pool_get_abort := GetProcAddress(AprLib, sapr_pool_get_abort);
       @apr_pool_parent_get := GetProcAddress(AprLib, sapr_pool_parent_get);
-      @apr_pool_get_parent := GetProcAddress(AprLib, sapr_pool_get_parent);
       @apr_pool_is_ancestor := GetProcAddress(AprLib, sapr_pool_is_ancestor);
       @apr_pool_tag := GetProcAddress(AprLib, sapr_pool_tag);
       @apr_pool_userdata_set := GetProcAddress(AprLib, sapr_pool_userdata_set);
@@ -1825,6 +1898,31 @@ begin
       @apr_pool_cleanup_run := GetProcAddress(AprLib, sapr_pool_cleanup_run);
       @apr_pool_cleanup_null := GetProcAddress(AprLib, sapr_pool_cleanup_null);
       @apr_pool_cleanup_for_exec := GetProcAddress(AprLib, sapr_pool_cleanup_for_exec);
+      // apr_atomic.h
+      @apr_atomic_init := GetProcAddress(AprLib, sapr_atomic_init);
+      @apr_atomic_read32 := GetProcAddress(AprLib, sapr_atomic_read32);
+      @apr_atomic_set32 := GetProcAddress(AprLib, sapr_atomic_set32);
+      @apr_atomic_add32 := GetProcAddress(AprLib, sapr_atomic_add32);
+      @apr_atomic_sub32 := GetProcAddress(AprLib, sapr_atomic_sub32);
+      @apr_atomic_inc32 := GetProcAddress(AprLib, sapr_atomic_inc32);
+      @apr_atomic_dec32 := GetProcAddress(AprLib, sapr_atomic_dec32);
+      @apr_atomic_cas32 := GetProcAddress(AprLib, sapr_atomic_cas32);
+      @apr_atomic_xchg32 := GetProcAddress(AprLib, sapr_atomic_xchg32);
+      @apr_atomic_casptr := GetProcAddress(AprLib, sapr_atomic_casptr);
+      // apr_random.h
+      @apr_crypto_sha256_new := GetProcAddress(AprLib, sapr_crypto_sha256_new);
+      @apr_random_init := GetProcAddress(AprLib, sapr_random_init);
+      @apr_random_standard_new := GetProcAddress(AprLib, sapr_random_standard_new);
+      @apr_random_add_entropy := GetProcAddress(AprLib, sapr_random_add_entropy);
+      @apr_random_insecure_bytes := GetProcAddress(AprLib, sapr_random_insecure_bytes);
+      @apr_random_secure_bytes := GetProcAddress(AprLib, sapr_random_secure_bytes);
+      @apr_random_barrier := GetProcAddress(AprLib, sapr_random_barrier);
+      @apr_random_secure_ready := GetProcAddress(AprLib, sapr_random_secure_ready);
+      @apr_random_insecure_ready := GetProcAddress(AprLib, sapr_random_insecure_ready);
+      @apr_random_after_fork := GetProcAddress(AprLib, sapr_random_after_fork);
+      // apr_signal.h
+      @apr_signal_block := GetProcAddress(AprLib, sapr_signal_block);
+      @apr_signal_unblock := GetProcAddress(AprLib, sapr_signal_unblock);
       // apr_strings.h
       @apr_strnatcmp := GetProcAddress(AprLib, sapr_strnatcmp);
       @apr_strnatcasecmp := GetProcAddress(AprLib, sapr_strnatcasecmp);
@@ -1845,11 +1943,13 @@ begin
       @apr_itoa := GetProcAddress(AprLib, sapr_itoa);
       @apr_ltoa := GetProcAddress(AprLib, sapr_ltoa);
       @apr_off_t_toa := GetProcAddress(AprLib, sapr_off_t_toa);
+      @apr_strtoff := GetProcAddress(AprLib, sapr_strtoff);
       @apr_strtoi64 := GetProcAddress(AprLib, sapr_strtoi64);
       @apr_atoi64 := GetProcAddress(AprLib, sapr_atoi64);
       @apr_strfsize := GetProcAddress(AprLib, sapr_strfsize);
       // apr_shm.h
       @apr_shm_create := GetProcAddress(AprLib, sapr_shm_create);
+      @apr_shm_remove := GetProcAddress(AprLib, sapr_shm_remove);
       @apr_shm_destroy := GetProcAddress(AprLib, sapr_shm_destroy);
       @apr_shm_attach := GetProcAddress(AprLib, sapr_shm_attach);
       @apr_shm_detach := GetProcAddress(AprLib, sapr_shm_detach);
@@ -1857,7 +1957,9 @@ begin
       @apr_shm_size_get := GetProcAddress(AprLib, sapr_shm_size_get);
       @apr_shm_pool_get := GetProcAddress(AprLib, sapr_shm_pool_get);
       // apr_hash.h
+      @apr_hashfunc_default := GetProcAddress(AprLib, sapr_hashfunc_default); 
       @apr_hash_make := GetProcAddress(AprLib, sapr_hash_make);
+      @apr_hash_make_custom := GetProcAddress(AprLib, sapr_hash_make_custom);
       @apr_hash_copy := GetProcAddress(AprLib, sapr_hash_copy);
       @apr_hash_set := GetProcAddress(AprLib, sapr_hash_set);
       @apr_hash_get := GetProcAddress(AprLib, sapr_hash_get);
@@ -1911,35 +2013,23 @@ begin
       @apr_dso_error := GetProcAddress(AprLib, sapr_dso_error);
       // apr_user.h
       @apr_uid_current := GetProcAddress(AprLib, sapr_uid_current);
-      @apr_current_userid := GetProcAddress(AprLib, sapr_current_userid);
       @apr_uid_name_get := GetProcAddress(AprLib, sapr_uid_name_get);
-      @apr_get_username := GetProcAddress(AprLib, sapr_get_username);
       @apr_uid_get := GetProcAddress(AprLib, sapr_uid_get);
-      @apr_get_userid := GetProcAddress(AprLib, sapr_get_userid);
       @apr_uid_homepath_get := GetProcAddress(AprLib, sapr_uid_homepath_get);
-      @apr_get_home_directory := GetProcAddress(AprLib, sapr_get_home_directory);
       @apr_uid_compare := GetProcAddress(AprLib, sapr_uid_compare);
-      @apr_compare_users := GetProcAddress(AprLib, sapr_compare_users);
       @apr_gid_name_get := GetProcAddress(AprLib, sapr_gid_name_get);
-      @apr_group_name_get := GetProcAddress(AprLib, sapr_group_name_get);
-      @apr_get_groupname := GetProcAddress(AprLib, sapr_get_groupname);
       @apr_gid_get := GetProcAddress(AprLib, sapr_gid_get);
-      @apr_get_groupid := GetProcAddress(AprLib, sapr_get_groupid);
       @apr_gid_compare := GetProcAddress(AprLib, sapr_gid_compare);
-      @apr_compare_groups := GetProcAddress(AprLib, sapr_compare_groups);
       // apr_time.h
       @apr_month_snames := GetProcAddress(AprLib, sapr_month_snames);
       @apr_day_snames := GetProcAddress(AprLib, sapr_day_snames);
       @apr_time_now := GetProcAddress(AprLib, sapr_time_now);
       @apr_time_ansi_put := GetProcAddress(AprLib, sapr_time_ansi_put);
       @apr_time_exp_tz := GetProcAddress(AprLib, sapr_time_exp_tz);
-      @apr_explode_time := GetProcAddress(AprLib, sapr_explode_time);
       @apr_time_exp_gmt := GetProcAddress(AprLib, sapr_time_exp_gmt);
       @apr_time_exp_lt := GetProcAddress(AprLib, sapr_time_exp_lt);
-      @apr_explode_localtime := GetProcAddress(AprLib, sapr_explode_localtime);
       @apr_time_exp_get := GetProcAddress(AprLib, sapr_time_exp_get);
       @apr_time_exp_gmt_get := GetProcAddress(AprLib, sapr_time_exp_gmt_get);
-      @apr_implode_gmt := GetProcAddress(AprLib, sapr_implode_gmt);
       @apr_sleep := GetProcAddress(AprLib, sapr_sleep);
       @apr_rfc822_date := GetProcAddress(AprLib, sapr_rfc822_date);
       @apr_ctime := GetProcAddress(AprLib, sapr_ctime);
@@ -1947,7 +2037,6 @@ begin
       @apr_time_clock_hires := GetProcAddress(AprLib, sapr_time_clock_hires);
       // apr_file_info.h
       @apr_stat := GetProcAddress(AprLib, sapr_stat);
-      @apr_lstat := GetProcAddress(AprLib, sapr_lstat);
       @apr_dir_open := GetProcAddress(AprLib, sapr_dir_open);
       @apr_dir_close := GetProcAddress(AprLib, sapr_dir_close);
       @apr_dir_read := GetProcAddress(AprLib, sapr_dir_read);
@@ -1975,6 +2064,7 @@ begin
       @apr_file_writev := GetProcAddress(AprLib, sapr_file_writev);
       @apr_file_read_full := GetProcAddress(AprLib, sapr_file_read_full);
       @apr_file_write_full := GetProcAddress(AprLib, sapr_file_write_full);
+      @apr_file_writev_full := GetProcAddress(AprLib, sapr_file_writev_full);
       @apr_file_putc := GetProcAddress(AprLib, sapr_file_putc);
       @apr_file_getc := GetProcAddress(AprLib, sapr_file_getc);
       @apr_file_ungetc := GetProcAddress(AprLib, sapr_file_ungetc);
@@ -1986,6 +2076,7 @@ begin
       @apr_file_setaside := GetProcAddress(AprLib, sapr_file_setaside);
       @apr_file_seek := GetProcAddress(AprLib, sapr_file_seek);
       @apr_file_pipe_create := GetProcAddress(AprLib, sapr_file_pipe_create);
+      @apr_file_namedpipe_create := GetProcAddress(AprLib, sapr_file_namedpipe_create);
       @apr_file_pipe_timeout_get := GetProcAddress(AprLib, sapr_file_pipe_timeout_get);
       @apr_file_pipe_timeout_set := GetProcAddress(AprLib, sapr_file_pipe_timeout_set);
       @apr_file_lock := GetProcAddress(AprLib, sapr_file_lock);
@@ -2005,9 +2096,7 @@ begin
       @apr_file_flags_get := GetProcAddress(AprLib, sapr_file_flags_get);
       @apr_file_pool_get := GetProcAddress(AprLib, sapr_file_pool_get);
       @apr_file_inherit_set := GetProcAddress(AprLib, sapr_file_inherit_set);
-      @apr_file_set_inherit := GetProcAddress(AprLib, sapr_file_set_inherit);
       @apr_file_inherit_unset := GetProcAddress(AprLib, sapr_file_inherit_unset);
-      @apr_file_unset_inherit := GetProcAddress(AprLib, sapr_file_unset_inherit);
       @apr_file_mktemp := GetProcAddress(AprLib, sapr_file_mktemp);
       @apr_temp_dir_get := GetProcAddress(AprLib, sapr_temp_dir_get);
       // apr_mmap.h
@@ -2017,47 +2106,32 @@ begin
       @apr_mmap_offset := GetProcAddress(AprLib, sapr_mmap_offset);
       // apr_network_io.h
       @apr_socket_create := GetProcAddress(AprLib, sapr_socket_create);
-      @apr_socket_create_ex := GetProcAddress(AprLib, sapr_socket_create_ex);
       @apr_socket_shutdown := GetProcAddress(AprLib, sapr_socket_shutdown);
-      @apr_shutdown := GetProcAddress(AprLib, sapr_shutdown);
       @apr_socket_close := GetProcAddress(AprLib, sapr_socket_close);
       @apr_socket_bind := GetProcAddress(AprLib, sapr_socket_bind);
-      @apr_bind := GetProcAddress(AprLib, sapr_bind);
       @apr_socket_listen := GetProcAddress(AprLib, sapr_socket_listen);
-      @apr_listen := GetProcAddress(AprLib, sapr_listen);
       @apr_socket_accept := GetProcAddress(AprLib, sapr_socket_accept);
       @apr_socket_connect := GetProcAddress(AprLib, sapr_socket_connect);
-      @apr_connect := GetProcAddress(AprLib, sapr_connect);
       @apr_sockaddr_info_get := GetProcAddress(AprLib, sapr_sockaddr_info_get);
       @apr_getnameinfo := GetProcAddress(AprLib, sapr_getnameinfo);
       @apr_parse_addr_port := GetProcAddress(AprLib, sapr_parse_addr_port);
       @apr_gethostname := GetProcAddress(AprLib, sapr_gethostname);
       @apr_socket_data_get := GetProcAddress(AprLib, sapr_socket_data_get);
       @apr_socket_send := GetProcAddress(AprLib, sapr_socket_send);
-      @apr_send := GetProcAddress(AprLib, sapr_send);
       @apr_socket_sendv := GetProcAddress(AprLib, sapr_socket_sendv);
-      @apr_sendv := GetProcAddress(AprLib, sapr_sendv);
       @apr_socket_sendto := GetProcAddress(AprLib, sapr_socket_sendto);
-      @apr_sendto := GetProcAddress(AprLib, sapr_sendto);
       @apr_socket_recvfrom := GetProcAddress(AprLib, sapr_socket_recvfrom);
-      @apr_recvfrom := GetProcAddress(AprLib, sapr_recvfrom);
       @apr_socket_sendfile := GetProcAddress(AprLib, sapr_socket_sendfile);
-      @apr_sendfile := GetProcAddress(AprLib, sapr_sendfile);
       @apr_socket_recv := GetProcAddress(AprLib, sapr_socket_recv);
-      @apr_recv := GetProcAddress(AprLib, sapr_recv);
       @apr_socket_opt_set := GetProcAddress(AprLib, sapr_socket_opt_set);
-      @apr_setsocketopt := GetProcAddress(AprLib, sapr_setsocketopt);
       @apr_socket_timeout_set := GetProcAddress(AprLib, sapr_socket_timeout_set);
       @apr_socket_opt_get := GetProcAddress(AprLib, sapr_socket_opt_get);
-      @apr_getsocketopt := GetProcAddress(AprLib, sapr_getsocketopt);
       @apr_socket_timeout_get := GetProcAddress(AprLib, sapr_socket_timeout_get);
       @apr_socket_atmark := GetProcAddress(AprLib, sapr_socket_atmark);
       @apr_socket_addr_get := GetProcAddress(AprLib, sapr_socket_addr_get);
-      @apr_sockaddr_port_set := GetProcAddress(AprLib, sapr_sockaddr_port_set);
-      @apr_sockaddr_port_get := GetProcAddress(AprLib, sapr_sockaddr_port_get);
-      @apr_sockaddr_ip_set := GetProcAddress(AprLib, sapr_sockaddr_ip_set);
       @apr_sockaddr_ip_get := GetProcAddress(AprLib, sapr_sockaddr_ip_get);
       @apr_sockaddr_equal := GetProcAddress(AprLib, sapr_sockaddr_equal);
+      @apr_socket_type_get := GetProcAddress(AprLib, sapr_socket_type_get);
       @apr_getservbyname := GetProcAddress(AprLib, sapr_getservbyname);
       @apr_ipsubnet_create := GetProcAddress(AprLib, sapr_ipsubnet_create);
       @apr_ipsubnet_test := GetProcAddress(AprLib, sapr_ipsubnet_test);
@@ -2066,19 +2140,18 @@ begin
       @apr_socket_set_inherit := GetProcAddress(AprLib, sapr_socket_set_inherit);
       @apr_socket_inherit_unset := GetProcAddress(AprLib, sapr_socket_inherit_unset);
       @apr_socket_unset_inherit := GetProcAddress(AprLib, sapr_socket_unset_inherit);
+      @apr_mcast_join := GetProcAddress(AprLib, sapr_mcast_join);
+      @apr_mcast_leave := GetProcAddress(AprLib, sapr_mcast_leave);
+      @apr_mcast_hops := GetProcAddress(AprLib, sapr_mcast_hops);
+      @apr_mcast_loopback := GetProcAddress(AprLib, sapr_mcast_loopback);
+      @apr_mcast_interface := GetProcAddress(AprLib, sapr_mcast_interface);
       // apr_poll.h
-      @apr_poll_setup := GetProcAddress(AprLib, sapr_poll_setup);
-      @apr_poll := GetProcAddress(AprLib, sapr_poll);
-      @apr_poll_socket_add := GetProcAddress(AprLib, sapr_poll_socket_add);
-      @apr_poll_socket_mask := GetProcAddress(AprLib, sapr_poll_socket_mask);
-      @apr_poll_socket_remove := GetProcAddress(AprLib, sapr_poll_socket_remove);
-      @apr_poll_socket_clear := GetProcAddress(AprLib, sapr_poll_socket_clear);
-      @apr_poll_revents_get := GetProcAddress(AprLib, sapr_poll_revents_get);
       @apr_pollset_create := GetProcAddress(AprLib, sapr_pollset_create);
       @apr_pollset_destroy := GetProcAddress(AprLib, sapr_pollset_destroy);
       @apr_pollset_add := GetProcAddress(AprLib, sapr_pollset_add);
       @apr_pollset_remove := GetProcAddress(AprLib, sapr_pollset_remove);
       @apr_pollset_poll := GetProcAddress(AprLib, sapr_pollset_poll);
+      @apr_poll := GetProcAddress(AprLib, sapr_poll);
       // apr_thread_mutex.h
       @apr_thread_mutex_create := GetProcAddress(AprLib, sapr_thread_mutex_create);
       @apr_thread_mutex_lock := GetProcAddress(AprLib, sapr_thread_mutex_lock);
@@ -2108,6 +2181,7 @@ begin
       @apr_threadattr_detach_set := GetProcAddress(AprLib, sapr_threadattr_detach_set);
       @apr_threadattr_detach_get := GetProcAddress(AprLib, sapr_threadattr_detach_get);
       @apr_threadattr_stacksize_set := GetProcAddress(AprLib, sapr_threadattr_stacksize_set);
+      @apr_threadattr_guardsize_set := GetProcAddress(AprLib, sapr_threadattr_guardsize_set);
       @apr_thread_create := GetProcAddress(AprLib, sapr_thread_create);
       @apr_thread_exit := GetProcAddress(AprLib, sapr_thread_exit);
       @apr_thread_join := GetProcAddress(AprLib, sapr_thread_join);
@@ -2134,16 +2208,17 @@ begin
       @apr_procattr_child_errfn_set := GetProcAddress(AprLib, sapr_procattr_child_errfn_set);
       @apr_procattr_error_check_set := GetProcAddress(AprLib, sapr_procattr_error_check_set);
       @apr_procattr_addrspace_set := GetProcAddress(AprLib, sapr_procattr_addrspace_set);
+      @apr_procattr_user_set := GetProcAddress(AprLib, sapr_procattr_user_set);
+      @apr_procattr_group_set := GetProcAddress(AprLib, sapr_procattr_group_set);
       @apr_proc_create := GetProcAddress(AprLib, sapr_proc_create);
       @apr_proc_wait := GetProcAddress(AprLib, sapr_proc_wait);
       @apr_proc_wait_all_procs := GetProcAddress(AprLib, sapr_proc_wait_all_procs);
+      @apr_proc_detach := GetProcAddress(AprLib, sapr_proc_detach);
       @apr_proc_other_child_register := GetProcAddress(AprLib, sapr_proc_other_child_register);
       @apr_proc_other_child_unregister := GetProcAddress(AprLib, sapr_proc_other_child_unregister);
       @apr_proc_other_child_alert := GetProcAddress(AprLib, sapr_proc_other_child_alert);
       @apr_proc_other_child_refresh := GetProcAddress(AprLib, sapr_proc_other_child_refresh);
       @apr_proc_other_child_refresh_all := GetProcAddress(AprLib, sapr_proc_other_child_refresh_all);
-      @apr_proc_other_child_check := GetProcAddress(AprLib, sapr_proc_other_child_check);
-      @apr_proc_other_child_read := GetProcAddress(AprLib, sapr_proc_other_child_read);
       @apr_proc_kill := GetProcAddress(AprLib, sapr_proc_kill);
       @apr_pool_note_subprocess := GetProcAddress(AprLib, sapr_pool_note_subprocess);
       @apr_thread_pool_get := GetProcAddress(AprLib, sapr_thread_pool_get);
@@ -2154,6 +2229,7 @@ begin
       @apr_proc_mutex_trylock := GetProcAddress(AprLib, sapr_proc_mutex_trylock);
       @apr_proc_mutex_unlock := GetProcAddress(AprLib, sapr_proc_mutex_unlock);
       @apr_proc_mutex_destroy := GetProcAddress(AprLib, sapr_proc_mutex_destroy);
+      @apr_proc_mutex_cleanup := GetProcAddress(AprLib, sapr_proc_mutex_cleanup);
       @apr_proc_mutex_lockfile := GetProcAddress(AprLib, sapr_proc_mutex_lockfile);
       @apr_proc_mutex_name := GetProcAddress(AprLib, sapr_proc_mutex_name);
       @apr_proc_mutex_defname := GetProcAddress(AprLib, sapr_proc_mutex_defname);
@@ -2164,19 +2240,15 @@ begin
       @apr_allocator_alloc := GetProcAddress(AprLib, sapr_allocator_alloc);
       @apr_allocator_free := GetProcAddress(AprLib, sapr_allocator_free);
       @apr_allocator_owner_set := GetProcAddress(AprLib, sapr_allocator_owner_set);
-      @apr_allocator_set_owner := GetProcAddress(AprLib, sapr_allocator_set_owner);
       @apr_allocator_owner_get := GetProcAddress(AprLib, sapr_allocator_owner_get);
-      @apr_allocator_get_owner := GetProcAddress(AprLib, sapr_allocator_get_owner);
       @apr_allocator_max_free_set := GetProcAddress(AprLib, sapr_allocator_max_free_set);
-      @apr_allocator_set_max_free := GetProcAddress(AprLib, sapr_allocator_set_max_free);
       @apr_allocator_mutex_set := GetProcAddress(AprLib, sapr_allocator_mutex_set);
-      @apr_allocator_set_mutex := GetProcAddress(AprLib, sapr_allocator_set_mutex);
       @apr_allocator_mutex_get := GetProcAddress(AprLib, sapr_allocator_mutex_get);
-      @apr_allocator_get_mutex := GetProcAddress(AprLib, sapr_allocator_get_mutex);
       // apr_fn_match.h
       @apr_fnmatch := GetProcAddress(AprLib, sapr_fnmatch);
       @apr_fnmatch_test := GetProcAddress(AprLib, sapr_fnmatch_test);
       @apr_is_fnmatch := GetProcAddress(AprLib, sapr_is_fnmatch);
+      @apr_match_glob := GetProcAddress(AprLib, sapr_match_glob);
       // apr_portable.h
       @apr_os_file_get := GetProcAddress(AprLib, sapr_os_file_get);
       @apr_os_dir_get := GetProcAddress(AprLib, sapr_os_dir_get);
@@ -2192,6 +2264,8 @@ begin
       @apr_os_thread_current := GetProcAddress(AprLib, sapr_os_thread_current);
       @apr_os_thread_equal := GetProcAddress(AprLib, sapr_os_thread_equal);
       @apr_os_file_put := GetProcAddress(AprLib, sapr_os_file_put);
+      @apr_os_pipe_put := GetProcAddress(AprLib, sapr_os_pipe_put);
+      @apr_os_pipe_put_ex := GetProcAddress(AprLib, sapr_os_pipe_put_ex);
       @apr_os_dir_put := GetProcAddress(AprLib, sapr_os_dir_put);
       @apr_os_sock_put := GetProcAddress(AprLib, sapr_os_sock_put);
       @apr_os_sock_make := GetProcAddress(AprLib, sapr_os_sock_make);
@@ -2219,8 +2293,9 @@ begin
   @apr_strerror := nil;
   @apr_version := nil;
   @apr_version_string := nil;
+  @apr_conv_utf8_to_ucs2 := nil;
+  @apr_conv_ucs2_to_utf8 := nil;
   @apr_filepath_name_get := nil;
-  @apr_filename_of_pathname := nil;
   @apr_vformatter := nil;
   @apr_password_get := nil;
   @apr_initialize := nil;
@@ -2242,11 +2317,8 @@ begin
   @apr_pcalloc := nil;
   @apr_pcalloc_debug := nil;
   @apr_pool_abort_set := nil;
-  @apr_pool_set_abort := nil;
   @apr_pool_abort_get := nil;
-  @apr_pool_get_abort := nil;
   @apr_pool_parent_get := nil;
-  @apr_pool_get_parent := nil;
   @apr_pool_is_ancestor := nil;
   @apr_pool_tag := nil;
   @apr_pool_userdata_set := nil;
@@ -2258,6 +2330,28 @@ begin
   @apr_pool_cleanup_run := nil;
   @apr_pool_cleanup_null := nil;
   @apr_pool_cleanup_for_exec := nil;
+  @apr_atomic_init := nil;
+  @apr_atomic_read32 := nil;
+  @apr_atomic_set32 := nil;
+  @apr_atomic_add32 := nil;
+  @apr_atomic_sub32 := nil;
+  @apr_atomic_inc32 := nil;
+  @apr_atomic_dec32 := nil;
+  @apr_atomic_cas32 := nil;
+  @apr_atomic_xchg32 := nil;
+  @apr_atomic_casptr := nil;
+  @apr_crypto_sha256_new := nil;
+  @apr_random_init := nil;
+  @apr_random_standard_new := nil;
+  @apr_random_add_entropy := nil;
+  @apr_random_insecure_bytes := nil;
+  @apr_random_secure_bytes := nil;
+  @apr_random_barrier := nil;
+  @apr_random_secure_ready := nil;
+  @apr_random_insecure_ready := nil;
+  @apr_random_after_fork := nil;
+  @apr_signal_block := nil;
+  @apr_signal_unblock := nil;
   @apr_strnatcmp := nil;
   @apr_strnatcasecmp := nil;
   @apr_pstrdup := nil;
@@ -2277,10 +2371,12 @@ begin
   @apr_itoa := nil;
   @apr_ltoa := nil;
   @apr_off_t_toa := nil;
+  @apr_strtoff := nil;
   @apr_strtoi64 := nil;
   @apr_atoi64 := nil;
   @apr_strfsize := nil;
   @apr_shm_create := nil;
+  @apr_shm_remove := nil;
   @apr_shm_destroy := nil;
   @apr_shm_attach := nil;
   @apr_shm_detach := nil;
@@ -2288,6 +2384,7 @@ begin
   @apr_shm_size_get := nil;
   @apr_shm_pool_get := nil;
   @apr_hash_make := nil;
+  @apr_hash_make_custom := nil;
   @apr_hash_copy := nil;
   @apr_hash_set := nil;
   @apr_hash_get := nil;
@@ -2336,41 +2433,28 @@ begin
   @apr_dso_sym := nil;
   @apr_dso_error := nil;
   @apr_uid_current := nil;
-  @apr_current_userid := nil;
   @apr_uid_name_get := nil;
-  @apr_get_username := nil;
   @apr_uid_get := nil;
-  @apr_get_userid := nil;
   @apr_uid_homepath_get := nil;
-  @apr_get_home_directory := nil;
   @apr_uid_compare := nil;
-  @apr_compare_users := nil;
   @apr_gid_name_get := nil;
-  @apr_group_name_get := nil;
-  @apr_get_groupname := nil;
   @apr_gid_get := nil;
-  @apr_get_groupid := nil;
   @apr_gid_compare := nil;
-  @apr_compare_groups := nil;
   @apr_month_snames := nil;
   @apr_day_snames := nil;
   @apr_time_now := nil;
   @apr_time_ansi_put := nil;
   @apr_time_exp_tz := nil;
-  @apr_explode_time := nil;
   @apr_time_exp_gmt := nil;
   @apr_time_exp_lt := nil;
-  @apr_explode_localtime := nil;
   @apr_time_exp_get := nil;
   @apr_time_exp_gmt_get := nil;
-  @apr_implode_gmt := nil;
   @apr_sleep := nil;
   @apr_rfc822_date := nil;
   @apr_ctime := nil;
   @apr_strftime := nil;
   @apr_time_clock_hires := nil;
   @apr_stat := nil;
-  @apr_lstat := nil;
   @apr_dir_open := nil;
   @apr_dir_close := nil;
   @apr_dir_read := nil;
@@ -2397,6 +2481,7 @@ begin
   @apr_file_writev := nil;
   @apr_file_read_full := nil;
   @apr_file_write_full := nil;
+  @apr_file_writev_full := nil;
   @apr_file_putc := nil;
   @apr_file_getc := nil;
   @apr_file_ungetc := nil;
@@ -2408,6 +2493,7 @@ begin
   @apr_file_setaside := nil;
   @apr_file_seek := nil;
   @apr_file_pipe_create := nil;
+  @apr_file_namedpipe_create := nil;
   @apr_file_pipe_timeout_get := nil;
   @apr_file_pipe_timeout_set := nil;
   @apr_file_lock := nil;
@@ -2427,9 +2513,7 @@ begin
   @apr_file_flags_get := nil;
   @apr_file_pool_get := nil;
   @apr_file_inherit_set := nil;
-  @apr_file_set_inherit := nil;
   @apr_file_inherit_unset := nil;
-  @apr_file_unset_inherit := nil;
   @apr_file_mktemp := nil;
   @apr_temp_dir_get := nil;
   @apr_mmap_create := nil;
@@ -2437,47 +2521,32 @@ begin
   @apr_mmap_delete := nil;
   @apr_mmap_offset := nil;
   @apr_socket_create := nil;
-  @apr_socket_create_ex := nil;
   @apr_socket_shutdown := nil;
-  @apr_shutdown := nil;
   @apr_socket_close := nil;
   @apr_socket_bind := nil;
-  @apr_bind := nil;
   @apr_socket_listen := nil;
-  @apr_listen := nil;
   @apr_socket_accept := nil;
   @apr_socket_connect := nil;
-  @apr_connect := nil;
   @apr_sockaddr_info_get := nil;
   @apr_getnameinfo := nil;
   @apr_parse_addr_port := nil;
   @apr_gethostname := nil;
   @apr_socket_data_get := nil;
   @apr_socket_send := nil;
-  @apr_send := nil;
   @apr_socket_sendv := nil;
-  @apr_sendv := nil;
   @apr_socket_sendto := nil;
-  @apr_sendto := nil;
   @apr_socket_recvfrom := nil;
-  @apr_recvfrom := nil;
   @apr_socket_sendfile := nil;
-  @apr_sendfile := nil;
   @apr_socket_recv := nil;
-  @apr_recv := nil;
   @apr_socket_opt_set := nil;
-  @apr_setsocketopt := nil;
   @apr_socket_timeout_set := nil;
   @apr_socket_opt_get := nil;
-  @apr_getsocketopt := nil;
   @apr_socket_timeout_get := nil;
   @apr_socket_atmark := nil;
   @apr_socket_addr_get := nil;
-  @apr_sockaddr_port_set := nil;
-  @apr_sockaddr_port_get := nil;
-  @apr_sockaddr_ip_set := nil;
   @apr_sockaddr_ip_get := nil;
   @apr_sockaddr_equal := nil;
+  @apr_socket_type_get := nil;
   @apr_getservbyname := nil;
   @apr_ipsubnet_create := nil;
   @apr_ipsubnet_test := nil;
@@ -2486,18 +2555,17 @@ begin
   @apr_socket_set_inherit := nil;
   @apr_socket_inherit_unset := nil;
   @apr_socket_unset_inherit := nil;
-  @apr_poll_setup := nil;
-  @apr_poll := nil;
-  @apr_poll_socket_add := nil;
-  @apr_poll_socket_mask := nil;
-  @apr_poll_socket_remove := nil;
-  @apr_poll_socket_clear := nil;
-  @apr_poll_revents_get := nil;
+  @apr_mcast_join := nil;
+  @apr_mcast_leave := nil;
+  @apr_mcast_hops := nil;
+  @apr_mcast_loopback := nil;
+  @apr_mcast_interface := nil;
   @apr_pollset_create := nil;
   @apr_pollset_destroy := nil;
   @apr_pollset_add := nil;
   @apr_pollset_remove := nil;
   @apr_pollset_poll := nil;
+  @apr_poll := nil;
   @apr_thread_mutex_create := nil;
   @apr_thread_mutex_lock := nil;
   @apr_thread_mutex_trylock := nil;
@@ -2523,6 +2591,7 @@ begin
   @apr_threadattr_detach_set := nil;
   @apr_threadattr_detach_get := nil;
   @apr_threadattr_stacksize_set := nil;
+  @apr_threadattr_guardsize_set := nil;
   @apr_thread_create := nil;
   @apr_thread_exit := nil;
   @apr_thread_join := nil;
@@ -2549,16 +2618,17 @@ begin
   @apr_procattr_child_errfn_set := nil;
   @apr_procattr_error_check_set := nil;
   @apr_procattr_addrspace_set := nil;
+  @apr_procattr_user_set := nil;
+  @apr_procattr_group_set := nil;
   @apr_proc_create := nil;
   @apr_proc_wait := nil;
   @apr_proc_wait_all_procs := nil;
+  @apr_proc_detach := nil;
   @apr_proc_other_child_register := nil;
   @apr_proc_other_child_unregister := nil;
   @apr_proc_other_child_alert := nil;
   @apr_proc_other_child_refresh := nil;
   @apr_proc_other_child_refresh_all := nil;
-  @apr_proc_other_child_check := nil;
-  @apr_proc_other_child_read := nil;
   @apr_proc_kill := nil;
   @apr_pool_note_subprocess := nil;
   @apr_thread_pool_get := nil;
@@ -2568,6 +2638,7 @@ begin
   @apr_proc_mutex_trylock := nil;
   @apr_proc_mutex_unlock := nil;
   @apr_proc_mutex_destroy := nil;
+  @apr_proc_mutex_cleanup := nil;
   @apr_proc_mutex_lockfile := nil;
   @apr_proc_mutex_name := nil;
   @apr_proc_mutex_defname := nil;
@@ -2577,18 +2648,14 @@ begin
   @apr_allocator_alloc := nil;
   @apr_allocator_free := nil;
   @apr_allocator_owner_set := nil;
-  @apr_allocator_set_owner := nil;
   @apr_allocator_owner_get := nil;
-  @apr_allocator_get_owner := nil;
   @apr_allocator_max_free_set := nil;
-  @apr_allocator_set_max_free := nil;
   @apr_allocator_mutex_set := nil;
-  @apr_allocator_set_mutex := nil;
   @apr_allocator_mutex_get := nil;
-  @apr_allocator_get_mutex := nil;
   @apr_fnmatch := nil;
   @apr_fnmatch_test := nil;
   @apr_is_fnmatch := nil;
+  @apr_match_glob := nil;
   @apr_os_file_get := nil;
   @apr_os_dir_get := nil;
   @apr_os_sock_get := nil;
@@ -2603,6 +2670,8 @@ begin
   @apr_os_thread_current := nil;
   @apr_os_thread_equal := nil;
   @apr_os_file_put := nil;
+  @apr_os_pipe_put := nil;
+  @apr_os_pipe_put_ex := nil;
   @apr_os_dir_put := nil;
   @apr_os_sock_put := nil;
   @apr_os_sock_make := nil;
