@@ -241,6 +241,11 @@ type
 //----------------------------------------------------------------------------------------------------------------------
 
 const
+  {$IFDEF COMPILER_12}
+  coreide = 'coreide120.bpl';
+  vclide = 'vclide120.bpl';
+  {$ENDIF}
+
   {$IFDEF COMPILER_10}
   coreide = 'coreide100.bpl';
   vclide = 'vclide100.bpl';
@@ -256,7 +261,11 @@ const
   vclide = 'vclide70.bpl';
   {$ENDIF}
 
+  {$IFDEF COMPILER_12_UP}
+  SExpandRootMacro = '@Uiutils@ExpandRootMacro$qqrx20System@UnicodeString';
+  {$ELSE}
   SExpandRootMacro = '@Uiutils@ExpandRootMacro$qqrx17System@AnsiString';
+  {$ENDIF}
   {$IFDEF COMPILER_9_UP}
   SEditControlGetLinesInWindow = '@Editorcontrol@TCustomEditControl@GetLinesInWindow$qqrv';
   SEditControlGetTopLine = '@Editorcontrol@TCustomEditControl@GetTopLine$qqrv';
@@ -1397,10 +1406,10 @@ begin
     DiffOptions.ignore_eol_style := True;
 
     if Assigned(@svn_diff_file_diff3_2) then
-      SvnCheck(svn_diff_file_diff3_2(Diff, PChar(OriginalFileName), PChar(ModifiedFileName), PChar(LatestFileName),
+      SvnCheck(svn_diff_file_diff3_2(Diff, PAnsiChar(AnsiString(OriginalFileName)), PAnsiChar(AnsiString(ModifiedFileName)), PAnsiChar(AnsiString(LatestFileName)),
         @DiffOptions, SvnItem.SvnClient.Pool))
     else
-      SvnCheck(svn_diff_file_diff3(Diff, PChar(OriginalFileName), PChar(ModifiedFileName), PChar(LatestFileName),
+      SvnCheck(svn_diff_file_diff3(Diff, PAnsiChar(AnsiString(OriginalFileName)), PAnsiChar(AnsiString(ModifiedFileName)), PAnsiChar(AnsiString(LatestFileName)),
         SvnItem.SvnClient.Pool));
 
     OriginalLines := nil;

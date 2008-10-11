@@ -15,6 +15,7 @@
 {                                                                                                                      }
 { Contributors:                                                                                                        }
 {   Ondrej Kelle (tondrej)                                                                                             }
+{   Uwe Schuster (uschuster)                                                                                           }
 {                                                                                                                      }
 {**********************************************************************************************************************}
 {                                                                                                                      }
@@ -34,7 +35,7 @@ uses
 type
   PIOVec = ^TIOVec;
   TIOVec = packed record
-    iov_base: PChar;
+    iov_base: PAnsiChar;
     iov_len: Integer;
   end;
   PAprSize = ^TAprSize;
@@ -51,7 +52,7 @@ type
   TAprStatus = Integer;
 
 var
-  apr_strerror: function(statcode: TAprStatus; buf: PChar; bufsize: TAprSize): PChar; stdcall;
+  apr_strerror: function(statcode: TAprStatus; buf: PAnsiChar; bufsize: TAprSize): PAnsiChar; stdcall;
 
 const
   APR_OS_START_ERROR     = 20000;
@@ -158,7 +159,7 @@ type
 
 var
   apr_version: procedure(out pvsn: TAprVersion); stdcall;
-  apr_version_string: function: PChar; stdcall;
+  apr_version_string: function: PAnsiChar; stdcall;
 
 //----- apr_version.h --------------------------------------------------------------------------------------------------
 
@@ -169,9 +170,9 @@ type
   TAprWChar = WideChar;
 
 var
-  apr_conv_utf8_to_ucs2: function(_in: PChar; var inbytes: TAprSize; _out: PAprWChar; var outwords: TAprSize): TAprStatus;
+  apr_conv_utf8_to_ucs2: function(_in: PAnsiChar; var inbytes: TAprSize; _out: PAprWChar; var outwords: TAprSize): TAprStatus;
     stdcall;
-  apr_conv_ucs2_to_utf8: function(_in: PAprWChar; var inwords: TAprSize; _out: PChar; var outbytes: TAprSize): TAprStatus;
+  apr_conv_ucs2_to_utf8: function(_in: PAprWChar; var inwords: TAprSize; _out: PAnsiChar; var outbytes: TAprSize): TAprStatus;
     stdcall;
 
 //----- apr_arch_utf8.h ------------------------------------------------------------------------------------------------
@@ -184,16 +185,16 @@ const
 type
   PAprVFormatterBuf = ^TAprVFormatterBuf;
   TAprVFormatterBuf = packed record
-    curpos: PChar;
-    endpos: PChar;
+    curpos: PAnsiChar;
+    endpos: PAnsiChar;
   end;
   TFlushFunc = function(b: PAprVFormatterBuf): Integer; stdcall;
 
 var
-  apr_filepath_name_get: function(pathname: PChar): PChar; stdcall;
-  apr_vformatter: function(flush_func: TFlushFunc; c: PAprVFormatterBuf; fmt: PChar; ap: array of const): Integer;
+  apr_filepath_name_get: function(pathname: PAnsiChar): PAnsiChar; stdcall;
+  apr_vformatter: function(flush_func: TFlushFunc; c: PAprVFormatterBuf; fmt: PAnsiChar; ap: array of const): Integer;
     stdcall;
-  apr_password_get: function(prompt, pwbuf: PChar; var bufsize: TAprSize): TAprStatus; stdcall;
+  apr_password_get: function(prompt, pwbuf: PAnsiChar; var bufsize: TAprSize): TAprStatus; stdcall;
 
 //----- apr_lib.h ------------------------------------------------------------------------------------------------------
 
@@ -201,7 +202,7 @@ var
 
 var
   apr_initialize: function: TAprStatus; stdcall;
-  apr_app_initialize: function(argc: Integer; argv, env: array of PChar): TAprStatus; stdcall;
+  apr_app_initialize: function(argc: Integer; argv, env: array of PAnsiChar): TAprStatus; stdcall;
   apr_terminate: procedure; stdcall;
   apr_terminate2: procedure; stdcall;
   apr_generate_random_bytes: function(buf: PByte; length: TAprSize): TAprStatus; stdcall;
@@ -224,26 +225,26 @@ var
   apr_pool_create_ex: function(out newpool: PAprPool; parent: PAprPool; abort_fn: TAprAbortFunc;
     allocator: PAprAllocator): TAprStatus; stdcall;
   apr_pool_create_ex_debug: function(out newpool: PAprPool; parent: PAprPool; abort_fn: TAprAbortFunc;
-    allocator: PAprAllocator; FileLine: PChar): TAprStatus; stdcall;
+    allocator: PAprAllocator; FileLine: PAnsiChar): TAprStatus; stdcall;
   apr_pool_allocator_get: function(pool: PAprPool): PAprAllocator; stdcall;
   apr_pool_clear: procedure(p: PAprPool); stdcall;
-  apr_pool_clear_debug: procedure(p: PAprPool; file_line: PChar); stdcall;
+  apr_pool_clear_debug: procedure(p: PAprPool; file_line: PAnsiChar); stdcall;
   apr_pool_destroy: procedure(p: PAprPool); stdcall;
-  apr_pool_destroy_debug: procedure(p: PAprPool; file_line: PChar); stdcall;
+  apr_pool_destroy_debug: procedure(p: PAprPool; file_line: PAnsiChar); stdcall;
   apr_palloc: function(p: PAprPool; size: TAprSize): Pointer; stdcall;
-  apr_palloc_debug: function(p: PAprPool; size: TAprSize; file_line: PChar): Pointer; stdcall;
+  apr_palloc_debug: function(p: PAprPool; size: TAprSize; file_line: PAnsiChar): Pointer; stdcall;
   apr_pcalloc: function(p: PAprPool; size: TAprSize): Pointer; stdcall;
-  apr_pcalloc_debug: function(p: PAprPool; size: TAprSize; file_line: PChar): Pointer;
+  apr_pcalloc_debug: function(p: PAprPool; size: TAprSize; file_line: PAnsiChar): Pointer;
   apr_pool_abort_set: procedure(abortfunc: TAprAbortFunc; pool: PAprPool); stdcall;
   apr_pool_abort_get: function(pool: PAprPool): TAprAbortFunc; stdcall;
   apr_pool_parent_get: function(pool: PAprPool): PAprPool; stdcall;
   apr_pool_is_ancestor: function(a, b: PAprPool): LongBool; stdcall;
-  apr_pool_tag: procedure(pool: PAprPool; tag: PChar); stdcall;
-  apr_pool_userdata_set: function(data: Pointer; key: PChar; cleanup: TUserDataCleanup;
+  apr_pool_tag: procedure(pool: PAprPool; tag: PAnsiChar); stdcall;
+  apr_pool_userdata_set: function(data: Pointer; key: PAnsiChar; cleanup: TUserDataCleanup;
     pool: PAprPool): TAprStatus; stdcall;
-  apr_pool_userdata_setn: function(data: Pointer; key: PChar; cleanup: TUserDataCleanup;
+  apr_pool_userdata_setn: function(data: Pointer; key: PAnsiChar; cleanup: TUserDataCleanup;
     pool: PAprPool): TAprStatus; stdcall;
-  apr_pool_userdata_get: function(out data: Pointer; key: PChar; pool: PAprPool): TAprStatus; stdcall;
+  apr_pool_userdata_get: function(out data: Pointer; key: PAnsiChar; pool: PAprPool): TAprStatus; stdcall;
   apr_pool_cleanup_register: procedure(p: PAprPool; data: Pointer;
     plain_cleanup, child_cleanup: TUserDataCleanup); stdcall;
   apr_pool_cleanup_kill: procedure(p: PAprPool; data: Pointer; cleanup: TUserDataCleanup); stdcall;
@@ -318,29 +319,29 @@ var
 //----- apr_strings.h --------------------------------------------------------------------------------------------------
 
 var
-  apr_strnatcmp: function(a, b: PChar): Integer; stdcall;
-  apr_strnatcasecmp: function(a, b: PChar): Integer; stdcall;
-  apr_pstrdup: function(p: PAprPool; s: PChar): PChar; stdcall;
-  apr_pstrmemdup: function(p: PAprPool; s: PChar; n: TAprSize): PChar; stdcall;
-  apr_pstrndup: function(p: PAprPool; s: PChar; n: TAprSize): PChar; stdcall;
+  apr_strnatcmp: function(a, b: PAnsiChar): Integer; stdcall;
+  apr_strnatcasecmp: function(a, b: PAnsiChar): Integer; stdcall;
+  apr_pstrdup: function(p: PAprPool; s: PAnsiChar): PAnsiChar; stdcall;
+  apr_pstrmemdup: function(p: PAprPool; s: PAnsiChar; n: TAprSize): PAnsiChar; stdcall;
+  apr_pstrndup: function(p: PAprPool; s: PAnsiChar; n: TAprSize): PAnsiChar; stdcall;
   apr_pmemdup: function(p: PAprPool; m: Pointer; n: TAprSize): Pointer; stdcall;
-  apr_pstrcat: function(p: PAprPool; args: array of const): PChar; stdcall;
-  apr_pstrcatv: function(p: PAprPool; vec: PIOVec; nvec: TAprSize; out nbytes: TAprSize): PChar; stdcall;
-  apr_pvsprintf: function(p: PAprPool; fmt: PChar; ap: array of const): PChar; stdcall;
-  apr_psprintf: function(p: PAprPool; fmt: PChar; args: array of const): PChar; stdcall;
-  apr_cpystrn: function (dst, src: PChar; dst_size: TAprSize): PChar; stdcall;
-  apr_collapse_spaces: function(dest, src: PChar): PChar; stdcall;
-  apr_tokenize_to_argv: function(arg_str: PChar; out argv_out: Pointer; token_context: PAprPool): TAprStatus; stdcall;
-  apr_strtok: function(str, sep: PChar; var last: PChar): PChar; stdcall;
-  apr_snprintf: function(buf: PChar; len: TAprSize; format: PChar; args: array of const): Integer; stdcall;
-  apr_vsnprintf: function(buf: PChar; len: TAprSize; format: PChar; ap: array of const): Integer; stdcall;
-  apr_itoa: function(p: PAprPOol; n: Integer): PChar; stdcall;
-  apr_ltoa: function(p: PAprPool; n: Longint): PChar; stdcall;
-  apr_off_t_toa: function(p: PAprPool; n: TAprOff): PChar; stdcall;
-  apr_strtoff: function(var offset: TAprOff; buf: PChar; cend: PPChar; base: Integer): Integer; stdcall;
-  apr_strtoi64: function(buf: PChar; pend: PPChar; base: Integer): Int64; stdcall;
-  apr_atoi64: function(buf: PChar): Int64; stdcall;
-  apr_strfsize: function(size: TAprOff; buf: PChar): PChar; stdcall;
+  apr_pstrcat: function(p: PAprPool; args: array of const): PAnsiChar; stdcall;
+  apr_pstrcatv: function(p: PAprPool; vec: PIOVec; nvec: TAprSize; out nbytes: TAprSize): PAnsiChar; stdcall;
+  apr_pvsprintf: function(p: PAprPool; fmt: PAnsiChar; ap: array of const): PAnsiChar; stdcall;
+  apr_psprintf: function(p: PAprPool; fmt: PAnsiChar; args: array of const): PAnsiChar; stdcall;
+  apr_cpystrn: function (dst, src: PAnsiChar; dst_size: TAprSize): PAnsiChar; stdcall;
+  apr_collapse_spaces: function(dest, src: PAnsiChar): PAnsiChar; stdcall;
+  apr_tokenize_to_argv: function(arg_str: PAnsiChar; out argv_out: Pointer; token_context: PAprPool): TAprStatus; stdcall;
+  apr_strtok: function(str, sep: PAnsiChar; var last: PAnsiChar): PAnsiChar; stdcall;
+  apr_snprintf: function(buf: PAnsiChar; len: TAprSize; format: PAnsiChar; args: array of const): Integer; stdcall;
+  apr_vsnprintf: function(buf: PAnsiChar; len: TAprSize; format: PAnsiChar; ap: array of const): Integer; stdcall;
+  apr_itoa: function(p: PAprPOol; n: Integer): PAnsiChar; stdcall;
+  apr_ltoa: function(p: PAprPool; n: Longint): PAnsiChar; stdcall;
+  apr_off_t_toa: function(p: PAprPool; n: TAprOff): PAnsiChar; stdcall;
+  apr_strtoff: function(var offset: TAprOff; buf: PAnsiChar; cend: PPAnsiChar; base: Integer): Integer; stdcall;
+  apr_strtoi64: function(buf: PAnsiChar; pend: PPAnsiChar; base: Integer): Int64; stdcall;
+  apr_atoi64: function(buf: PAnsiChar): Int64; stdcall;
+  apr_strfsize: function(size: TAprOff; buf: PAnsiChar): PAnsiChar; stdcall;
 
 //----- apr_strings.h --------------------------------------------------------------------------------------------------
 
@@ -351,10 +352,10 @@ type
   TAprShm = THandle;
 
 var
-  apr_shm_create: function(out m: PAprShm; reqsize: TAprSize; filename: PChar; pool: PAprPool): TAprStatus; stdcall;
-  apr_shm_remove: function(filename: PChar; pool: PAprPool): TAprStatus; stdcall;
+  apr_shm_create: function(out m: PAprShm; reqsize: TAprSize; filename: PAnsiChar; pool: PAprPool): TAprStatus; stdcall;
+  apr_shm_remove: function(filename: PAnsiChar; pool: PAprPool): TAprStatus; stdcall;
   apr_shm_destroy: function(m: PAprShm): TAprStatus; stdcall;
-  apr_shm_attach: function(out m: PAprShm; filename: PChar; pool: PAprPool): TAprStatus; stdcall;
+  apr_shm_attach: function(out m: PAprShm; filename: PAnsiChar; pool: PAprPool): TAprStatus; stdcall;
   apr_shm_detach: function(m: PAprShm): TAprStatus; stdcall;
   apr_shm_baseaddr_get: function(m: PAprShm): Pointer; stdcall;
   apr_shm_size_get: function(m: PAprShm): TAprSize; stdcall;
@@ -372,7 +373,7 @@ type
   TAprHash = THandle;
   PAprHashIndex = ^TAprHashIndex;
   TAprHashIndex = THandle;
-  TAprHashFunc = function(key: PChar; var klen: TAprSize): Cardinal; cdecl;
+  TAprHashFunc = function(key: PAnsiChar; var klen: TAprSize): Cardinal; cdecl;
   THashMergeFunc = function(p: PAprPool; key: Pointer; klen: TAprSize; h1_val, h2_val, data: Pointer): Pointer; stdcall;
 
 var
@@ -408,14 +409,14 @@ type
     elt_size: Integer;
     nelts: Integer;
     nalloc: Integer;
-    elts: PChar;
+    elts: PAnsiChar;
   end;
   TAprTableEntry = packed record
-    key: PChar;
-    val: PChar;
+    key: PAnsiChar;
+    val: PAnsiChar;
     key_checksum: Cardinal;
   end;
-  TTableCallback = function(rec: Pointer; key, value: PChar): Integer; stdcall;
+  TTableCallback = function(rec: Pointer; key, value: PAnsiChar): Integer; stdcall;
 
 var
   apr_table_elts: function(t: PAprTable): PAprArrayHeader; stdcall;
@@ -428,18 +429,18 @@ var
   apr_array_copy: function(p: PAprPool; arr: PAprArrayHeader): PAprArrayHeader; stdcall;
   apr_array_copy_hdr: function(p: PAprPool; arr: PAprArrayHeader):PAprArrayHeader; stdcall;
   apr_array_append: function(p: PAprPool; first, second: PAprArrayHeader): PAprArrayHeader; stdcall;
-  apr_array_pstrcat: function(p: PAprPool; arr: PAprArrayHeader; sep: Char): PChar; stdcall;
+  apr_array_pstrcat: function(p: PAprPool; arr: PAprArrayHeader; sep: Char): PAnsiChar; stdcall;
   apr_table_make: function(p: PAprPool; nelts: Integer): PAprTable; stdcall;
   apr_table_copy: function(p: PAprPool; t: PAprTable): PAprTable; stdcall;
   apr_table_clear: procedure(t: PAprTable); stdcall;
-  apr_table_get: function(t: PAprTable; key: PChar): PChar; stdcall;
-  apr_table_set: procedure(t: PAprTable; key, val: PChar); stdcall;
-  apr_table_setn: procedure(t: PAprTable; key, val: PChar); stdcall;
-  apr_table_unset: procedure(t: PAprTable; key: PChar); stdcall;
-  apr_table_merge: procedure(t: PAprTable; key, val: PChar); stdcall;
-  apr_table_mergen: procedure(t: PAprTable; key, val: PChar); stdcall;
-  apr_table_add: procedure(t: PAprTable; key, val: PChar); stdcall;
-  apr_table_addn: procedure(t: PAprTable; key, val: PChar); stdcall;
+  apr_table_get: function(t: PAprTable; key: PAnsiChar): PAnsiChar; stdcall;
+  apr_table_set: procedure(t: PAprTable; key, val: PAnsiChar); stdcall;
+  apr_table_setn: procedure(t: PAprTable; key, val: PAnsiChar); stdcall;
+  apr_table_unset: procedure(t: PAprTable; key: PAnsiChar); stdcall;
+  apr_table_merge: procedure(t: PAprTable; key, val: PAnsiChar); stdcall;
+  apr_table_mergen: procedure(t: PAprTable; key, val: PAnsiChar); stdcall;
+  apr_table_add: procedure(t: PAprTable; key, val: PAnsiChar); stdcall;
+  apr_table_addn: procedure(t: PAprTable; key, val: PAnsiChar); stdcall;
   apr_table_overlay: function(p: PAprPool; overlay, base: PAprTable): PAprTable; stdcall;
   apr_table_do: function(comp: TTableCallback; rec: Pointer; t: PAprTable; args: array of const): Integer; stdcall;
   apr_table_vdo: function(comp: TTableCallback; rec: Pointer; t: PAprTable; vp: array of const): Integer; stdcall;
@@ -451,16 +452,16 @@ var
 //----- apr_env.h ------------------------------------------------------------------------------------------------------
 
 var
-  apr_env_get: function(out value: PChar; envvar: PChar; pool: PAprPool): TAprStatus; stdcall;
-  apr_env_set: function(envvar, value: PChar; pool: PAprPool): TAprStatus; stdcall;
-  apr_env_delete: function(envvar: PChar; pool: PAprPool): TAprStatus; stdcall;
+  apr_env_get: function(out value: PAnsiChar; envvar: PAnsiChar; pool: PAprPool): TAprStatus; stdcall;
+  apr_env_set: function(envvar, value: PAnsiChar; pool: PAprPool): TAprStatus; stdcall;
+  apr_env_delete: function(envvar: PAnsiChar; pool: PAprPool): TAprStatus; stdcall;
 
 //----- apr_env.h ------------------------------------------------------------------------------------------------------
 
 //----- apr_getopt.h ---------------------------------------------------------------------------------------------------
 
 type
-  TGetOptErrorProc = procedure(arg: Pointer; err: PChar; args: array of const); stdcall;
+  TGetOptErrorProc = procedure(arg: Pointer; err: PAnsiChar; args: array of const); stdcall;
   PAprGetOpt = ^TAprGetOpt;
   TAprGetOpt = packed record
     cont: PAprPool;
@@ -470,25 +471,25 @@ type
     opt: Integer;
     reset: Integer;
     argc: Integer;
-    argv: PPChar;
-    place: PChar;
+    argv: PPAnsiChar;
+    place: PAnsiChar;
     interleave: Integer;
     skip_start: Integer;
     skip_end: Integer;
   end;
   PAprGetOptOption = ^TAprGetOptOption;
   TAprGetOptOption = packed record
-    name: PChar;
+    name: PAnsiChar;
     optch: Integer;
     has_arg: LongBool;
-    description: PChar;
+    description: PAnsiChar;
   end;
 
 var
-  apr_getopt_init: function(out os: PAprGetOpt; cont: PAprPool; argc: Integer; argv: PPChar): TAprStatus; stdcall;
-  apr_getopt: function(os: PAprGetOpt; opts, option_ch: PChar; option_arg: PPChar): TAprStatus; stdcall;
+  apr_getopt_init: function(out os: PAprGetOpt; cont: PAprPool; argc: Integer; argv: PPAnsiChar): TAprStatus; stdcall;
+  apr_getopt: function(os: PAprGetOpt; opts, option_ch: PAnsiChar; option_arg: PPAnsiChar): TAprStatus; stdcall;
   apr_getopt_long: function(os: PAprGetOpt; opts: PAprGetOptOption; out option_ch: Integer;
-    option_arg: PPChar): TAprStatus; stdcall;
+    option_arg: PPAnsiChar): TAprStatus; stdcall;
 
 //----- apr_getopt.h ---------------------------------------------------------------------------------------------------
 
@@ -500,10 +501,10 @@ type
   TAprDSOHandleSym = Pointer;
 
 var
-  apr_dso_load: function(out res_handle: PAprDSOHandle; path: PChar; ctx: PAprPool): TAprStatus; stdcall;
+  apr_dso_load: function(out res_handle: PAprDSOHandle; path: PAnsiChar; ctx: PAprPool): TAprStatus; stdcall;
   apr_dso_unload: function(handle: PAprDSOHandle): TAprStatus; stdcall;
-  apr_dso_sym: function(out ressym: TAprDSOHandleSym; handle: PAprDSOHandle; symname: PChar): TAprStatus; stdcall;
-  apr_dso_error: function(dso: PAprDSOHandle; buf: PChar; bufsize: TAprSize): PChar; stdcall;
+  apr_dso_sym: function(out ressym: TAprDSOHandleSym; handle: PAprDSOHandle; symname: PAnsiChar): TAprStatus; stdcall;
+  apr_dso_error: function(dso: PAprDSOHandle; buf: PAnsiChar; bufsize: TAprSize): PAnsiChar; stdcall;
 
 //----- apr_dso.h ------------------------------------------------------------------------------------------------------
 
@@ -515,12 +516,12 @@ type
 
 var
   apr_uid_current: function(out userid: TAprUID; var groupid: TAprGID; p: PAprPool): TAprStatus; stdcall;
-  apr_uid_name_get: function(out username: PChar; userid: TAprUID; p: PAprPool): TAprStatus; stdcall;
-  apr_uid_get: function(out userid: TAprUID; out groupid: TAprGID; username: PChar; p: PAprPool): TAprStatus; stdcall;
-  apr_uid_homepath_get: function(out dirname: PChar; username: PChar; p: PAprPool): TAprStatus; stdcall;
+  apr_uid_name_get: function(out username: PAnsiChar; userid: TAprUID; p: PAprPool): TAprStatus; stdcall;
+  apr_uid_get: function(out userid: TAprUID; out groupid: TAprGID; username: PAnsiChar; p: PAprPool): TAprStatus; stdcall;
+  apr_uid_homepath_get: function(out dirname: PAnsiChar; username: PAnsiChar; p: PAprPool): TAprStatus; stdcall;
   apr_uid_compare: function(left, right: TAprUID): TAprStatus; stdcall;
-  apr_gid_name_get: function(out groupname: PChar; groupid: TAprGID; p: PAprPool): TAprStatus; stdcall;
-  apr_gid_get: function(out groupid: TAprGID; groupname: PChar; p: PAprPool): TAprStatus; stdcall;
+  apr_gid_name_get: function(out groupname: PAnsiChar; groupid: TAprGID; p: PAprPool): TAprStatus; stdcall;
+  apr_gid_get: function(out groupid: TAprGID; groupname: PAnsiChar; p: PAprPool): TAprStatus; stdcall;
   apr_gid_compare: function(left, right: TAprGID): TAprStatus; stdcall;
 
 //----- apr_user.h -----------------------------------------------------------------------------------------------------
@@ -576,9 +577,9 @@ var
   apr_time_exp_get: function(out result: TAprTimeExp; input: PAprTimeExp): TAprStatus; stdcall;
   apr_time_exp_gmt_get: function(out result: TAprTime; input: PAprTimeExp): TAprStatus; stdcall;
   apr_sleep: procedure(t: TAprIntervalTime); stdcall;
-  apr_rfc822_date: function(date_str: PChar; t: TAprTime): TAprStatus; stdcall;
-  apr_ctime: function(date_str: PChar; t: TAprTime): TAprStatus; stdcall;
-  apr_strftime: function(s: PChar; out retsize: TAprSize; max: TAprSize; format: PChar; tm: PAprTimeExp): TAprStatus;
+  apr_rfc822_date: function(date_str: PAnsiChar; t: TAprTime): TAprStatus; stdcall;
+  apr_ctime: function(date_str: PAnsiChar; t: TAprTime): TAprStatus; stdcall;
+  apr_strftime: function(s: PAnsiChar; out retsize: TAprSize; max: TAprSize; format: PAnsiChar; tm: PAprTimeExp): TAprStatus;
     stdcall;
   apr_time_clock_hires: procedure(p: PAprPool); stdcall;
 
@@ -688,24 +689,24 @@ type
     atime: TAprTime;
     mtime: TAprTime;
     ctime: TAprTime;
-    fname: PChar;
-    name: PChar;
+    fname: PAnsiChar;
+    name: PAnsiChar;
     filehand: PAprFile;
   end;
 
 var
-  apr_stat: function(out finfo: TAprFInfo; fname: PChar; wanted: Integer; pool: PAprPool): TAprStatus; stdcall;
-  apr_dir_open: function(out new_dir: PAprDir; dirname: PChar; pool: PAprPool): TAprStatus; stdcall;
+  apr_stat: function(out finfo: TAprFInfo; fname: PAnsiChar; wanted: Integer; pool: PAprPool): TAprStatus; stdcall;
+  apr_dir_open: function(out new_dir: PAprDir; dirname: PAnsiChar; pool: PAprPool): TAprStatus; stdcall;
   apr_dir_close: function(thedir: PAprDir): TAprStatus; stdcall;
   apr_dir_read: function(finfo: PAprFInfo; wanted: Integer; thedir: PAprDir): TAprStatus; stdcall;
   apr_dir_rewind: function(thedir: PAprDir): TAprStatus; stdcall;
-  apr_filepath_root: function(rootpath, filepath: PPChar; flags: Integer; p: PAprPool): TAprStatus; stdcall;
-  apr_filepath_merge: function(out newpath: PChar; rootpath, addpath: PChar; flags: Integer;
+  apr_filepath_root: function(rootpath, filepath: PPAnsiChar; flags: Integer; p: PAprPool): TAprStatus; stdcall;
+  apr_filepath_merge: function(out newpath: PAnsiChar; rootpath, addpath: PAnsiChar; flags: Integer;
     p: PAprPool): TAprStatus; stdcall;
-  apr_filepath_list_split: function(out pathelts: PAprArrayHeader; liststr: PChar; p: PAprPool): TAprStatus; stdcall;
-  apr_filepath_list_merge: function(out liststr: PChar; pathelts: PAprArrayHeader; p: PAprPool): TAprStatus; stdcall;
-  apr_filepath_get: function(out path: PChar; flags: Integer; p: PAprPool): TAprStatus; stdcall;
-  apr_filepath_set: function(path: PChar; p: PAprPool): TAprStatus; stdcall;
+  apr_filepath_list_split: function(out pathelts: PAprArrayHeader; liststr: PAnsiChar; p: PAprPool): TAprStatus; stdcall;
+  apr_filepath_list_merge: function(out liststr: PAnsiChar; pathelts: PAprArrayHeader; p: PAprPool): TAprStatus; stdcall;
+  apr_filepath_get: function(out path: PAnsiChar; flags: Integer; p: PAprPool): TAprStatus; stdcall;
+  apr_filepath_set: function(path: PAnsiChar; p: PAprPool): TAprStatus; stdcall;
   apr_filepath_encoding: function(out style: Integer; p: PAprPool): TAprStatus; stdcall;
 
 //----- apr_file_info.h ------------------------------------------------------------------------------------------------
@@ -746,13 +747,13 @@ type
   TAprFileDataCleanup = function(p: Pointer): TAprStatus;
 
 var
-  apr_file_open: function(out newf: PAprFile; fname: PChar; flag: Integer; perm: TAprFilePerms;
+  apr_file_open: function(out newf: PAprFile; fname: PAnsiChar; flag: Integer; perm: TAprFilePerms;
     pool: PAprPool): TAprStatus; stdcall;
   apr_file_close: function(afile: PAprFile): TAprStatus; stdcall;
-  apr_file_remove: function(path: PChar; pool: PAprPool): TAprStatus; stdcall;
-  apr_file_rename: function(from_path, to_path: PChar; pool: PAprPool): TAprStatus; stdcall;
-  apr_file_copy: function(from_path, to_path: PChar; perms: TAprFilePerms; pool: PAprPool): TAprStatus; stdcall;
-  apr_file_append: function(from_path, to_path: PChar; perms: TAprFilePerms; pool: PAprPool): TAprStatus; stdcall;
+  apr_file_remove: function(path: PAnsiChar; pool: PAprPool): TAprStatus; stdcall;
+  apr_file_rename: function(from_path, to_path: PAnsiChar; pool: PAprPool): TAprStatus; stdcall;
+  apr_file_copy: function(from_path, to_path: PAnsiChar; perms: TAprFilePerms; pool: PAprPool): TAprStatus; stdcall;
+  apr_file_append: function(from_path, to_path: PAnsiChar; perms: TAprFilePerms; pool: PAprPool): TAprStatus; stdcall;
   apr_file_eof: function(fptr: PAprFile): TAprStatus; stdcall;
   apr_file_open_stderr: function(out thefile: PAprFile; pool: PAprPool): TAprStatus; stdcall;
   apr_file_open_stdout: function(out thefile: PAprFile; pool: PAprPool): TAprStatus; stdcall;
@@ -768,38 +769,38 @@ var
   apr_file_putc: function(ch: Char; thefile: PAprFile): TAprStatus; stdcall;
   apr_file_getc: function(out ch: Char; thefile: PAprFile): TAprStatus; stdcall;
   apr_file_ungetc: function(ch: Char; thefile: PAprFile): TAprStatus; stdcall;
-  apr_file_gets: function(str: PChar; len: Integer; thefile: PAprFile): TAprStatus; stdcall;
-  apr_file_puts: function(str: PChar; thefile: PAprFile): TAprStatus; stdcall;
+  apr_file_gets: function(str: PAnsiChar; len: Integer; thefile: PAprFile): TAprStatus; stdcall;
+  apr_file_puts: function(str: PAnsiChar; thefile: PAprFile): TAprStatus; stdcall;
   apr_file_flush: function(thefile: PAprFile): TAprStatus; stdcall;
   apr_file_dup: function(out new_file: PAprFile; old_file: PAprFile; p: PAprPool): TAprStatus; stdcall;
   apr_file_dup2: function(new_file, old_file: PAprFile; p: PAprPool): TAprStatus; stdcall;
   apr_file_setaside: function(out new_file: PAprFile; old_file: PAprFile; p: PAprPool): TAprStatus; stdcall;
   apr_file_seek: function(thefile: PAprFile; where: TAprSeekWhere; var offset: TAprOff): TAprStatus; stdcall;
   apr_file_pipe_create: function(var ain, aout: PPAprFile; pool: PAprPool): TAprStatus; stdcall;
-  apr_file_namedpipe_create: function(filename: PChar; perm: TAprFilePerms; pool: PAprPool): TAprStatus; stdcall;
+  apr_file_namedpipe_create: function(filename: PAnsiChar; perm: TAprFilePerms; pool: PAprPool): TAprStatus; stdcall;
   apr_file_pipe_timeout_get: function(thepipe: PAprFile; out timeout: TAprIntervalTime): TAprStatus; stdcall;
   apr_file_pipe_timeout_set: function(thepipe: PAprFile; timeout: TAprIntervalTime): TAprStatus; stdcall;
   apr_file_lock: function(thefile: PAprFile; atype: Integer): TAprStatus; stdcall;
   apr_file_unlock: function(thefile: PAprFile): TAprStatus; stdcall;
-  apr_file_name_get: function(out new_path: PChar; thefile: PAprFile): TAprStatus; stdcall;
-  apr_file_data_get: function(out data: Pointer; key: PChar; afile: PAprFile): TAprStatus; stdcall;
-  apr_file_data_set: function(afile: PAprFile; data: Pointer; key: PChar;
+  apr_file_name_get: function(out new_path: PAnsiChar; thefile: PAprFile): TAprStatus; stdcall;
+  apr_file_data_get: function(out data: Pointer; key: PAnsiChar; afile: PAprFile): TAprStatus; stdcall;
+  apr_file_data_set: function(afile: PAprFile; data: Pointer; key: PAnsiChar;
     cleanup: TAprFileDataCleanup): TAprStatus; stdcall;
-  apr_file_printf: function(fptr: PAprFile; format: PChar; args: array of const): Integer; stdcall;
-  apr_file_perms_set: function(fname: PChar; perms: TAprFilePerms): TAprStatus; stdcall;
-  apr_file_attrs_set: function(fname: PChar; attributes, attr_mask: TAprFileAttrs; cont: PAprPool): TAprStatus; stdcall;
-  apr_file_mtime_set: function(fname: PChar; mtime: TAprTime; pool: PAprPool): TAprStatus; stdcall;
-  apr_dir_make: function(path: PChar; perm: TAprTime; cont: PAprPool): TAprStatus; stdcall;
-  apr_dir_make_recursive: function(path: PChar; perm: TAprFilePerms; pool: PAprPool): TAprStatus; stdcall;
-  apr_dir_remove: function(path: PChar; pool: PAprPool): TAprStatus; stdcall;
+  apr_file_printf: function(fptr: PAprFile; format: PAnsiChar; args: array of const): Integer; stdcall;
+  apr_file_perms_set: function(fname: PAnsiChar; perms: TAprFilePerms): TAprStatus; stdcall;
+  apr_file_attrs_set: function(fname: PAnsiChar; attributes, attr_mask: TAprFileAttrs; cont: PAprPool): TAprStatus; stdcall;
+  apr_file_mtime_set: function(fname: PAnsiChar; mtime: TAprTime; pool: PAprPool): TAprStatus; stdcall;
+  apr_dir_make: function(path: PAnsiChar; perm: TAprTime; cont: PAprPool): TAprStatus; stdcall;
+  apr_dir_make_recursive: function(path: PAnsiChar; perm: TAprFilePerms; pool: PAprPool): TAprStatus; stdcall;
+  apr_dir_remove: function(path: PAnsiChar; pool: PAprPool): TAprStatus; stdcall;
   apr_file_info_get: function(out finfo: TAprFInfo; wanted: Integer; thefile: PAprFile): TAprStatus; stdcall;
   apr_file_trunc: function(fp: PAprFile; offset: TAprOff): TAprStatus; stdcall;
   apr_file_flags_get: function(f: PAprFile): Integer; stdcall;
   apr_file_pool_get: function(f: PAprFile): PAprPool; stdcall;
   apr_file_inherit_set: function(thefile: PAprFile): TAprStatus; stdcall;
   apr_file_inherit_unset: function(thefile: PAprFile): TAprStatus; stdcall;
-  apr_file_mktemp: function(out fp: PAprFile; templ: PChar; flags: Integer; p: PAprPool): TAprStatus; stdcall;
-  apr_temp_dir_get: function(temp_dir: PPChar; p: PAprPool): TAprStatus; stdcall;
+  apr_file_mktemp: function(out fp: PAprFile; templ: PAnsiChar; flags: Integer; p: PAprPool): TAprStatus; stdcall;
+  apr_temp_dir_get: function(temp_dir: PPAnsiChar; p: PAprPool): TAprStatus; stdcall;
   
 //----- apr_file_io.h --------------------------------------------------------------------------------------------------
 
@@ -888,8 +889,8 @@ type
   PAprSockAddr = ^TAprSockAddr;
   TAprSockAddr = packed record
     pool: PAprPool;
-    hostname: PChar;
-    servname: PChar;
+    hostname: PAnsiChar;
+    servname: PAnsiChar;
     port: TAprPort;
     family: Integer;
     salen: TAprSockLen;
@@ -919,35 +920,35 @@ var
   apr_socket_accept: function(out new_sock: PAprSocket; sock: PAprSocket;
     connection_pool: PAprPool): TAprStatus; stdcall;
   apr_socket_connect: function(sock: PAprSocket; sa: PAprSockAddr): TAprStatus; stdcall;
-  apr_sockaddr_info_get: function(out sa: PAprSockAddr; hostname: PChar; family: Integer; port: TAprPort;
+  apr_sockaddr_info_get: function(out sa: PAprSockAddr; hostname: PAnsiChar; family: Integer; port: TAprPort;
     flags: Integer; p: PAprPool): TAprStatus; stdcall;
-  apr_getnameinfo: function(out hostname: PChar; sa: PAprSockAddr; flags: Integer): TAprPort; stdcall;
-  apr_parse_addr_port: function(var addr, scope_id: PChar; var port: TAprPort; str: PChar;
+  apr_getnameinfo: function(out hostname: PAnsiChar; sa: PAprSockAddr; flags: Integer): TAprPort; stdcall;
+  apr_parse_addr_port: function(var addr, scope_id: PAnsiChar; var port: TAprPort; str: PAnsiChar;
     p: PAprPool): TAprStatus; stdcall;
-  apr_gethostname: function(buf: PChar; len: Integer; cont: PAprPool): TAprStatus; stdcall;
-  apr_socket_data_get: function(out data: Pointer; key: PChar; sock: PAprSocket): TAprStatus; stdcall;
-  apr_socket_data_set: function(sock: PAprSocket; data: Pointer; key: PChar; cleanup: TSocketDataCleanup): TAprStatus;
+  apr_gethostname: function(buf: PAnsiChar; len: Integer; cont: PAprPool): TAprStatus; stdcall;
+  apr_socket_data_get: function(out data: Pointer; key: PAnsiChar; sock: PAprSocket): TAprStatus; stdcall;
+  apr_socket_data_set: function(sock: PAprSocket; data: Pointer; key: PAnsiChar; cleanup: TSocketDataCleanup): TAprStatus;
     stdcall;
   apr_socket_send: function(sock: PAprSocket; buf: PChar; var len: TAprSize): TAprStatus; stdcall;
   apr_socket_sendv: function(sock: PAprSocket; vec: PIOVec; nvec: Integer; var len: TAprSize): TAprStatus; stdcall;
-  apr_socket_sendto: function(sock: PAprSocket; where: PAprSockAddr; flags: Integer; buf: PChar;
+  apr_socket_sendto: function(sock: PAprSocket; where: PAprSockAddr; flags: Integer; buf: PAnsiChar;
     var len: TAprSize): TAprStatus; stdcall;
-  apr_socket_recvfrom: function(out from: TAprSockAddr; sock: PAprSocket; flags: Integer; buf: PChar;
+  apr_socket_recvfrom: function(out from: TAprSockAddr; sock: PAprSocket; flags: Integer; buf: PAnsiChar;
     var len: TAprSize): TAprStatus; stdcall;
   apr_socket_sendfile: function(sock: PAprSocket; afile: PAprFile; hdtr: PAprHdtr; offset: PAprOff; var len: TAprSize;
     flags: Integer): TAprStatus; stdcall;
-  apr_socket_recv: function(sock: PAprSocket; buf: PChar; var len: TAprSize): TAprStatus; stdcall;
+  apr_socket_recv: function(sock: PAprSocket; buf: PAnsiChar; var len: TAprSize): TAprStatus; stdcall;
   apr_socket_opt_set: function(sock: PAprSocket; opt, aon: Integer): TAprStatus; stdcall;
   apr_socket_timeout_set: function(sock: PAprSocket; t: TAprIntervalTime): TAprStatus; stdcall;
   apr_socket_opt_get: function(sock: PAprSocket; opt: Integer; out aon: Integer): TAprStatus; stdcall;
   apr_socket_timeout_get: function(sock: PAprSocket; out t: TAprIntervalTime): TAprStatus; stdcall;
   apr_socket_atmark: function(sock: PAprSocket; out atmark: LongBool): TAprStatus; stdcall;
   apr_socket_addr_get: function(out sa: PAprSockAddr; which: TAprInterface; sock: PAprSocket): TAprStatus; stdcall;
-  apr_sockaddr_ip_get: function(out addr: PChar; sockaddr: PAprSockAddr): TAprStatus; stdcall;
+  apr_sockaddr_ip_get: function(out addr: PAnsiChar; sockaddr: PAprSockAddr): TAprStatus; stdcall;
   apr_sockaddr_equal: function(addr1, addr2: PAprSockAddr): LongBool; stdcall;
   apr_socket_type_get: function(sock: PAprSocket; out _type: Integer): TAprStatus; stdcall;
-  apr_getservbyname: function(sockaddr: PAprSockAddr; servname: PChar): TAprStatus; stdcall;
-  apr_ipsubnet_create: function(out ipsub: PAprIPSubnet; ipstr, mask_or_numbits: PChar; p: PAprPool): TAprStatus;
+  apr_getservbyname: function(sockaddr: PAprSockAddr; servname: PAnsiChar): TAprStatus; stdcall;
+  apr_ipsubnet_create: function(out ipsub: PAprIPSubnet; ipstr, mask_or_numbits: PAnsiChar; p: PAprPool): TAprStatus;
     stdcall;
   apr_ipsubnet_test: function(ipsub: PAprIPSubnet; sa: PAprSockAddr): LongBool; stdcall;
   apr_socket_protocol_get: function(sock: PAprSocket; out protocol: Integer): TAprStatus; stdcall;
@@ -1111,7 +1112,7 @@ type
   TAprProcAttr = THandle;
   PAprOtherChild = ^TAprOtherChild;
   TAprOtherChild = THandle;
-  TAprChildErrFn = procedure(pool: PAprPool; err: TAprStatus; description: PChar); stdcall;
+  TAprChildErrFn = procedure(pool: PAprPool; err: TAprStatus; description: PAnsiChar); stdcall;
   TAprThreadStart = function(thread: PAprThread; data: Pointer): Pointer; stdcall;
   TAprKillConditions = (APR_KILL_NEVER, APR_KILL_ALWAYS, APR_KILL_AFTER_TIMEOUT, APR_JUST_WAIT, APR_KILL_ONLY_ONCE);
   TAprThreadOnceProc = procedure; stdcall;
@@ -1133,31 +1134,31 @@ var
   apr_thread_once_init: function(out control: PAprThreadOnce; p: PAprPool): TAprStatus; stdcall;
   apr_thread_once: function(control: PAprThreadOnce; func: TAprThreadOnceProc): TAprStatus; stdcall;
   apr_thread_detach: function(thd: PAprThread): TAprStatus; stdcall;
-  apr_thread_data_get: function(out data: Pointer; key: PChar; thread: PAprThread): TAprStatus; stdcall;
-  apr_thread_data_set: function(data: Pointer; key: PChar; cleanup: TAprThreadDataCleanup;
+  apr_thread_data_get: function(out data: Pointer; key: PAnsiChar; thread: PAprThread): TAprStatus; stdcall;
+  apr_thread_data_set: function(data: Pointer; key: PAnsiChar; cleanup: TAprThreadDataCleanup;
     thread: PAprThread): TAprStatus; stdcall;
   apr_threadkey_private_create: function(out key: PAprThreadKey; dest: TAprThreadPrivateDest;
     cont: PAprPool): TAprStatus; stdcall;
   apr_threadkey_private_get: function(out new_mem: Pointer; key: PAprThreadKey): TAprStatus; stdcall;
   apr_threadkey_private_set: function(priv: Pointer; key: PAprThreadKey): TAprStatus; stdcall;
   apr_threadkey_private_delete: function(key: PAprThreadKey): TAprStatus; stdcall;
-  apr_threadkey_data_get: function (out data: Pointer; key: PChar; threadkey: PAprThreadKey): TAprStatus; stdcall;
-  apr_threadkey_data_set: function(data: Pointer; key: PChar; cleanup: TAprThreadDataCleanup;
+  apr_threadkey_data_get: function (out data: Pointer; key: PAnsiChar; threadkey: PAprThreadKey): TAprStatus; stdcall;
+  apr_threadkey_data_set: function(data: Pointer; key: PAnsiChar; cleanup: TAprThreadDataCleanup;
     threadkey: PAprThreadKey): TAprStatus; stdcall;
   apr_procattr_create: function(out new_attr: PAprProcAttr; cont: PAprPool): TAprStatus; stdcall;
   apr_procattr_io_set: function(attr: PAprProcAttr; stdin, stdout, stderr: Integer): TAprStatus; stdcall;
   apr_procattr_child_in_set: function(attr: PAprProcAttr; child_in, parent_in: PAprFile): TAprStatus; stdcall;
   apr_procattr_child_out_set: function(attr: PAprProcAttr; child_out, parent_out: PAprFile): TAprStatus; stdcall;
   apr_procattr_child_err_set: function(attr: PAprProcAttr; child_err, parent_err: PAprFile): TAprStatus; stdcall;
-  apr_procattr_dir_set: function(attr: PAprProcAttr; dir: PChar): TAprStatus; stdcall;
+  apr_procattr_dir_set: function(attr: PAprProcAttr; dir: PAnsiChar): TAprStatus; stdcall;
   apr_procattr_cmdtype_set: function(attr: PAprProcAttr; cmd: TAprCmdType): TAprStatus; stdcall;
   apr_procattr_detach_set: function(attr: PAprProcAttr; detach: LongBool): TAprStatus; stdcall;
   apr_procattr_child_errfn_set: function(attr: PAprProcAttr; errfn: TAprChildErrFn): TAprStatus; stdcall;
   apr_procattr_error_check_set: function(attr: PAprProcAttr; chk: LongBool): TAprStatus; stdcall;
   apr_procattr_addrspace_set: function(attr: PAprProcAttr; addrspace: LongBool): TAprStatus; stdcall;
-  apr_procattr_user_set: function(attr: PAprProcAttr; username, password: PChar): TAprStatus; stdcall;
-  apr_procattr_group_set: function(attr: PAprProcAttr; groupname: PChar): TAprStatus; stdcall;
-  apr_proc_create: function(out new_proc: TAprProc; progname, args, env: PChar; attr: PAprProcAttr;
+  apr_procattr_user_set: function(attr: PAprProcAttr; username, password: PAnsiChar): TAprStatus; stdcall;
+  apr_procattr_group_set: function(attr: PAprProcAttr; groupname: PAnsiChar): TAprStatus; stdcall;
+  apr_proc_create: function(out new_proc: TAprProc; progname, args, env: PAnsiChar; attr: PAprProcAttr;
     pool: PAprPool): TAprStatus; stdcall;
   apr_proc_wait: function(proc: PAprProc; out exitcode, exitwhy: Integer; waithow: TAprWaitHow): TAprStatus; stdcall;
   apr_proc_wait_all_procs: function(proc: PAprProc; out exitcode, exitwhy: Integer; waithow: TAprWaitHow;
@@ -1184,17 +1185,17 @@ type
   TAprProcMutex = THandle;
 
 var
-  apr_proc_mutex_create: function(out mutex: PAprProcMutex; fname: PChar; mech: TAprLockMech;
+  apr_proc_mutex_create: function(out mutex: PAprProcMutex; fname: PAnsiChar; mech: TAprLockMech;
     pool: PAprPool): TAprStatus; stdcall;
-  apr_proc_mutex_child_init: function(out mutex: PAprProcMutex; fname: PChar; pool: PAprPool): TAprStatus; stdcall;
+  apr_proc_mutex_child_init: function(out mutex: PAprProcMutex; fname: PAnsiChar; pool: PAprPool): TAprStatus; stdcall;
   apr_proc_mutex_lock: function(mutex: PAprProcMutex): TAprStatus; stdcall;
   apr_proc_mutex_trylock: function(mutex: PAprProcMutex): TAprStatus; stdcall;
   apr_proc_mutex_unlock: function(mutex: PAprProcMutex): TAprStatus; stdcall;
   apr_proc_mutex_destroy: function(mutex: PAprProcMutex): TAprStatus; stdcall;
   apr_proc_mutex_cleanup: function(mutex: Pointer): TAprStatus; stdcall;
-  apr_proc_mutex_lockfile: function(mutex: PAprProcMutex): PChar; stdcall;
-  apr_proc_mutex_name: function(mutex: PAprProcMutex): PChar; stdcall;
-  apr_proc_mutex_defname: function: PChar; stdcall;
+  apr_proc_mutex_lockfile: function(mutex: PAprProcMutex): PAnsiChar; stdcall;
+  apr_proc_mutex_name: function(mutex: PAprProcMutex): PAnsiChar; stdcall;
+  apr_proc_mutex_defname: function: PAnsiChar; stdcall;
   apr_proc_mutex_pool_get: function(mutex: PAprProcMutex): PAprPool; stdcall;
 
 //----- apr_proc_mutex.h -----------------------------------------------------------------------------------------------
@@ -1212,8 +1213,8 @@ type
     Ref: PPAprMemNode;   // reference to self
     Index: Cardinal;     // size
     FreeIndex: Cardinal; // how much free
-    FirstAvail: PChar;   // pointer to first free memory
-    EndP: PChar;         // pointer to end of free memory
+    FirstAvail: PAnsiChar;   // pointer to first free memory
+    EndP: PAnsiChar;         // pointer to end of free memory
   end;
 
 var
@@ -1232,10 +1233,10 @@ var
 //----- apr_fnmatch.h --------------------------------------------------------------------------------------------------
 
 var
-  apr_fnmatch: function(pattern, strings: PChar; flags: Integer): TAprStatus; stdcall;
-  apr_fnmatch_test: function(pattern: PChar): Integer; stdcall;
-  apr_is_fnmatch: function(pattern: PChar): Integer; stdcall;
-  apr_match_glob: function(pattern: PChar; out result: PAprArrayHeader; p: PAprPool): TAprStatus; stdcall;
+  apr_fnmatch: function(pattern, strings: PAnsiChar; flags: Integer): TAprStatus; stdcall;
+  apr_fnmatch_test: function(pattern: PAnsiChar): Integer; stdcall;
+  apr_is_fnmatch: function(pattern: PAnsiChar): Integer; stdcall;
+  apr_match_glob: function(pattern: PAnsiChar; out result: PAprArrayHeader; p: PAprPool): TAprStatus; stdcall;
 
 //----- apr_fnmatch.h --------------------------------------------------------------------------------------------------
 
@@ -1310,8 +1311,8 @@ var
   apr_os_dso_handle_put: function(out dso: PAprDSOHandle; thedso: TAprOSDSOHandle; pool: PAprPool): TAprStatus; stdcall;
   apr_os_dso_handle_get: function(out dso: PAprOSDSOHandle; aprdso: PAprDSOHandle): TAprStatus; stdcall;
   apr_os_uuid_get: function(uuid_data: Pointer): TAprStatus; stdcall;
-  apr_os_default_encoding: function(pool: PAprPool): PChar; stdcall;
-  apr_os_locale_encoding: function(pool: PAprPool): PChar; stdcall;
+  apr_os_default_encoding: function(pool: PAprPool): PAnsiChar; stdcall;
+  apr_os_locale_encoding: function(pool: PAprPool): PAnsiChar; stdcall;
 
 //----- apr_portable.h -------------------------------------------------------------------------------------------------
 
@@ -2705,8 +2706,8 @@ begin
   else
   begin
     SetLength(Result, 256);
-    apr_strerror(Status, PChar(Result), Length(Result));
-    SetLength(Result, StrLen(PChar(Result)));
+    apr_strerror(Status, PAnsiChar(Result), Length(Result));
+    SetLength(Result, StrLen(PAnsiChar(Result)));
   end;
 end;
 

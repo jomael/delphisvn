@@ -27,6 +27,8 @@ unit SvnClient;
 
 interface
 
+{$INCLUDE Compilers.inc}
+
 uses
   Windows, Classes, SysUtils, Contnrs,
   apr, svn_client;
@@ -176,7 +178,7 @@ type
     procedure SortItems(Recurse: Boolean);
   protected
     procedure DoDestroyNotifications; virtual;
-    procedure DoWCStatus(Path: PChar; const Status: TSvnWCStatus2);
+    procedure DoWCStatus(Path: PAnsiChar; const Status: TSvnWCStatus2);
   public
     constructor Create(ASvnClient: TSvnClient; AParent: TSvnItem; const APathName: string; Recurse: Boolean = False;
       Update: Boolean = False); overload;
@@ -318,7 +320,7 @@ type
     function DoSSLServerTrustPrompt(const Realm: string; const CertInfo: TSvnAuthSSLServerCertInfo;
       Failures: TSSLServerTrustFailures; var Save: Boolean): Boolean; virtual;
     function DoUserNamePrompt(const Realm: string; var UserName: string; var Save: Boolean): Boolean; virtual;
-    function DoWCStatus(Path: PChar; const Status: TSvnWCStatus2): Boolean;
+    function DoWCStatus(Path: PAnsiChar; const Status: TSvnWCStatus2): Boolean;
 
     property Cancelled: Boolean read FCancelled;
   public
@@ -574,7 +576,7 @@ var
 begin
   Result := 0;
   AprTime := 0;
-  Error := svn_time_from_cstring(AprTime, PChar(S), Pool);
+  Error := svn_time_from_cstring(AprTime, PAnsiChar(AnsiString(S)), Pool);
   if Assigned(Error) then
     svn_error_clear(Error)
   else
@@ -583,7 +585,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function BlameReceiver(baton: Pointer; line_no: Int64; revision: TSvnRevNum; author, date, line: PChar;
+function BlameReceiver(baton: Pointer; line_no: Int64; revision: TSvnRevNum; author, date, line: PAnsiChar;
   pool: PAprPool): PSvnError; cdecl;
 
 begin
@@ -594,7 +596,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function LogMessage(baton: Pointer; changed_paths: PAprHash; revision: TSvnRevNum; author, date, message: PChar;
+function LogMessage(baton: Pointer; changed_paths: PAprHash; revision: TSvnRevNum; author, date, message: PAnsiChar;
   pool: PAprPool): PSvnError; cdecl;
 
 var
@@ -646,7 +648,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function SimplePrompt(out cred: PSvnAuthCredSimple; baton: Pointer; realm, username: PChar; may_save: TSvnBoolean;
+function SimplePrompt(out cred: PSvnAuthCredSimple; baton: Pointer; realm, username: PAnsiChar; may_save: TSvnBoolean;
   pool: PAprPool): PSvnError; cdecl;
 
 var
@@ -671,15 +673,15 @@ begin
   begin
     cred := apr_pcalloc(pool, SizeOf(TSvnAuthCredSimple));
     // leaving username or password nil would cause A/V
-    cred^.username := apr_pstrdup(pool, PChar(SUserName));
-    cred^.password := apr_pstrdup(pool, PChar(SPassword));
+    cred^.username := apr_pstrdup(pool, PAnsiChar(AnsiString(SUserName)));
+    cred^.password := apr_pstrdup(pool, PAnsiChar(AnsiString(SPassword)));
     cred^.may_save := Save;
   end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function SSLClientCertPrompt(out cred: PSvnAuthCredSSLClientCert; baton: Pointer; realm: PChar; may_save: TSvnBoolean;
+function SSLClientCertPrompt(out cred: PSvnAuthCredSSLClientCert; baton: Pointer; realm: PAnsiChar; may_save: TSvnBoolean;
   pool: PAprPool): PSvnError; cdecl;
 
 var
@@ -698,14 +700,14 @@ begin
   if not TSvnClient(baton).DoSSLClientCertPrompt(SRealm, SCertFileName, Save) then
   begin
     cred := apr_pcalloc(pool, SizeOf(TSvnAuthCredSSLClientCert));
-    cred^.cert_file := apr_pstrdup(pool, PChar(SCertFileName));
+    cred^.cert_file := apr_pstrdup(pool, PAnsiChar(AnsiString(SCertFileName)));
     cred^.may_save := Save;
   end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function SSLClientPasswordPrompt(out cred: PSvnAuthCredSSLClientCertPw; baton: Pointer; realm: PChar;
+function SSLClientPasswordPrompt(out cred: PSvnAuthCredSSLClientCertPw; baton: Pointer; realm: PAnsiChar;
   may_save: TSvnBoolean; pool: PAprPool): PSvnError; cdecl;
 
 var
@@ -724,14 +726,14 @@ begin
   if not TSvnClient(baton).DoSSLClientPasswordPrompt(SRealm, SPassword, Save) then
   begin
     cred := apr_pcalloc(pool, SizeOf(TSvnAuthCredSSLClientCertPw));
-    cred^.password := apr_pstrdup(pool, PChar(SPassword));
+    cred^.password := apr_pstrdup(pool, PAnsiChar(AnsiString(SPassword)));
     cred^.may_save := Save;
   end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function SSLServerTrustPrompt(out cred: PSvnAuthCredSSLServerTrust; baton: Pointer; realm: PChar; failures: Cardinal;
+function SSLServerTrustPrompt(out cred: PSvnAuthCredSSLServerTrust; baton: Pointer; realm: PAnsiChar; failures: Cardinal;
   cert_info: PSvnAuthSSLServerCertInfo; may_save: TSvnBoolean; pool: PAprPool): PSvnError; cdecl;
 
 var
@@ -834,18 +836,18 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function SvnContextLogMessage(out log_msg, tmp_file: PChar; commit_items: PAprArrayHeader; baton: Pointer;
+function SvnContextLogMessage(out log_msg, tmp_file: PAnsiChar; commit_items: PAprArrayHeader; baton: Pointer;
   pool: PAprPool): PSvnError; cdecl;
 
 begin
   Result := nil;
-  log_msg := apr_pstrdup(pool, PChar(TSvnClient(baton).FCommitLogMessage));
+  log_msg := apr_pstrdup(pool, PAnsiChar(AnsiString(TSvnClient(baton).FCommitLogMessage)));
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure SvnContextNotify(baton: Pointer; path: PChar; action: TSvnWCNotifyAction; kind: TSvnNodeKind;
-  mime_type: PChar; content_state, prop_state: TSvnWCNotifyState; revision: TSvnRevNum); cdecl;
+procedure SvnContextNotify(baton: Pointer; path: PAnsiChar; action: TSvnWCNotifyAction; kind: TSvnNodeKind;
+  mime_type: PAnsiChar; content_state, prop_state: TSvnWCNotifyState; revision: TSvnRevNum); cdecl;
 
 begin
   TSvnClient(baton).DoNotify(path, mime_type, action, kind, content_state, prop_state, revision);
@@ -855,8 +857,14 @@ end;
 
 procedure SvnContextProgress(progress, total: TAprOff; baton: Pointer; pool: PAprPool); cdecl;
 
+var
+  Percent: Double;
+
 begin
-  OutputDebugString(PChar(Format('SvnContextProgress(%d, %d) %.2f%%', [progress, total, 100 * progress / total])));
+  Percent := 0;
+  if total <> 0 then
+    Percent := 100 * progress / total;
+  OutputDebugString(PChar(Format('SvnContextProgress(%d, %d) %.2f%%', [progress, total, Percent])));
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -944,7 +952,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function UserNamePrompt(out cred: PSvnAuthCredUsername; baton: Pointer; realm: PChar; may_save: TSvnBoolean;
+function UserNamePrompt(out cred: PSvnAuthCredUsername; baton: Pointer; realm: PAnsiChar; may_save: TSvnBoolean;
   pool: PAprPool): PSvnError; cdecl;
 
 var
@@ -964,14 +972,14 @@ begin
   if not TSvnClient(baton).DoUserNamePrompt(SRealm, SUserName, Save) then // not cancelled
   begin
     cred := apr_pcalloc(pool, SizeOf(TSvnAuthCredUserName));
-    cred^.username := apr_pstrdup(pool, PChar(SUserName));
+    cred^.username := apr_pstrdup(pool, PAnsiChar(AnsiString(SUserName)));
     cred^.may_save := Save;
   end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure WCStatus(baton: Pointer; path: PChar; status: PSvnWCStatus2); cdecl;
+procedure WCStatus(baton: Pointer; path: PAnsiChar; status: PSvnWCStatus2); cdecl;
 
 begin
   if Assigned(status) then
@@ -980,7 +988,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure WCStatus2(baton: Pointer; path: PChar; status: PSvnWCStatus2); cdecl;
+procedure WCStatus2(baton: Pointer; path: PAnsiChar; status: PSvnWCStatus2); cdecl;
 
 begin
   if Assigned(status) then
@@ -989,7 +997,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure WCStatus3(baton: Pointer; path: PChar; status: PSvnWCStatus2); cdecl;
+procedure WCStatus3(baton: Pointer; path: PAnsiChar; status: PSvnWCStatus2); cdecl;
 
 begin
   if Assigned(status) then
@@ -998,7 +1006,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function DummyInfoReceiver(baton: Pointer; path: PChar; const info: TSvnInfo; pool: PAprPool): PSvnError; cdecl;
+function DummyInfoReceiver(baton: Pointer; path: PAnsiChar; const info: TSvnInfo; pool: PAprPool): PSvnError; cdecl;
 
 begin
   Result := nil;
@@ -1239,7 +1247,7 @@ begin
       Buffer := svn_stringbuf_create('', SubPool);
       Stream := svn_stream_from_stringbuf(Buffer, SubPool);
       FOwner.FSvnClient.FCancelled := False;
-      SvnCheck(svn_client_cat2(Stream, PChar(FOwner.SvnPathName), @PegRevision, @Revision, FOwner.SvnClient.Ctx,
+      SvnCheck(svn_client_cat2(Stream, PAnsiChar(AnsiString(FOwner.SvnPathName)), @PegRevision, @Revision, FOwner.SvnClient.Ctx,
         SubPool));
       SetString(FFile, Buffer.data, Buffer.len);
     finally
@@ -1657,7 +1665,7 @@ procedure TSvnItem.ReloadProps;
 var
   SubPool: PAprPool;
   PegRevision, Revision: TSvnOptRevision;
-  TruePath: PChar;
+  TruePath: PAnsiChar;
   Props: PAprArrayHeader;
 
 begin
@@ -1671,7 +1679,7 @@ begin
       PegRevision.Kind := svnOptRevisionUnspecified;
       FillChar(Revision, SizeOf(TSvnOptRevision), 0);
       Revision.Kind := svnOptRevisionUnspecified;
-      AprCheck(apr_filepath_merge(TruePath, '', PChar(FPathName), APR_FILEPATH_TRUENAME, SubPool));
+      AprCheck(apr_filepath_merge(TruePath, '', PAnsiChar(AnsiString(FPathName)), APR_FILEPATH_TRUENAME, SubPool));
       FSvnClient.FCancelled := False;
       SvnCheck(svn_client_proplist2(Props, TruePath, @PegRevision, @Revision, False, FSvnClient.Ctx,
         SubPool));
@@ -1692,14 +1700,14 @@ procedure TSvnItem.SetPropValues(const Name, Value: string);
 
 var
   SubPool: PAprPool;
-  TruePath: PChar;
+  TruePath: PAnsiChar;
   SValue: string;
   SvnValue: PSvnString;
 
 begin
   AprCheck(apr_pool_create_ex(SubPool, FSvnClient.Pool, nil, FSvnClient.Allocator));
   try
-    AprCheck(apr_filepath_merge(TruePath, '', PChar(FPathName), APR_FILEPATH_TRUENAME, SubPool));
+    AprCheck(apr_filepath_merge(TruePath, '', PAnsiChar(AnsiString(FPathName)), APR_FILEPATH_TRUENAME, SubPool));
     SValue := Value;
     if Pos(';', SValue) <> 0 then
     begin
@@ -1708,12 +1716,12 @@ begin
       SValue := StringReplace(SValue, ';', SvnLineBreak, [rfReplaceAll, rfIgnoreCase]);
     end;
 
-    SvnValue := svn_string_create(PChar(Value), SubPool);
-    if svn_prop_needs_translation(PChar(Name)) then
+    SvnValue := svn_string_create(PAnsiChar(AnsiString(Value)), SubPool);
+    if svn_prop_needs_translation(PAnsiChar(AnsiString(Name))) then
       SvnCheck(svn_subst_translate_string(SvnValue, SvnValue, nil, SubPool));
 
     FSvnClient.FCancelled := False;
-    SvnCheck(svn_client_propset2(PChar(Name), SvnValue, TruePath, False, False, FSvnClient.Ctx, SubPool));
+    SvnCheck(svn_client_propset2(PAnsiChar(AnsiString(Name)), SvnValue, TruePath, False, False, FSvnClient.Ctx, SubPool));
   finally
     apr_pool_destroy(SubPool);
   end;
@@ -1772,7 +1780,7 @@ end;
 //   V:/versioned1.txt
 //   V:/versioned2.txt
 
-procedure TSvnItem.DoWCStatus(Path: PChar; const Status: TSvnWCStatus2);
+procedure TSvnItem.DoWCStatus(Path: PAnsiChar; const Status: TSvnWCStatus2);
 
 var
   Parent, Child: TSvnItem;
@@ -1832,7 +1840,7 @@ begin
 
       if Assigned(Parent) then
       begin
-        if StrIComp(Path, PChar(Parent.SvnPathName)) = 0 then
+        if StrIComp(Path, PAnsiChar(AnsiString(Parent.SvnPathName))) = 0 then
         begin
           LoadStatus(Status);
           if FKind = svnNodeDir then
@@ -2069,7 +2077,7 @@ begin
     Buffer := svn_stringbuf_create('', SubPool);
     Stream := svn_stream_from_stringbuf(Buffer, SubPool);
     FSvnClient.FCancelled := False;
-    SvnCheck(svn_client_cat2(Stream, PChar(FSvnPathName), @PegRevision, @Revision, FSvnClient.Ctx, SubPool));
+    SvnCheck(svn_client_cat2(Stream, PAnsiChar(AnsiString(FSvnPathName)), @PegRevision, @Revision, FSvnClient.Ctx, SubPool));
     SetString(Result, Buffer.data, Buffer.len);
   finally
     apr_pool_destroy(SubPool);
@@ -2100,7 +2108,7 @@ begin
     Buffer := svn_stringbuf_create('', SubPool);
     Stream := svn_stream_from_stringbuf(Buffer, SubPool);
     FSvnClient.FCancelled := False;
-    SvnCheck(svn_client_cat2(Stream, PChar(FSvnPathName), @PegRevision, @Revision, FSvnClient.Ctx, SubPool));
+    SvnCheck(svn_client_cat2(Stream, PAnsiChar(AnsiString(FSvnPathName)), @PegRevision, @Revision, FSvnClient.Ctx, SubPool));
     SetString(Result, Buffer.data, Buffer.len);
   finally
     apr_pool_destroy(SubPool);
@@ -2184,7 +2192,7 @@ begin
       FSvnClient.FCancelled := False;
       if FReloadRecursive then
         FReloadStack.Push(Self);
-      SvnCheck(svn_client_status2(nil, PChar(FSvnPathName), @Revision, WCStatus, Self, Recurse, True, Update, False,
+      SvnCheck(svn_client_status2(nil, PAnsiChar(AnsiString(FSvnPathName)), @Revision, WCStatus, Self, Recurse, True, Update, False,
         False, FSvnClient.Ctx, SubPool));
     finally
       apr_pool_destroy(SubPool);
@@ -2221,7 +2229,7 @@ begin
     FillChar(Revision, SizeOf(TSvnOptRevision), 0);
     Revision.Kind := svnOptRevisionHead;
     FSvnClient.FCancelled := False;
-    SvnCheck(svn_client_status2(nil, PChar(FSvnPathName), @Revision, WCStatus3, Self, False, True, True, False, False,
+    SvnCheck(svn_client_status2(nil, PAnsiChar(AnsiString(FSvnPathName)), @Revision, WCStatus3, Self, False, True, True, False, False,
       FSvnClient.Ctx, SubPool));
   finally
     apr_pool_destroy(SubPool);
@@ -2401,7 +2409,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TSvnClient.DoWCStatus(Path: PChar; const Status: TSvnWCStatus2): Boolean;
+function TSvnClient.DoWCStatus(Path: PAnsiChar; const Status: TSvnWCStatus2): Boolean;
 
 var
   Item: TSvnItem;
@@ -2463,7 +2471,7 @@ begin
     AprCheck(apr_pool_create_ex(SubPool, FPool, nil, FAllocator));
   try
     FCancelled := False;
-    SvnCheck(svn_client_add3(PChar(NativePathToSvnPath(PathName)), Recurse, Force, NoIgnore, FCtx, SubPool));
+    SvnCheck(svn_client_add3(PAnsiChar(AnsiString(NativePathToSvnPath(PathName))), Recurse, Force, NoIgnore, FCtx, SubPool));
   finally
     if NewPool then
       apr_pool_destroy(SubPool);
@@ -2513,7 +2521,7 @@ begin
     FCancelled := False;
     FBlameCallback := Callback;
     FBlameSubPool := SubPool;
-    SvnCheck(svn_client_blame2(PChar(NativePathToSvnPath(PathName)), @PegRev, @StartRev, @EndRev, BlameReceiver, Self,
+    SvnCheck(svn_client_blame2(PAnsiChar(AnsiString(NativePathToSvnPath(PathName))), @PegRev, @StartRev, @EndRev, BlameReceiver, Self,
       FCtx, SubPool));
   finally
     FBlameSubPool := nil;
@@ -2539,7 +2547,7 @@ begin
     AprCheck(apr_pool_create_ex(SubPool, FPool, nil, FAllocator));
   try
     FCancelled := False;
-    SvnCheck(svn_client_cleanup(PChar(NativePathToSvnPath(PathName)), FCtx, SubPool));
+    SvnCheck(svn_client_cleanup(PAnsiChar(AnsiString(NativePathToSvnPath(PathName))), FCtx, SubPool));
   finally
     if NewPool then
       apr_pool_destroy(SubPool);
@@ -2655,7 +2663,7 @@ begin
     FCancelled := False;
     FRecurseUnversioned := RecurseUnversioned; 
     FStatusCallback := Callback;
-    SvnCheck(svn_client_status2(@Result, PChar(NativePathToSvnPath(PathName)), @Revision, WCStatus2, Self, Recurse,
+    SvnCheck(svn_client_status2(@Result, PAnsiChar(AnsiString(NativePathToSvnPath(PathName))), @Revision, WCStatus2, Self, Recurse,
       False, Update, False, IgnoreExternals, FCtx, SubPool));
   finally
     FStatusCallback := nil;
@@ -2677,7 +2685,7 @@ var
   P: PSvnClientPropListItem;
   I, J: Integer;
   H: PAprHashIndex;
-  PName: PChar;
+  PName: PAnsiChar;
   PValue: PSvnString;
   Name, Value: string;
 
@@ -2739,7 +2747,7 @@ var
   Providers: PAprArrayHeader;
   Provider: PSvnAuthProviderObject;
   S: string;
-  P: PChar;
+  P: PAnsiChar;
 
 begin
   if not AprLibLoaded then
@@ -2783,11 +2791,11 @@ begin
         S := IncludeTrailingPathDelimiter(GetAppDataDir) + 'Subversion'
       else
         S := ExcludeTrailingPathDelimiter(AConfigDir);
-      SvnCheck(svn_utf_cstring_to_utf8(@P, PChar(S), FPool));
+      SvnCheck(svn_utf_cstring_to_utf8(@P, PAnsiChar(AnsiString(S)), FPool));
       P := svn_path_canonicalize(P, FPool);
       SvnCheck(svn_config_ensure(P, FPool));
       SetString(FConfigDir, P, StrLen(P));
-      SvnCheck(svn_config_get_config(FCtx^.config, PChar(FConfigDir), FPool));
+      SvnCheck(svn_config_get_config(FCtx^.config, PAnsiChar(AnsiString(FConfigDir)), FPool));
 
       if not Assigned(Auth) then
       begin
@@ -2831,13 +2839,13 @@ begin
         svn_auth_open(Auth, Providers, FPool);
       end;
       Ctx^.auth_baton := Auth;
-      svn_auth_set_parameter(Auth, SVN_AUTH_PARAM_CONFIG_DIR, PChar(FConfigDir));
+      svn_auth_set_parameter(Auth, SVN_AUTH_PARAM_CONFIG_DIR, PAnsiChar(AnsiString(FConfigDir)));
       if FUserName <> '' then
-        svn_auth_set_parameter(Auth, SVN_AUTH_PARAM_DEFAULT_USERNAME, PChar(FUserName));
+        svn_auth_set_parameter(Auth, SVN_AUTH_PARAM_DEFAULT_USERNAME, PAnsiChar(AnsiString(FUserName)));
       if FPassword <> '' then
-        svn_auth_set_parameter(Auth, SVN_AUTH_PARAM_DEFAULT_PASSWORD, PChar(FPassword));
-      svn_auth_set_parameter(Auth, SVN_AUTH_PARAM_DONT_STORE_PASSWORDS, PChar(''));
-      svn_auth_set_parameter(Auth, SVN_AUTH_PARAM_NO_AUTH_CACHE, PChar(''));
+        svn_auth_set_parameter(Auth, SVN_AUTH_PARAM_DEFAULT_PASSWORD, PAnsiChar(AnsiString(FPassword)));
+      svn_auth_set_parameter(Auth, SVN_AUTH_PARAM_DONT_STORE_PASSWORDS, PAnsiChar(''));
+      svn_auth_set_parameter(Auth, SVN_AUTH_PARAM_NO_AUTH_CACHE, PAnsiChar(''));
     except
       apr_pool_destroy(FPool);
       FPool := nil;
@@ -2857,7 +2865,7 @@ function TSvnClient.IsPathVersioned(const PathName: string): Boolean;
 
 var
   SubPool: PAprPool;
-  TruePath: PChar;
+  TruePath: PAnsiChar;
   Revision, PegRevision: TSvnOptRevision;
   SvnError: PSvnError;
 
@@ -2875,7 +2883,7 @@ begin
     PegRevision.Kind := svnOptRevisionUnspecified;
     FillChar(Revision, SizeOf(TSvnOptRevision), 0);
     Revision.Kind := svnOptRevisionUnspecified;
-    AprCheck(apr_filepath_merge(TruePath, '', PChar(PathName), APR_FILEPATH_TRUENAME, SubPool));
+    AprCheck(apr_filepath_merge(TruePath, '', PAnsiChar(AnsiString(PathName)), APR_FILEPATH_TRUENAME, SubPool));
     FCancelled := False;
     SvnError := svn_client_info(TruePath, @PegRevision, @Revision, DummyInfoReceiver, nil, False, Ctx, SubPool);
     Result := not Assigned(SvnError);
@@ -2907,7 +2915,7 @@ begin
     AprCheck(apr_pool_create_ex(SubPool, FPool, nil, FAllocator));
   try
     SvnCheck(svn_wc_get_default_ignores(GlobalIgnores, FCtx^.config, SubPool));
-    Result := svn_cstring_match_glob_list(PChar(PathName), GlobalIgnores);
+    Result := svn_cstring_match_glob_list(PAnsiChar(AnsiString(PathName)), GlobalIgnores);
   finally
     if NewPool then
       apr_pool_destroy(SubPool);
@@ -2920,14 +2928,14 @@ function TSvnClient.NativePathToSvnPath(const NativePath: string; SubPool: PAprP
 
 var
   NewPool: Boolean;
-  SvnPath: PChar;
+  SvnPath: PAnsiChar;
 
 begin
   NewPool := not Assigned(SubPool);
   if NewPool then
     AprCheck(apr_pool_create_ex(SubPool, FPool, nil, FAllocator));
   try
-    AprCheck(apr_filepath_merge(SvnPath, '', PChar(NativePath), APR_FILEPATH_TRUENAME, SubPool));
+    AprCheck(apr_filepath_merge(SvnPath, '', PAnsiChar(AnsiString(NativePath)), APR_FILEPATH_TRUENAME, SubPool));
     Result := SvnPath;
   finally
     if NewPool then
@@ -2943,7 +2951,7 @@ var
   NewPool: Boolean;
   I: Integer;
   CurrentDrive, S: string;
-  P: PChar;
+  P: PAnsiChar;
 
 begin
   Result := nil;
@@ -2979,9 +2987,9 @@ begin
       if S = CurrentDrive then
         P := SvnPathDelim
       else
-        AprCheck(apr_filepath_merge(P, '', PChar(S), APR_FILEPATH_TRUENAME, SubPool));
+        AprCheck(apr_filepath_merge(P, '', PAnsiChar(AnsiString(S)), APR_FILEPATH_TRUENAME, SubPool));
         
-      PPChar(apr_array_push(Result))^ := P;
+      PPAnsiChar(apr_array_push(Result))^ := P;
     end;
   finally
     if NewPool then
@@ -2997,7 +3005,7 @@ var
   NewPool: Boolean;
   I: Integer;
   CurrentDrive, S: string;
-  P: PChar;
+  P: PAnsiChar;
 
 begin
   Result := nil;
@@ -3033,9 +3041,9 @@ begin
       if S = CurrentDrive then
         P := SvnPathDelim
       else
-        AprCheck(apr_filepath_merge(P, '', PChar(S), APR_FILEPATH_TRUENAME, SubPool));
+        AprCheck(apr_filepath_merge(P, '', PAnsiChar(AnsiString(S)), APR_FILEPATH_TRUENAME, SubPool));
 
-      PPChar(apr_array_push(Result))^ := P;
+      PPAnsiChar(apr_array_push(Result))^ := P;
     end;
   finally
     if NewPool then
@@ -3086,7 +3094,7 @@ begin
   if NewPool then
     AprCheck(apr_pool_create_ex(SubPool, FPool, nil, FAllocator));
   try
-    SvnCheck(svn_client_resolved(PChar(SvnPath), Recurse, FCtx, SubPool));
+    SvnCheck(svn_client_resolved(PAnsiChar(AnsiString(SvnPath)), Recurse, FCtx, SubPool));
   finally
     if NewPool then
       apr_pool_destroy(SubPool);
@@ -3099,14 +3107,14 @@ function TSvnClient.SvnPathToNativePath(const SvnPath: string; SubPool: PAprPool
 
 var
   NewPool: Boolean;
-  NativePath: PChar;
+  NativePath: PAnsiChar;
 
 begin
   NewPool := not Assigned(SubPool);
   if NewPool then
     AprCheck(apr_pool_create_ex(SubPool, FPool, nil, FAllocator));
   try
-    AprCheck(apr_filepath_merge(NativePath, '', PChar(SvnPath), APR_FILEPATH_NATIVE, SubPool));
+    AprCheck(apr_filepath_merge(NativePath, '', PAnsiChar(AnsiString(SvnPath)), APR_FILEPATH_NATIVE, SubPool));
     Result := NativePath;
   finally
     if NewPool then
