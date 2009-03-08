@@ -2968,7 +2968,7 @@ begin
   if NewPool then
     AprCheck(apr_pool_create_ex(SubPool, FPool, nil, FAllocator));
   try
-    Result := apr_array_make(SubPool, PathNames.Count, SizeOf(PChar));
+    Result := apr_array_make(SubPool, PathNames.Count, SizeOf(PAnsiChar));
 
     for I := 0 to PathNames.Count - 1 do
     begin
@@ -3022,7 +3022,7 @@ begin
   if NewPool then
     AprCheck(apr_pool_create_ex(SubPool, FPool, nil, FAllocator));
   try
-    Result := apr_array_make(SubPool, Length(PathNames), SizeOf(PChar));
+    Result := apr_array_make(SubPool, Length(PathNames), SizeOf(PAnsiChar));
 
     for I := Low(PathNames) to High(PathNames) do
     begin

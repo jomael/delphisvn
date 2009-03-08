@@ -6360,13 +6360,17 @@ end;
 
 function GetSvnErrorMessage(Status: TAprStatus): string;
 
+var
+  ErrorStr: AnsiString;
+
 begin
   Result := '';
   if Status = SVN_NO_ERROR then
     Exit;
-  SetLength(Result, 255);
-  svn_strerror(Status, PAnsiChar(Result), Length(Result));
-  SetLength(Result, StrLen(PAnsiChar(Result)));
+  SetLength(ErrorStr, 255);
+  svn_strerror(Status, PAnsiChar(ErrorStr), Length(ErrorStr));
+  SetLength(ErrorStr, StrLen(PAnsiChar(ErrorStr)));
+  Result := string(ErrorStr);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
