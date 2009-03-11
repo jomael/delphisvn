@@ -334,6 +334,8 @@ type
     procedure Cleanup(const PathName: string; SubPool: PAprPool = nil);
     function Commit(PathNames: TStrings; const LogMessage: string; Callback: TSvnNotifyCallback = nil;
       Recurse: Boolean = True; KeepLocks: Boolean = False; SubPool: PAprPool = nil): Boolean;
+    procedure Export(const URL, TargetDir: string; Callback: TSvnNotifyCallback = nil; Overwrite: Boolean = False;
+      Recurse: Boolean = True; IgnoreExternals: Boolean = False; Revision : TSvnRevNum = -1; PegRevision: TSvnRevNum = -1; SubPool: PAprPool = nil);
     procedure Finalize;
     procedure GetExternals(const PathName: string; Externals: TStrings; Recurse: Boolean = True);
     function GetModifications(const PathName: string; Callback: TSvnStatusCallback = nil;
@@ -2589,6 +2591,52 @@ begin
     Result := Assigned(CommitInfo) and (CommitInfo^.revision <> SVN_INVALID_REVNUM);
   finally
     FCommitLogMessage := '';
+    FNotifyCallback := nil;
+    if NewPool then
+      apr_pool_destroy(SubPool);
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnClient.Export(const URL, TargetDir: string; Callback: TSvnNotifyCallback;
+  Overwrite, Recurse, IgnoreExternals: Boolean; Revision, PegRevision: TSvnRevNum; SubPool: PAprPool);
+
+var
+  NewPool: Boolean;
+  PegRev, Rev: TSvnOptRevision;
+
+begin
+  if not Initialized then
+    Initialize;
+
+  NewPool := not Assigned(SubPool);
+  if NewPool then
+    AprCheck(apr_pool_create_ex(SubPool, FPool, nil, FAllocator));
+  try
+    FillChar(PegRev, SizeOf(TSvnOptRevision), 0);
+    if PegRevision = -1 then
+      PegRev.Kind := svnOptRevisionHead
+    else
+    begin
+      PegRev.Kind := svnOptRevisionNumber;
+      PegRev.Value.number := PegRevision;
+    end;
+    FillChar(Rev, SizeOf(TSvnOptRevision), 0);
+    if Revision = -1 then
+      Rev.Kind := svnOptRevisionHead
+    else
+    begin
+      Rev.Kind := svnOptRevisionNumber;
+      Rev.Value.number := Revision;
+    end;
+
+    FCancelled := False;
+    FNotifyCallback := Callback;
+    SvnCheck(svn_client_export3(Revision, PAnsiChar(AnsiString(URL)),
+      PAnsiChar(AnsiString(TargetDir)), @PegRev, @Rev, Overwrite, IgnoreExternals,
+      Recurse, sLineBreak, FCtx, SubPool));
+  finally
     FNotifyCallback := nil;
     if NewPool then
       apr_pool_destroy(SubPool);
