@@ -170,7 +170,7 @@ type
     function GetPropNames(Index: Integer): string;
     function GetPropValueFromIndex(Index: Integer): string;
     function GetPropValues(const Name: string): string;
-    procedure LoadStatus(const Status: TSvnWCStatus2);
+    procedure LoadStatus(const Status: TSvnWcStatus2);
     procedure LoadUnversionedPaths;
     procedure ReloadHistory;
     procedure ReloadProps;
@@ -178,12 +178,12 @@ type
     procedure SortItems(Recurse: Boolean);
   protected
     procedure DoDestroyNotifications; virtual;
-    procedure DoWCStatus(Path: PAnsiChar; const Status: TSvnWCStatus2);
+    procedure DoWCStatus(Path: PAnsiChar; const Status: TSvnWcStatus2);
   public
     constructor Create(ASvnClient: TSvnClient; AParent: TSvnItem; const APathName: string; Recurse: Boolean = False;
       Update: Boolean = False); overload;
     constructor Create(ASvnClient: TSvnClient; AParent: TSvnItem; const ASvnPathName: string;
-      const Status: TSvnWCStatus2); overload;
+      const Status: TSvnWcStatus2); overload;
     destructor Destroy; override;
 
     function Add(Item: TSvnItem): Integer;
@@ -276,7 +276,7 @@ type
 
   TSvnBlameCallback = procedure(Sender: TObject; LineNo: Int64; Revision: Integer; const Author: string;
     Time: TDateTime; const Line: string; var Cancel: Boolean) of object;
-  TSvnNotifyCallback = procedure(Sender: TObject; const Path, MimeType: string; Action: TSvnWCNotifyAction;
+  TSvnNotifyCallback = procedure(Sender: TObject; const Path, MimeType: string; Action: TSvnWcNotifyAction;
     Kind: TSvnNodeKind; ContentState, PropState: TSvnWCNotifyState; Revision: TSvnRevNum; var Cancel: Boolean)
     of object;
   TSvnStatusCallback = procedure(Sender: TObject; Item: TSvnItem; var Cancel: Boolean) of object;
@@ -313,14 +313,14 @@ type
   protected
     function DoBlame(LineNo: Int64; Revision: Integer; const Author, Date, Line: string): Boolean;
     function DoLoginPrompt(const Realm: string; var UserName, Password: string; var Save: Boolean): Boolean; virtual;
-    function DoNotify(const Path, MimeType: string; Action: TSvnWCNotifyAction; Kind: TSvnNodeKind;
+    function DoNotify(const Path, MimeType: string; Action: TSvnWcNotifyAction; Kind: TSvnNodeKind;
       ContentState, PropState: TSvnWCNotifyState; Revision: TSvnRevNum): Boolean; virtual;
     function DoSSLClientCertPrompt(const Realm: string; var CertFileName: string; var Save: Boolean): Boolean; virtual;
     function DoSSLClientPasswordPrompt(const Realm: string; var Password: string; var Save: Boolean): Boolean; virtual;
     function DoSSLServerTrustPrompt(const Realm: string; const CertInfo: TSvnAuthSSLServerCertInfo;
       Failures: TSSLServerTrustFailures; var Save: Boolean): Boolean; virtual;
     function DoUserNamePrompt(const Realm: string; var UserName: string; var Save: Boolean): Boolean; virtual;
-    function DoWCStatus(Path: PAnsiChar; const Status: TSvnWCStatus2): Boolean;
+    function DoWCStatus(Path: PAnsiChar; const Status: TSvnWcStatus2): Boolean;
 
     property Cancelled: Boolean read FCancelled;
   public
@@ -337,7 +337,7 @@ type
     function Commit(PathNames: TStrings; const LogMessage: string; Callback: TSvnNotifyCallback = nil;
       Recurse: Boolean = True; KeepLocks: Boolean = False; SubPool: PAprPool = nil): Boolean;
     procedure Export(const URL, TargetDir: string; Callback: TSvnNotifyCallback = nil; Overwrite: Boolean = False;
-      Recurse: Boolean = True; IgnoreExternals: Boolean = False; Revision : TSvnRevNum = -1; PegRevision: TSvnRevNum = -1; SubPool: PAprPool = nil);
+      Recurse: Boolean = True; IgnoreExternals: Boolean = False; Revision: TSvnRevNum = -1; PegRevision: TSvnRevNum = -1; SubPool: PAprPool = nil);
     procedure Finalize;
     procedure GetExternals(const PathName: string; Externals: TStrings; Recurse: Boolean = True);
     function GetModifications(const PathName: string; Callback: TSvnStatusCallback = nil;
@@ -350,7 +350,8 @@ type
     function MatchGlobalIgnores(const PathName: string; SubPool: PAprPool = nil): Boolean;
     function NativePathToSvnPath(const NativePath: string; SubPool: PAprPool = nil): string;
     function PathNamesToAprArray(PathNames: TStrings; SubPool: PAprPool = nil): PAprArrayHeader; overload;
-    function PathNamesToAprArray(const PathNames: array of string; SubPool: PAprPool = nil): PAprArrayHeader; overload;    procedure Revert(PathNames: TStrings; Callback: TSvnNotifyCallback = nil; Recurse: Boolean = True;
+    function PathNamesToAprArray(const PathNames: array of string; SubPool: PAprPool = nil): PAprArrayHeader; overload;
+    procedure Revert(PathNames: TStrings; Callback: TSvnNotifyCallback = nil; Recurse: Boolean = True;
       SubPool: PAprPool = nil);
     procedure Resolved(const SvnPath: string; Recurse: Boolean = False; SubPool: PAprPool = nil);
     function SvnPathToNativePath(const SvnPath: string; SubPool: PAprPool = nil): string;
@@ -441,7 +442,7 @@ function TzToUTCDateTime(Value: TDateTime): TDateTime;
 function UTCToTzDateTime(Value: TDateTime): TDateTime;
 
 function FileAttrStr(Attr: Cardinal): string;
-function NotifyActionStr(Action: TSvnWCNotifyAction): string;
+function NotifyActionStr(Action: TSvnWcNotifyAction): string;
 function StatusKindStr(Status: TSvnWCStatusKind): string;
 function SvnExcludeTrailingPathDelimiter(const S: string): string;
 function SvnExtractFileDrive(const SvnFileName: string): string;
@@ -634,7 +635,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function NotifyActionStr(Action: TSvnWCNotifyAction): string;
+function NotifyActionStr(Action: TSvnWcNotifyAction): string;
 
 const
   NotifyActionStrings: array[TSvnWcNotifyAction] of string = (SWcNotifyAdd, SWcNotifyCopy, SWcNotifyDelete,
@@ -850,7 +851,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure SvnContextNotify(baton: Pointer; path: PAnsiChar; action: TSvnWCNotifyAction; kind: TSvnNodeKind;
+procedure SvnContextNotify(baton: Pointer; path: PAnsiChar; action: TSvnWcNotifyAction; kind: TSvnNodeKind;
   mime_type: PAnsiChar; content_state, prop_state: TSvnWCNotifyState; revision: TSvnRevNum); cdecl;
 
 begin
@@ -903,7 +904,7 @@ begin
   begin
     J := 0;
     I := 3;
-    While (I < Length(SvnFileName)) and (J < 2) do
+    while (I < Length(SvnFileName)) and (J < 2) do
     begin
       if SvnFileName[I] = SvnPathDelim then Inc(J);
       if J < 2 then Inc(I);
@@ -1468,7 +1469,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TSvnItem.LoadStatus(const Status: TSvnWCStatus2);
+procedure TSvnItem.LoadStatus(const Status: TSvnWcStatus2);
 
 begin
   if Assigned(Status.entry) then
@@ -1573,7 +1574,7 @@ procedure TSvnItem.LoadUnversionedPaths;
 var
   R: Integer;
   F: TSearchRec;
-  Status: TSvnWCStatus2;
+  Status: TSvnWcStatus2;
   Item: TSvnItem;
   Error: PSvnError;
 
@@ -1784,7 +1785,7 @@ end;
 //   V:/versioned1.txt
 //   V:/versioned2.txt
 
-procedure TSvnItem.DoWCStatus(Path: PAnsiChar; const Status: TSvnWCStatus2);
+procedure TSvnItem.DoWCStatus(Path: PAnsiChar; const Status: TSvnWcStatus2);
 
 var
   Parent, Child: TSvnItem;
@@ -1931,7 +1932,7 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 constructor TSvnItem.Create(ASvnClient: TSvnClient; AParent: TSvnItem; const ASvnPathName: string;
-  const Status: TSvnWCStatus2);
+  const Status: TSvnWcStatus2);
 
 begin
   inherited Create;
@@ -2312,6 +2313,7 @@ type
 //----------------------------------------------------------------------------------------------------------------------
 
 constructor TSvnClientManager.Create;
+
 begin
   inherited Create;
   FAprLoadCounter := 0;
@@ -2322,6 +2324,7 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 destructor TSvnClientManager.Destroy;
+
 begin
   FLock.Free;
   inherited Destroy;
@@ -2330,6 +2333,7 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TSvnClientManager.FreeAprLib;
+
 begin
   FLock.Enter;
   try
@@ -2347,6 +2351,7 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TSvnClientManager.FreeSvnLibs;
+
 begin
   FLock.Enter;
   try
@@ -2373,6 +2378,7 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 function TSvnClientManager.LoadAprLib: Boolean;
+
 begin
   FLock.Enter;
   try
@@ -2390,6 +2396,7 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 function TSvnClientManager.LoadSvnLibs: Boolean;
+
 begin
   FLock.Enter;
   try
@@ -2411,6 +2418,7 @@ var
   GSvnClientManager: TSvnClientManager = nil;
 
 function SvnClientManager: TSvnClientManager;
+
 begin
   if not Assigned(GSvnClientManager) then
     GSvnClientManager := TSvnClientManager.Create;
@@ -2420,6 +2428,7 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure FreeSvnClientManager;
+
 begin
   FreeAndNil(GSvnClientManager);
 end;
@@ -2485,7 +2494,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TSvnClient.DoNotify(const Path, MimeType: string; Action: TSvnWCNotifyAction; Kind: TSvnNodeKind;
+function TSvnClient.DoNotify(const Path, MimeType: string; Action: TSvnWcNotifyAction; Kind: TSvnNodeKind;
   ContentState, PropState: TSvnWCNotifyState; Revision: TSvnRevNum): Boolean;
 
 var
@@ -2549,7 +2558,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TSvnClient.DoWCStatus(Path: PAnsiChar; const Status: TSvnWCStatus2): Boolean;
+function TSvnClient.DoWCStatus(Path: PAnsiChar; const Status: TSvnWcStatus2): Boolean;
 
 var
   Item: TSvnItem;
