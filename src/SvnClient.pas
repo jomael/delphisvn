@@ -30,7 +30,7 @@ interface
 {$INCLUDE Compilers.inc}
 
 uses
-  Windows, Classes, SysUtils, Contnrs,
+  Windows, Classes, SysUtils, Contnrs, SyncObjs,
   apr, svn_client;
 
 const
@@ -2290,6 +2290,142 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+type
+  TSvnClientManager = class(TObject)
+  private
+    FAprLoadCounter: Integer;
+    FLock: TCriticalSection;
+    FSvnLoadCounter: Integer;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    procedure FreeAprLib;
+    procedure FreeSvnLibs;
+    function LoadAprLib: Boolean;
+    function LoadSvnLibs: Boolean;
+  end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+{ TSvnClientManager }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+constructor TSvnClientManager.Create;
+begin
+  inherited Create;
+  FAprLoadCounter := 0;
+  FLock := TCriticalSection.Create;
+  FSvnLoadCounter := 0;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+destructor TSvnClientManager.Destroy;
+begin
+  FLock.Free;
+  inherited Destroy;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnClientManager.FreeAprLib;
+begin
+  FLock.Enter;
+  try
+    if FAprLoadCounter > 0 then
+    begin
+      Dec(FAprLoadCounter);
+      if FAprLoadCounter = 0 then
+        apr.FreeAprLib;
+    end;
+  finally
+    FLock.Leave;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnClientManager.FreeSvnLibs;
+begin
+  FLock.Enter;
+  try
+    if FSvnLoadCounter > 0 then
+    begin
+      Dec(FSvnLoadCounter);
+      if FSvnLoadCounter = 0 then
+      begin
+        FreeSvnClientLib;
+        FreeSvnDeltaLib;
+        FreeSvnDiffLib;
+        FreeSvnFsLib;
+        FreeSvnRaLib;
+        FreeSvnReposLib;
+        FreeSvnSubrLib;
+        FreeSvnWcLib;
+      end;
+    end;
+  finally
+    FLock.Leave;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TSvnClientManager.LoadAprLib: Boolean;
+begin
+  FLock.Enter;
+  try
+    if FAprLoadCounter = 0 then
+      Result := apr.LoadAprLib
+    else
+      Result := True;
+    if Result then
+      Inc(FAprLoadCounter);
+  finally
+    FLock.Leave;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TSvnClientManager.LoadSvnLibs: Boolean;
+begin
+  FLock.Enter;
+  try
+    if FSvnLoadCounter = 0 then
+      Result := LoadSvnClientLib and LoadSvnDeltaLib and LoadSvnDiffLib and LoadSvnFsLib and LoadSvnRaLib and
+        LoadSvnReposLib and LoadSvnSubrLib and LoadSvnWcLib
+    else
+      Result := True;
+    if Result then
+      Inc(FSvnLoadCounter);
+  finally
+    FLock.Leave;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+var
+  GSvnClientManager: TSvnClientManager = nil;
+
+function SvnClientManager: TSvnClientManager;
+begin
+  if not Assigned(GSvnClientManager) then
+    GSvnClientManager := TSvnClientManager.Create;
+  Result := GSvnClientManager;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure FreeSvnClientManager;
+begin
+  FreeAndNil(GSvnClientManager);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
 { TSvnClient private }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -2711,10 +2847,24 @@ begin
     FAllocator := nil;
   end;
   apr_terminate2;
+
+  { TODO -cCleanup -ousc : remove if SvnClientManager solution is okay }
+  {
   if FSvnClientLibLoaded then
     FreeSvnClientLib;
   if FAprLibLoaded then
     FreeAprLib;
+  }
+  if FSvnClientLibLoaded then
+  begin
+    SvnClientManager.FreeSvnLibs;
+    FSvnClientLibLoaded := False;
+  end;
+  if FAprLibLoaded then
+  begin
+    SvnClientManager.FreeAprLib;
+    FAprLibLoaded := False;
+  end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -2845,19 +2995,39 @@ var
   P: PAnsiChar;
 
 begin
+  { TODO -cCleanup -ousc : remove if SvnClientManager solution is okay }
+  {
   if not AprLibLoaded then
   begin
     if not LoadAprLib then
       RaiseLastOSError;
     FAprLibLoaded := True;
   end;
+  }
+  if not FAprLibLoaded then
+  begin
+    if SvnClientManager.LoadAprLib then
+      FAprLibLoaded := True
+    else
+      RaiseLastOSError;
+  end;
 
+  { TODO -cCleanup -ousc : remove if SvnClientManager solution is okay }
+  {
   if not SvnClientLibLoaded then
   begin
     if not LoadSvnClientLib or not LoadSvnDeltaLib or not LoadSvnDiffLib or not LoadSvnFsLib or not LoadSvnRaLib or
       not LoadSvnReposLib or not LoadSvnSubrLib or not LoadSvnWcLib then
       RaiseLastOSError;
     FSvnClientLibLoaded := True;
+  end;
+  }
+  if not FSvnClientLibLoaded then
+  begin
+    if SvnClientManager.LoadSvnLibs then
+      FSvnClientLibLoaded := True
+    else
+      RaiseLastOSError;
   end;
 
   AprCheck(apr_initialize);
@@ -3252,5 +3422,10 @@ begin
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
+
+initialization
+
+finalization
+  FreeSvnClientManager;
 
 end.
