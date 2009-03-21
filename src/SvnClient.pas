@@ -258,6 +258,68 @@ type
     property UUID: string read FUUID;
   end;
 
+  TSvnListItem = class(TObject)
+  private
+    FAbsolutePath: string;
+    FCreatedRevision: TSvnRevNum;
+    FHasProps: Boolean;
+    FPath: string;
+    FKind: TSvnNodeKind;
+    FLastAuthor: string;
+    FLockComment: string;
+    FLockDAVComment: Boolean;
+    FLockExpirationTime: TDateTime;
+    FLocked: Boolean;
+    FLockOwner: string;
+    FLockPath: string;
+    FLockTime: TDateTime;
+    FLockToken: string;
+    FSize: TSvnFileSize;
+    FTime: TDateTime;
+  public
+    property AbsolutePath: string read FAbsolutePath write FAbsolutePath;
+    property CreatedRevision: TSvnRevNum read FCreatedRevision write FCreatedRevision;
+    property HasProps: Boolean read FHasProps write FHasProps;
+    property Path: string read FPath write FPath;
+    property Kind: TSvnNodeKind read FKind write FKind;
+    property LastAuthor: string read FLastAuthor write FLastAuthor;
+    property LockComment: string read FLockComment write FLockComment;
+    property LockDAVComment: Boolean read FLockDAVComment write FLockDAVComment;
+    property Locked: Boolean read FLocked write FLocked;
+    property LockExpirationTime: TDateTime read FLockExpirationTime write FLockExpirationTime;
+    property LockOwner: string read FLockOwner write FLockOwner;
+    property LockPath: string read FLockPath write FLockPath;
+    property LockTime: TDateTime read FLockTime write FLockTime;
+    property LockToken: string read FLockToken write FLockToken;
+    property Size: TSvnFileSize read FSize write FSize;
+    property Time: TDateTime read FTime write FTime;
+  end;
+
+  TSvnList = class(TObject)
+  private
+    FDepth: TSvnDepth;
+    FDirEntryFields: DWORD;
+    FFetchLocks: Boolean;
+    FItems: TObjectList;
+    FPathName: string;
+    FSvnClient: TSvnClient;
+    procedure Clear;
+    procedure ListCallback(Sender: TObject; Path: string; DirEntry: TSvnDirEnt; Locked: Boolean; LockData: TSvnLock;
+      AbsPath: string; var Cancel: Boolean);
+    function GetCount: Integer;
+    function GetItems(Index: Integer): TSvnListItem;
+  public
+    constructor Create(ASvnClient: TSvnClient);
+    destructor Destroy; override;
+    procedure LoadList(const APathName: string; ADepth: TSvnDepth; AFetchLocks: Boolean; ADirEntryFields: DWORD = SVN_DIRENT_ALL);
+    property Count: Integer read GetCount;
+    property Depth: TSvnDepth read FDepth;
+    property DirEntryFields: DWORD read FDirEntryFields;
+    property FetchLocks: Boolean read FFetchLocks;
+    property Items[Index: Integer]: TSvnListItem read GetItems; default;
+    property PathName: string read FPathName;
+  end;
+
   TSvnItemArray = array of TSvnItem;
 
   TSSLServerTrustFailures = set of (sslCertNotYetValid, sslCertExpired, sslCertHostNameMismatch,
@@ -276,6 +338,8 @@ type
 
   TSvnBlameCallback = procedure(Sender: TObject; LineNo: Int64; Revision: Integer; const Author: string;
     Time: TDateTime; const Line: string; var Cancel: Boolean) of object;
+  TSvnListCallback = procedure(Sender: TObject; Path: string; DirEntry: TSvnDirEnt; Locked: Boolean; LockData: TSvnLock;
+    AbsPath: string; var Cancel: Boolean) of object;
   TSvnNotifyCallback = procedure(Sender: TObject; const Path, MimeType: string; Action: TSvnWcNotifyAction;
     Kind: TSvnNodeKind; ContentState, PropState: TSvnWCNotifyState; Revision: TSvnRevNum; var Cancel: Boolean)
     of object;
@@ -290,6 +354,7 @@ type
     FConfigDir: string;
     FCtx: PSvnClientCtx;
     FExternals: TStrings;
+    FListStrings: TStrings;
     FPassword: string;
     FPool: PAprPool; // main pool
     FPoolUtf8: PAprPool; // pool for UTF-8 routines
@@ -299,6 +364,7 @@ type
 
     FBlameCallback: TSvnBlameCallback;
     FBlameSubPool: PAprPool;
+    FListCallback: TSvnListCallback;
     FNotifyCallback: TSvnNotifyCallback;
     FStatusCallback: TSvnStatusCallback;
 
@@ -310,8 +376,11 @@ type
 
     procedure GetExternalsCallback(Sender: TObject; Item: TSvnItem; var Cancel: Boolean);
     function GetInitialized: Boolean;
+    procedure GetListCallback(Sender: TObject; Path: string; DirEntry: TSvnDirEnt; Locked: Boolean; LockData: TSvnLock;
+      AbsPath: string; var Cancel: Boolean);
   protected
     function DoBlame(LineNo: Int64; Revision: Integer; const Author, Date, Line: string): Boolean;
+    function DoList(Path: string; DirEntry: TSvnDirEnt; Locked: Boolean; LockData: TSvnLock; AbsPath: string): Boolean;
     function DoLoginPrompt(const Realm: string; var UserName, Password: string; var Save: Boolean): Boolean; virtual;
     function DoNotify(const Path, MimeType: string; Action: TSvnWcNotifyAction; Kind: TSvnNodeKind;
       ContentState, PropState: TSvnWCNotifyState; Revision: TSvnRevNum): Boolean; virtual;
@@ -347,6 +416,10 @@ type
       Delimiter: Char = DefaultPropValDelimiter);
     procedure Initialize(const AConfigDir: string = ''; Auth: PSvnAuthBaton = nil);
     function IsPathVersioned(const PathName: string): Boolean;
+    procedure List(const PathName: string; Depth: TSvnDepth; FetchLocks: Boolean; DirEntryFields: DWORD = SVN_DIRENT_ALL;
+      Callback: TSvnListCallback = nil; Revision: TSvnRevNum = -1; PegRevision: TSvnRevNum = -1; SubPool: PAprPool = nil); overload;
+    procedure List(const PathName: string; Depth: TSvnDepth; FetchLocks: Boolean; ListStrings: TStrings;
+      DirEntryFields: DWORD = SVN_DIRENT_ALL; Revision: TSvnRevNum = -1; PegRevision: TSvnRevNum = -1; SubPool: PAprPool = nil); overload;
     function MatchGlobalIgnores(const PathName: string; SubPool: PAprPool = nil): Boolean;
     function NativePathToSvnPath(const NativePath: string; SubPool: PAprPool = nil): string;
     function PathNamesToAprArray(PathNames: TStrings; SubPool: PAprPool = nil): PAprArrayHeader; overload;
@@ -597,6 +670,47 @@ begin
   Result := nil;
   if revision <> SVN_INVALID_REVNUM then
     TSvnClient(baton).DoBlame(line_no, revision, author, date, line);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function ListReceiver(baton: Pointer; path: PAnsiChar; dirent: PSvnDirEnt; lock: PSvnLock; abs_path: PAnsiChar;
+  pool: PAprPool): PSvnError; cdecl;
+
+var
+  DirEntry: TSvnDirEnt;
+  Locked: Boolean;
+  LockData: TSvnLock;
+
+begin
+  Result := nil;
+
+  if Assigned(dirent) then
+    DirEntry := Dirent^
+  else
+  begin
+    DirEntry.kind := svnNodeUnknown;
+    DirEntry.size := 0;
+    DirEntry.has_props := False;
+    DirEntry.created_rev := 0;
+    DirEntry.time := DateTimeToAprTime(0);
+    DirEntry.last_author := nil;
+  end;
+  Locked := Assigned(lock);
+  if Locked then
+    LockData := lock^
+  else
+  begin
+    LockData.path := nil;
+    LockData.token := nil;
+    LockData.owner := nil;
+    LockData.comment := nil;
+    LockData.is_dav_comment := False;
+    LockData.creation_date := DateTimeToAprTime(0);
+    LockData.expiration_date := DateTimeToAprTime(0);
+  end;
+
+  TSvnClient(baton).DoList(Path, DirEntry, Locked, LockData, abs_path);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -2291,6 +2405,90 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+constructor TSvnList.Create(ASvnClient: TSvnClient);
+
+begin
+  inherited Create;
+  FItems := TObjectList.Create;
+  FSvnClient := ASvnClient;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+destructor TSvnList.Destroy;
+
+begin
+  FItems.Free;
+  inherited Destroy;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnList.Clear;
+
+begin
+  FItems.Clear;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TSvnList.GetCount: Integer;
+
+begin
+  Result := FItems.Count;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TSvnList.GetItems(Index: Integer): TSvnListItem;
+
+begin
+  Result := TSvnListItem(FItems[Index]);
+end;
+
+procedure TSvnList.ListCallback(Sender: TObject; Path: string; DirEntry: TSvnDirEnt; Locked: Boolean; LockData: TSvnLock;
+  AbsPath: string; var Cancel: Boolean);
+
+var
+  SvnListItem: TSvnListItem;
+
+begin
+  Cancel := False;
+  FItems.Add(TSvnListItem.Create);
+  SvnListItem := TSvnListItem(FItems.Last);
+  SvnListItem.AbsolutePath := AbsPath;
+  SvnListItem.Path := Path;
+  SvnListItem.Kind := DirEntry.kind;
+  SvnListItem.Size := DirEntry.size;
+  SvnListItem.HasProps := DirEntry.has_props;
+  SvnListItem.CreatedRevision := DirEntry.created_rev;
+  SvnListItem.Time := AprTimeToDateTime(DirEntry.time);
+  SvnListItem.LastAuthor := DirEntry.last_author;
+  SvnListItem.Locked := Locked;
+  SvnListItem.LockPath := LockData.path;
+  SvnListItem.LockToken := LockData.token;
+  SvnListItem.LockOwner := LockData.owner;
+  SvnListItem.LockComment := LockData.comment;
+  SvnListItem.LockDAVComment := LockData.is_dav_comment;
+  SvnListItem.LockTime := AprTimeToDateTime(LockData.creation_date);
+  SvnListItem.LockExpirationTime := AprTimeToDateTime(LockData.expiration_date);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnList.LoadList(const APathName: string; ADepth: TSvnDepth; AFetchLocks: Boolean; ADirEntryFields: DWORD = SVN_DIRENT_ALL);
+
+begin
+  Clear;
+  FPathName := APathName;
+  FDepth := ADepth;
+  FFetchLocks := AFetchLocks;
+  FDirEntryFields := ADirEntryFields;
+  FSvnClient.List(FPathName, FDepth, FFetchLocks, FDirEntryFields, ListCallback);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
 type
   TSvnClientManager = class(TObject)
   private
@@ -2457,6 +2655,23 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+procedure TSvnClient.GetListCallback(Sender: TObject; Path: string; DirEntry: TSvnDirEnt; Locked: Boolean;
+  LockData: TSvnLock; AbsPath: string; var Cancel: Boolean);
+
+begin
+  Cancel := False;
+  if Assigned(FListStrings) then
+  begin
+    if Length(Path) = 0 then
+      Path := '.'
+    else
+      AbsPath := AbsPath + '/' + Path;
+    FListStrings.Add(Path + '=' + AbsPath);
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
 { TSvnClient protected }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -2478,6 +2693,19 @@ begin
     if (L > 0) and (SLine[L] = #13) then
       Delete(SLine, L, 1);
     FBlameCallback(Self, LineNo, Revision, Author, D, SLine, Result);
+    FCancelled := Result;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TSvnClient.DoList(Path: string; DirEntry: TSvnDirEnt; Locked: Boolean; LockData: TSvnLock; AbsPath: string): Boolean;
+
+begin
+  Result := False;
+  if Assigned(FListCallback) then
+  begin
+    FListCallback(Self, Path, DirEntry, Locked, LockData, AbsPath, Result);
     FCancelled := Result;
   end;
 end;
@@ -3172,6 +3400,70 @@ begin
     end;
   finally
     apr_pool_destroy(SubPool);
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnClient.List(const PathName: string; Depth: TSvnDepth; FetchLocks: Boolean; DirEntryFields: DWORD = SVN_DIRENT_ALL;
+  Callback: TSvnListCallback = nil; Revision: TSvnRevNum = -1; PegRevision: TSvnRevNum = -1; SubPool: PAprPool = nil);
+
+var
+  NewPool: Boolean;
+  PegRev, Rev: TSvnOptRevision;
+
+begin
+  if not Initialized then
+    Initialize;
+
+  NewPool := not Assigned(SubPool);
+  if NewPool then
+    AprCheck(apr_pool_create_ex(SubPool, FPool, nil, FAllocator));
+  try
+    FillChar(PegRev, SizeOf(TSvnOptRevision), 0);
+    if PegRevision <= 0 then
+      PegRev.Kind := svnOptRevisionUnspecified
+    else
+    begin
+      PegRev.Kind := svnOptRevisionNumber;
+      PegRev.Value.number := PegRevision;
+    end;
+    FillChar(Rev, SizeOf(TSvnOptRevision), 0);
+    if Revision = -1 then
+      Rev.Kind := svnOptRevisionHead
+    else
+    begin
+      Rev.Kind := svnOptRevisionNumber;
+      Rev.Value.number := Revision;
+    end;
+
+    FCancelled := False;
+    FListCallback := Callback;
+    SvnCheck(svn_client_list2(PAnsiChar(AnsiString(PathName)), @PegRev, @Rev, Depth, DirEntryFields, FetchLocks, ListReceiver, Self,
+      FCtx, SubPool));
+  finally
+    FListCallback := nil;
+    if NewPool then
+      apr_pool_destroy(SubPool);
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnClient.List(const PathName: string; Depth: TSvnDepth; FetchLocks: Boolean; ListStrings: TStrings;
+  DirEntryFields: DWORD = SVN_DIRENT_ALL; Revision: TSvnRevNum = -1; PegRevision: TSvnRevNum = -1; SubPool: PAprPool = nil);
+
+begin
+  ListStrings.BeginUpdate;
+  try
+    FListStrings := ListStrings;
+    try
+      List(PathName, Depth, FetchLocks, DirEntryFields, GetListCallback, Revision, PegRevision, SubPool);
+    finally
+      FListStrings := nil;
+    end;
+  finally
+    ListStrings.EndUpdate;
   end;
 end;
 
