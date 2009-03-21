@@ -70,7 +70,7 @@ type
     FRevision: Integer;
     FTime: TDateTime;
 
-    procedure BlameCallback(Sender: TObject; LineNo: Int64; Revision: Integer; const Author: string; Time: TDateTime;
+    procedure BlameCallback(Sender: TObject; LineNo: Int64; Revision: TSvnRevNum; const Author: string; Time: TDateTime;
       const Line: string; var Cancel: Boolean);
     procedure BlameThreadTerminate(Sender: TObject);
     procedure ClearBlame;
@@ -336,7 +336,7 @@ type
   TSSLClientPasswordPrompt = procedure(Sender: TObject; const Realm: string; var Password: string;
     var Cancel, Save: Boolean) of object;
 
-  TSvnBlameCallback = procedure(Sender: TObject; LineNo: Int64; Revision: Integer; const Author: string;
+  TSvnBlameCallback = procedure(Sender: TObject; LineNo: Int64; Revision: TSvnRevNum; const Author: string;
     Time: TDateTime; const Line: string; var Cancel: Boolean) of object;
   TSvnListCallback = procedure(Sender: TObject; Path: string; DirEntry: TSvnDirEnt; Locked: Boolean; LockData: TSvnLock;
     AbsPath: string; var Cancel: Boolean) of object;
@@ -379,7 +379,7 @@ type
     procedure GetListCallback(Sender: TObject; Path: string; DirEntry: TSvnDirEnt; Locked: Boolean; LockData: TSvnLock;
       AbsPath: string; var Cancel: Boolean);
   protected
-    function DoBlame(LineNo: Int64; Revision: Integer; const Author, Date, Line: string): Boolean;
+    function DoBlame(LineNo: Int64; Revision: TSvnRevNum; const Author, Date, Line: string): Boolean;
     function DoList(Path: string; DirEntry: TSvnDirEnt; Locked: Boolean; LockData: TSvnLock; AbsPath: string): Boolean;
     function DoLoginPrompt(const Realm: string; var UserName, Password: string; var Save: Boolean): Boolean; virtual;
     function DoNotify(const Path, MimeType: string; Action: TSvnWcNotifyAction; Kind: TSvnNodeKind;
@@ -398,14 +398,14 @@ type
 
     procedure Add(const PathName: string; Recurse: Boolean = False; Force: Boolean = False; NoIgnore: Boolean = False;
       SubPool: PAprPool = nil);
-    procedure Blame(const PathName: string; Callback: TSvnBlameCallback; StartRevision: Integer = 1;
-      EndRevision: Integer = -1; PegRevision: Integer = -1; SubPool: PAprPool = nil);
-    procedure Checkout(const URL, TargetDir: string; Callback: TSvnNotifyCallback = nil; Recurse: Boolean = True;
+    procedure Blame(const PathName: string; Callback: TSvnBlameCallback; StartRevision: TSvnRevNum = 1;
+      EndRevision: TSvnRevNum = -1; PegRevision: TSvnRevNum = -1; SubPool: PAprPool = nil);
+    procedure Checkout(const PathName, TargetDir: string; Callback: TSvnNotifyCallback = nil; Recurse: Boolean = True;
       IgnoreExternals: Boolean = False; Revision: TSvnRevNum = -1; PegRevision: TSvnRevNum = -1; SubPool: PAprPool = nil);
     procedure Cleanup(const PathName: string; SubPool: PAprPool = nil);
     function Commit(PathNames: TStrings; const LogMessage: string; Callback: TSvnNotifyCallback = nil;
       Recurse: Boolean = True; KeepLocks: Boolean = False; SubPool: PAprPool = nil): Boolean;
-    procedure Export(const URL, TargetDir: string; Callback: TSvnNotifyCallback = nil; Overwrite: Boolean = False;
+    procedure Export(const PathName, TargetDir: string; Callback: TSvnNotifyCallback = nil; Overwrite: Boolean = False;
       Recurse: Boolean = True; IgnoreExternals: Boolean = False; Revision: TSvnRevNum = -1; PegRevision: TSvnRevNum = -1; SubPool: PAprPool = nil);
     procedure Finalize;
     procedure GetExternals(const PathName: string; Externals: TStrings; Recurse: Boolean = True);
@@ -976,14 +976,11 @@ end;
 
 procedure SvnContextProgress(progress, total: TAprOff; baton: Pointer; pool: PAprPool); cdecl;
 
-var
-  Percent: Double;
-
 begin
-  Percent := 0;
-  if total <> 0 then
-    Percent := 100 * progress / total;
-  OutputDebugString(PChar(Format('SvnContextProgress(%d, %d) %.2f%%', [progress, total, Percent])));
+  if total = 0 then
+    OutputDebugString(PChar(Format('SvnContextProgress(%d, %d)', [progress, total])))
+  else
+    OutputDebugString(PChar(Format('SvnContextProgress(%d, %d) %.2f%%', [progress, total, 100 * progress / total])));
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -1188,7 +1185,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TSvnHistoryItem.BlameCallback(Sender: TObject; LineNo: Int64; Revision: Integer; const Author: string;
+procedure TSvnHistoryItem.BlameCallback(Sender: TObject; LineNo: Int64; Revision: TSvnRevNum; const Author: string;
   Time: TDateTime; const Line: string; var Cancel: Boolean);
 
 var
@@ -2676,7 +2673,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TSvnClient.DoBlame(LineNo: Int64; Revision: Integer; const Author, Date, Line: string): Boolean;
+function TSvnClient.DoBlame(LineNo: Int64; Revision: TSvnRevNum; const Author, Date, Line: string): Boolean;
 
 var
   D: TDateTime;
@@ -2857,8 +2854,8 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TSvnClient.Blame(const PathName: string; Callback: TSvnBlameCallback; StartRevision: Integer = 1;
-  EndRevision: Integer = -1; PegRevision: Integer = -1; SubPool: PAprPool = nil);
+procedure TSvnClient.Blame(const PathName: string; Callback: TSvnBlameCallback; StartRevision: TSvnRevNum = 1;
+  EndRevision: TSvnRevNum = -1; PegRevision: TSvnRevNum = -1; SubPool: PAprPool = nil);
 
 var
   NewPool: Boolean;
@@ -2910,7 +2907,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TSvnClient.Checkout(const URL, TargetDir: string; Callback: TSvnNotifyCallback;
+procedure TSvnClient.Checkout(const PathName, TargetDir: string; Callback: TSvnNotifyCallback;
   Recurse, IgnoreExternals: Boolean; Revision, PegRevision: TSvnRevNum; SubPool: PAprPool);
 
 var
@@ -2926,7 +2923,7 @@ begin
     AprCheck(apr_pool_create_ex(SubPool, FPool, nil, FAllocator));
   try
     FillChar(PegRev, SizeOf(TSvnOptRevision), 0);
-    if PegRevision = -1 then
+    if PegRevision <= 0 then
       PegRev.Kind := svnOptRevisionHead
     else
     begin
@@ -2934,7 +2931,7 @@ begin
       PegRev.Value.number := PegRevision;
     end;
     FillChar(Rev, SizeOf(TSvnOptRevision), 0);
-    if Revision = -1 then
+    if Revision <= 0 then
       Rev.Kind := svnOptRevisionHead
     else
     begin
@@ -2943,7 +2940,7 @@ begin
     end;
     FCancelled := False;
     FNotifyCallback := Callback;
-    SvnCheck(svn_client_checkout2(Revision, PAnsiChar(AnsiString(URL)),
+    SvnCheck(svn_client_checkout2(Revision, PAnsiChar(AnsiString(PathName)),
       PAnsiChar(AnsiString(TargetDir)), @PegRev, @Rev, Recurse, IgnoreExternals,
       FCtx, SubPool));
   finally
@@ -3019,7 +3016,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TSvnClient.Export(const URL, TargetDir: string; Callback: TSvnNotifyCallback;
+procedure TSvnClient.Export(const PathName, TargetDir: string; Callback: TSvnNotifyCallback;
   Overwrite, Recurse, IgnoreExternals: Boolean; Revision, PegRevision: TSvnRevNum; SubPool: PAprPool);
 
 var
@@ -3035,7 +3032,7 @@ begin
     AprCheck(apr_pool_create_ex(SubPool, FPool, nil, FAllocator));
   try
     FillChar(PegRev, SizeOf(TSvnOptRevision), 0);
-    if PegRevision = -1 then
+    if PegRevision <= 0 then
       PegRev.Kind := svnOptRevisionHead
     else
     begin
@@ -3043,7 +3040,7 @@ begin
       PegRev.Value.number := PegRevision;
     end;
     FillChar(Rev, SizeOf(TSvnOptRevision), 0);
-    if Revision = -1 then
+    if Revision <= 0 then
       Rev.Kind := svnOptRevisionHead
     else
     begin
@@ -3053,7 +3050,7 @@ begin
 
     FCancelled := False;
     FNotifyCallback := Callback;
-    SvnCheck(svn_client_export3(Revision, PAnsiChar(AnsiString(URL)),
+    SvnCheck(svn_client_export3(Revision, PAnsiChar(AnsiString(PathName)),
       PAnsiChar(AnsiString(TargetDir)), @PegRev, @Rev, Overwrite, IgnoreExternals,
       Recurse, sLineBreak, FCtx, SubPool));
   finally
@@ -3083,7 +3080,8 @@ begin
     apr_allocator_destroy(FAllocator);
     FAllocator := nil;
   end;
-  apr_terminate2;
+  if FAprLibLoaded then
+    apr_terminate2;
 
   { TODO -cCleanup -ousc : remove if SvnClientManager solution is okay }
   {
@@ -3429,7 +3427,7 @@ begin
       PegRev.Value.number := PegRevision;
     end;
     FillChar(Rev, SizeOf(TSvnOptRevision), 0);
-    if Revision = -1 then
+    if Revision <= 0 then
       Rev.Kind := svnOptRevisionHead
     else
     begin
