@@ -16,6 +16,7 @@
 { Contributors:                                                                                                        }
 {   Ondrej Kelle (tondrej)                                                                                             }
 {   Uwe Schuster (uschuster)                                                                                           }
+{   Christian Wimmer                                                                                                   }
 {                                                                                                                      }
 {**********************************************************************************************************************}
 {                                                                                                                      }
@@ -345,6 +346,9 @@ type
     of object;
   TSvnStatusCallback = procedure(Sender: TObject; Item: TSvnItem; var Cancel: Boolean) of object;
 
+  TSvnCancelCallback = procedure(Sender: TObject; var Cancel: Boolean) of object;
+  TSvnProgressCallback = procedure(Sender: TObject; Progress, Total: TAprOff) of object;
+
   TSvnClient = class
   private
     FAllocator: PAprAllocator;
@@ -374,16 +378,21 @@ type
     FOnSSLServerTrustPrompt: TSSLServerTrustPrompt;
     FOnUserNamePrompt: TUserNamePromptEvent;
 
+    FOnCancel: TSvnCancelCallback;
+    FOnProgress: TSvnProgressCallback;
+
     procedure GetExternalsCallback(Sender: TObject; Item: TSvnItem; var Cancel: Boolean);
     function GetInitialized: Boolean;
     procedure GetListCallback(Sender: TObject; Path: string; DirEntry: TSvnDirEnt; Locked: Boolean; LockData: TSvnLock;
       AbsPath: string; var Cancel: Boolean);
   protected
     function DoBlame(LineNo: Int64; Revision: TSvnRevNum; const Author, Date, Line: string): Boolean;
+    function DoCancel: Boolean;
     function DoList(Path: string; DirEntry: TSvnDirEnt; Locked: Boolean; LockData: TSvnLock; AbsPath: string): Boolean;
     function DoLoginPrompt(const Realm: string; var UserName, Password: string; var Save: Boolean): Boolean; virtual;
     function DoNotify(const Path, MimeType: string; Action: TSvnWcNotifyAction; Kind: TSvnNodeKind;
       ContentState, PropState: TSvnWCNotifyState; Revision: TSvnRevNum): Boolean; virtual;
+    procedure DoProgress(Progress, Total: TAprOff);
     function DoSSLClientCertPrompt(const Realm: string; var CertFileName: string; var Save: Boolean): Boolean; virtual;
     function DoSSLClientPasswordPrompt(const Realm: string; var Password: string; var Save: Boolean): Boolean; virtual;
     function DoSSLServerTrustPrompt(const Realm: string; const CertInfo: TSvnAuthSSLServerCertInfo;
@@ -447,6 +456,9 @@ type
       write FOnSSLClientPasswordPrompt;
     property OnSSLServerTrustPrompt: TSSLServerTrustPrompt read FOnSSLServerTrustPrompt write FOnSSLServerTrustPrompt;
     property OnUserNamePrompt: TUserNamePromptEvent read FOnUserNamePrompt write FOnUserNamePrompt;
+
+    property OnCancel: TSvnCancelCallback read FOnCancel write FOnCancel;
+    property OnProgress: TSvnProgressCallback read FOnProgress write FOnProgress;
   end;
 
 resourcestring
@@ -947,7 +959,7 @@ end;
 function SvnContextCancel(cancel_baton: Pointer): PSvnError; cdecl;
 
 begin
-  if TSvnClient(cancel_baton).Cancelled then
+  if TSvnClient(cancel_baton).DoCancel then
     Result := svn_error_create(SVN_ERR_CANCELLED, nil, 'Cancelled by user')
   else
     Result := nil;
@@ -981,6 +993,7 @@ begin
     OutputDebugString(PChar(Format('SvnContextProgress(%d, %d)', [progress, total])))
   else
     OutputDebugString(PChar(Format('SvnContextProgress(%d, %d) %.2f%%', [progress, total, 100 * progress / total])));
+  TSvnClient(baton).DoProgress(progress, total);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -2696,6 +2709,24 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+function TSvnClient.DoCancel: Boolean;
+
+var
+  Cancel: Boolean;
+
+begin
+  if Assigned(FOnCancel) then
+  begin
+    Cancel := False;
+    FOnCancel(Self, Cancel);
+    if Cancel then
+      FCancelled := True;
+  end;
+  Result := Cancelled;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
 function TSvnClient.DoList(Path: string; DirEntry: TSvnDirEnt; Locked: Boolean; LockData: TSvnLock; AbsPath: string): Boolean;
 
 begin
@@ -2738,6 +2769,15 @@ begin
     FNotifyCallback(Self, SPath, MimeType, Action, Kind, ContentState, PropState, Revision, Result);
     FCancelled := Result;
   end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnClient.DoProgress(Progress, Total: TAprOff);
+
+begin
+  if Assigned(FOnProgress) then
+    FOnProgress(Self, Progress, Total);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
