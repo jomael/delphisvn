@@ -2700,14 +2700,18 @@ end;
 
 function GetAprErrorMessage(Status: TAprStatus): string;
 
+var
+  AnsiResult: AnsiString;
+
 begin
   if Status = APR_SUCCESS then
     Result := ''
   else
   begin
-    SetLength(Result, 256);
-    apr_strerror(Status, PAnsiChar(Result), Length(Result));
-    SetLength(Result, StrLen(PAnsiChar(Result)));
+    SetLength(AnsiResult, 256);
+    apr_strerror(Status, PAnsiChar(AnsiResult), Length(AnsiResult));
+    SetLength(Result, StrLen(PAnsiChar(AnsiResult)));
+    Result := string(AnsiResult);
   end;
 end;
 
