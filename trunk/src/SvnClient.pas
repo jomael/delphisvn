@@ -412,8 +412,10 @@ type
     procedure Checkout(const PathName, TargetDir: string; Callback: TSvnNotifyCallback = nil; Recurse: Boolean = True;
       IgnoreExternals: Boolean = False; Revision: TSvnRevNum = -1; PegRevision: TSvnRevNum = -1; SubPool: PAprPool = nil);
     procedure Cleanup(const PathName: string; SubPool: PAprPool = nil);
+    procedure Copy(SourcesNames: TStrings; const DstPath: string; SubPool: PAprPool = nil);
     function Commit(PathNames: TStrings; const LogMessage: string; Callback: TSvnNotifyCallback = nil;
       Recurse: Boolean = True; KeepLocks: Boolean = False; SubPool: PAprPool = nil): Boolean;
+    procedure Delete(PathNames: TStrings; Force: Boolean = False; KeepLocal: Boolean = False; SubPool: PAprPool = nil);
     procedure Export(const PathName, TargetDir: string; Callback: TSvnNotifyCallback = nil; Overwrite: Boolean = False;
       Recurse: Boolean = True; IgnoreExternals: Boolean = False; Revision: TSvnRevNum = -1; PegRevision: TSvnRevNum = -1; SubPool: PAprPool = nil);
     procedure Finalize;
@@ -430,6 +432,7 @@ type
     procedure List(const PathName: string; Depth: TSvnDepth; FetchLocks: Boolean; ListStrings: TStrings;
       DirEntryFields: DWORD = SVN_DIRENT_ALL; Revision: TSvnRevNum = -1; PegRevision: TSvnRevNum = -1; SubPool: PAprPool = nil); overload;
     function MatchGlobalIgnores(const PathName: string; SubPool: PAprPool = nil): Boolean;
+    procedure Move(SrcPathNames: TStrings; const DstPath: string; SubPool: PAprPool = nil);
     function NativePathToSvnPath(const NativePath: string; SubPool: PAprPool = nil): string;
     function PathNamesToAprArray(PathNames: TStrings; SubPool: PAprPool = nil): PAprArrayHeader; overload;
     function PathNamesToAprArray(const PathNames: array of string; SubPool: PAprPool = nil): PAprArrayHeader; overload;
@@ -2701,7 +2704,7 @@ begin
     SLine := Line;
     L := Length(SLine);
     if (L > 0) and (SLine[L] = #13) then
-      Delete(SLine, L, 1);
+      System.Delete(SLine, L, 1);
     FBlameCallback(Self, LineNo, Revision, Author, D, SLine, Result);
     FCancelled := Result;
   end;
@@ -3015,6 +3018,47 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+procedure TSvnClient.Copy(SourcesNames: TStrings; const DstPath: string; SubPool: PAprPool = nil);
+var
+  NewPool: Boolean;
+  Sources: PAprArrayHeader;
+  CommitInfo: PSvnCommitInfo;
+  SrcRevision: TSvnOptRevision;
+
+begin
+  if not Assigned(SourcesNames) or (SourcesNames.Count = 0) then
+    Exit;
+
+  if not Initialized then
+    Initialize;
+
+  NewPool := not Assigned(SubPool);
+  if NewPool then
+    AprCheck(apr_pool_create_ex(SubPool, FPool, nil, FAllocator));
+  try
+    Sources := PathNamesToAprArray(SourcesNames, SubPool);
+    CommitInfo := nil;
+    FCancelled := False;
+    FillChar(SrcRevision, SizeOf(TSvnOptRevision), 0);
+    SrcRevision.Kind := svnOptRevisionHead;
+    SvnCheck(svn_client_copy3(CommitInfo, PAnsiChar(AnsiString(NativePathToSvnPath(SourcesNames[0]))), @SrcRevision,
+      PAnsiChar(AnsiString(NativePathToSvnPath(DstPath))), FCtx, SubPool));
+    { TODO -ousc :- put some into method declaration
+- use svn_client_copy4 (crash currently with working copy paths and returns an error with repository paths)}
+    {
+    SvnCheck(svn_client_copy4(CommitInfo, Sources, PAnsiChar(AnsiString(NativePathToSvnPath(DstPath))),
+      False, False, nil, FCtx, SubPool));
+    }
+    if Assigned(CommitInfo) and Assigned(CommitInfo^.post_commit_err) and (CommitInfo^.post_commit_err^ <> #0) then
+      raise Exception.Create(CommitInfo^.post_commit_err);
+  finally
+    if NewPool then
+      apr_pool_destroy(SubPool);
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
 function TSvnClient.Commit(PathNames: TStrings; const LogMessage: string; Callback: TSvnNotifyCallback = nil;
   Recurse: Boolean = True; KeepLocks: Boolean = False; SubPool: PAprPool = nil): Boolean;
 
@@ -3049,6 +3093,38 @@ begin
   finally
     FCommitLogMessage := '';
     FNotifyCallback := nil;
+    if NewPool then
+      apr_pool_destroy(SubPool);
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnClient.Delete(PathNames: TStrings; Force: Boolean = False; KeepLocal: Boolean = False; SubPool: PAprPool = nil);
+
+var
+  NewPool: Boolean;
+  Paths: PAprArrayHeader;
+  CommitInfo: PSvnCommitInfo;
+
+begin
+  if not Assigned(PathNames) or (PathNames.Count = 0) then
+    Exit;
+
+  if not Initialized then
+    Initialize;
+
+  NewPool := not Assigned(SubPool);
+  if NewPool then
+    AprCheck(apr_pool_create_ex(SubPool, FPool, nil, FAllocator));
+  try
+    Paths := PathNamesToAprArray(PathNames, SubPool);
+    CommitInfo := nil;
+    FCancelled := False;
+    SvnCheck(svn_client_delete3(CommitInfo, Paths, Force, KeepLocal, nil, FCtx, SubPool));
+    if Assigned(CommitInfo) and Assigned(CommitInfo^.post_commit_err) and (CommitInfo^.post_commit_err^ <> #0) then
+      raise Exception.Create(CommitInfo^.post_commit_err);
+  finally
     if NewPool then
       apr_pool_destroy(SubPool);
   end;
@@ -3237,7 +3313,7 @@ begin
 
           Value := StringReplace(Value, CRLF, Delimiter, [rfReplaceAll, rfIgnoreCase]);
           if (Value <> '') and (Value[Length(Value)] = Delimiter) then
-            Delete(Value, Length(Value), 1);
+            System.Delete(Value, Length(Value), 1);
 
           J := Strings.IndexOfName(Name);
           if J = -1 then
@@ -3520,6 +3596,40 @@ begin
   try
     SvnCheck(svn_wc_get_default_ignores(GlobalIgnores, FCtx^.config, SubPool));
     Result := svn_cstring_match_glob_list(PAnsiChar(AnsiString(PathName)), GlobalIgnores);
+  finally
+    if NewPool then
+      apr_pool_destroy(SubPool);
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TSvnClient.Move(SrcPathNames: TStrings; const DstPath: string; SubPool: PAprPool = nil);
+
+var
+  NewPool: Boolean;
+  SrcPaths: PAprArrayHeader;
+  CommitInfo: PSvnCommitInfo;
+
+begin
+  if not Assigned(SrcPathNames) or (SrcPathNames.Count = 0) then
+    Exit;
+
+  if not Initialized then
+    Initialize;
+
+  NewPool := not Assigned(SubPool);
+  if NewPool then
+    AprCheck(apr_pool_create_ex(SubPool, FPool, nil, FAllocator));
+  try
+    SrcPaths := PathNamesToAprArray(SrcPathNames, SubPool);
+    CommitInfo := nil;
+    FCancelled := False;
+    { TODO -ousc : put params force, move_as_child, make_parents into method declaration }
+    SvnCheck(svn_client_move5(CommitInfo, SrcPaths, PAnsiChar(AnsiString(NativePathToSvnPath(DstPath))),
+      True, False, False, nil, FCtx, SubPool));
+    if Assigned(CommitInfo) and Assigned(CommitInfo^.post_commit_err) and (CommitInfo^.post_commit_err^ <> #0) then
+      raise Exception.Create(CommitInfo^.post_commit_err);
   finally
     if NewPool then
       apr_pool_destroy(SubPool);
