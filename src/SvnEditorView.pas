@@ -15,10 +15,12 @@
 {                                                                                                                      }
 { Contributors:                                                                                                        }
 {   Ondrej Kelle (tondrej)                                                                                             }
+{   Uwe Schuster (uschuster)                                                                                           }
 {                                                                                                                      }
 {**********************************************************************************************************************}
 {                                                                                                                      }
 { This unit contains TSvnEditorView, a class which implements ICustomEditorView and ICustomEditorFrameView interfaces  }
+{ for Delphi 2009 (and lower) and implements the INTACustomEditorSubView interface for Delphi 2010 (and higher)        }
 { to provide a new editor view displaying Subversion information about the file.                                       }
 {                                                                                                                      }
 {**********************************************************************************************************************}
@@ -27,19 +29,28 @@ unit SvnEditorView;
 
 interface
 
-uses
-  Classes, SysUtils, Forms,
-  ToolsAPI, DesignIntf, EditorViewSupport;
-
 {$INCLUDE Compilers.inc}
 
+uses
+  {$IFNDEF COMPILER_14_UP}
+  EditorViewSupport,
+  {$ENDIF}
+  Classes, SysUtils, Forms,
+  ToolsAPI, DesignIntf;
+
 type
+  {$IFDEF COMPILER_14_UP}
+  TSvnEditorView = class(TInterfacedObject, INTACustomEditorSubView)
+  {$ELSE}
   TSvnEditorView = class(TInterfacedObject, ICustomEditorView, ICustomEditorFrameView)
+  {$ENDIF}
   private
-    { ICustomEditorView }
+    { ICustomEditorView / INTACustomEditorSubView}
     function GetCaption: string;
     function GetPriority: Integer;
+    {$IFNDEF COMPILER_14_UP}
     function GetStyle: TEditorViewStyle;
+    {$ENDIF}
     procedure Display(const AContext: IInterface; AViewObject: TObject);
     function EditAction(const AContext: IInterface; Action: TEditAction; AViewObject: TObject): Boolean;
     function GetEditState(const AContext: IInterface; AViewObject: TObject): TEditState;
@@ -51,8 +62,13 @@ type
     procedure ViewClosed(const AContext: IInterface; AViewObject: TObject);
     {$ENDIF}
 
-    { ICustomEditorFrameView }
+    { ICustomEditorFrameView / INTACustomEditorSubView}
     function GetFrameClass: TCustomFrameClass;
+
+    { INTACustomEditorSubView }
+    {$IFDEF COMPILER_14_UP}
+    procedure FrameCreated(AFrame: TCustomFrame);
+    {$ENDIF}
   end;
 
 implementation
@@ -60,9 +76,23 @@ implementation
 uses
   SvnClient, SvnIDEClient, SvnEditorViewFrame;
 
+{$IFDEF COMPILER_14_UP}
+function ContextToModule(const AContext: IInterface; out AModule: IOTAModule): Boolean;
+
+var
+  EditorViewServices: IOTAEditorViewServices;
+
+begin
+  if BorlandIDEServices.GetService(IOTAEditorViewServices, EditorViewServices) then
+    Result := EditorViewServices.ContextToModule(AContext, AModule)
+  else
+    Result := False;
+end;
+{$ENDIF}
+
 //----------------------------------------------------------------------------------------------------------------------
 
-{ TSvnEditorView private: IOTACustomEditorView }
+{ TSvnEditorView private: ICustomEditorView / INTACustomEditorSubView }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -115,16 +145,18 @@ end;
 function TSvnEditorView.GetPriority: Integer;
 
 begin
-  Result := NormalViewPriority;
+  Result := {$IFDEF COMPILER_14_UP}svpNormal {$ELSE}NormalViewPriority {$ENDIF};
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+{$IFNDEF COMPILER_14_UP}
 function TSvnEditorView.GetStyle: TEditorViewStyle;
 
 begin
   Result := [evsDesigntime];
 end;
+{$ENDIF}
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -178,7 +210,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-{ TSvnEditorView private: IOTACustomEditorFrameView }
+{ TSvnEditorView private: ICustomEditorFrameView / INTACustomEditorSubView }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -187,6 +219,20 @@ function TSvnEditorView.GetFrameClass: TCustomFrameClass;
 begin
   Result := TFrameSvnEditorView;
 end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+{ TSvnEditorView private: INTACustomEditorSubView }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+{$IFDEF COMPILER_14_UP}
+procedure TSvnEditorView.FrameCreated(AFrame: TCustomFrame);
+
+begin
+
+end;
+{$ENDIF}
 
 //----------------------------------------------------------------------------------------------------------------------
 

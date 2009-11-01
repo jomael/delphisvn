@@ -36,8 +36,11 @@ uses
   {$IFDEF COMPILER_9_UP}
   FileHistoryAPI,
   {$ENDIF}
+  {$IFNDEF COMPILER_14_UP}
+  EditorViewSupport,
+  {$ENDIF}
   SynEdit, SynEditHighlighter,
-  SvnIDEHistory, EditorViewSupport, Dockform,
+  SvnIDEHistory, Dockform,
   svn_client, SvnClient, SvnDiff3Frame;
 
 type
@@ -100,7 +103,7 @@ type
     procedure ActionUpdateUpdate(Sender: TObject);
   private
     FEditorView: Pointer;
-    FEditorViewIntf: ICustomEditorFrameView;
+    FEditorViewIntf: {$IFDEF COMPILER_14_UP}INTACustomEditorSubView {$ELSE}ICustomEditorFrameView {$ENDIF};
     {$IFNDEF COMPILER_9_UP}
     FHistoryView: Pointer;
     FHistoryViewIntf: ICustomEditorFrameView;
@@ -241,6 +244,11 @@ type
 //----------------------------------------------------------------------------------------------------------------------
 
 const
+  {$IFDEF COMPILER_14}
+  coreide = 'coreide140.bpl';
+  vclide = 'vclide140.bpl';
+  {$ENDIF}
+
   {$IFDEF COMPILER_12}
   coreide = 'coreide120.bpl';
   vclide = 'vclide120.bpl';
@@ -917,6 +925,9 @@ var
   {$IFDEF COMPILER_9_UP}
   FileHistoryManager: IOTAFileHistoryManager;
   {$ENDIF}
+  {$IFDEF COMPILER_14_UP}
+  EditorViewServices: IOTAEditorViewServices;
+  {$ENDIF}
   MainMenuBar: THackActionMainMenuBar;
   I: Integer;
   Item: TActionClientItem;
@@ -940,7 +951,12 @@ begin
     FileHistoryManager.UnregisterHistoryProvider(FHistoryProviderIndex);
   FHistoryProviderIndex := -1;
   if Assigned(FEditorView) then
+    {$IFDEF COMPILER_14_UP}
+    if BorlandIDEServices.GetService(IOTAEditorViewServices, EditorViewServices) then
+      EditorViewServices.UnregisterEditorSubView(FEditorView);
+    {$ELSE}
     UnregisterEditorView(FEditorView);
+    {$ENDIF}
   FEditorView := nil;
   FEditorViewIntf := nil;
   {$IFNDEF COMPILER_9_UP}
@@ -1020,6 +1036,9 @@ var
   {$IFDEF COMPILER_9_UP}
   FileHistoryManager: IOTAFileHistoryManager;
   {$ENDIF}
+  {$IFDEF COMPILER_14_UP}
+  EditorViewServices: IOTAEditorViewServices;
+  {$ENDIF}
   NTAServices: INTAServices;
   MenuItem: TMenuItem;
   I: Integer;
@@ -1048,7 +1067,14 @@ begin
     {$ENDIF}
       FHistoryProviderIndex := FileHistoryManager.RegisterHistoryProvider(TSvnFileHistoryProvider.Create);
     FEditorViewIntf := TSvnEditorView.Create;
+    {$IFDEF COMPILER_14_UP}
+    if BorlandIDEServices.GetService(IOTAEditorViewServices, EditorViewServices) then
+      FEditorView := EditorViewServices.RegisterEditorSubView(FEditorViewIntf)
+    else
+      FEditorView := nil;
+    {$ELSE}
     FEditorView := RegisterEditorView(FEditorViewIntf);
+    {$ENDIF}
 
     {$IFDEF COMPILER_9_UP}
     if BorlandIDEServices.GetService(INTAServices, NTAServices) then

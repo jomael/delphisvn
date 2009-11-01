@@ -118,7 +118,9 @@ var
   ListBox: TListBox;
 
 begin
-  {$IFDEF COMPILER_12}
+  {$IFDEF COMPILER_14}
+  Lib := GetModuleHandle('coreide140.bpl');
+  {$ELSE} {$IFDEF COMPILER_12}
   Lib := GetModuleHandle('coreide120.bpl');
   {$ELSE} {$IFDEF COMPILER_10}
   Lib := GetModuleHandle('coreide100.bpl');
@@ -128,6 +130,7 @@ begin
   Lib := GetModuleHandle('coreide70.bpl');
   {$ELSE}
   Lib := 0;
+  {$ENDIF}
   {$ENDIF}
   {$ENDIF}
   {$ENDIF}
