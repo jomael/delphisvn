@@ -15,6 +15,7 @@
 {                                                                                                                      }
 { Contributors:                                                                                                        }
 {   Ondrej Kelle (tondrej)                                                                                             }
+{   Uwe Schuster (uschuster)                                                                                           }
 {                                                                                                                      }
 {**********************************************************************************************************************}
 {                                                                                                                      }
@@ -56,7 +57,7 @@ type
     procedure TreeFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
     procedure TreeGetNodeDataSize(Sender: TBaseVirtualTree; var NodeDataSize: Integer);
     procedure TreeGetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType;
-      var CellText: WideString);
+      var CellText: {$IFDEF UNICODE}string {$ELSE}WideString {$ENDIF});
     procedure TreeHeaderClick(Sender: TVTHeader; Column: TColumnIndex; Button: TMouseButton; Shift: TShiftState; X,
       Y: Integer);
     procedure TreePaintText(Sender: TBaseVirtualTree; const TargetCanvas: TCanvas; Node: PVirtualNode;
@@ -594,7 +595,7 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TFrameSvnNotify.TreeGetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex;
-  TextType: TVSTTextType; var CellText: WideString);
+  TextType: TVSTTextType; var CellText: {$IFDEF UNICODE}string {$ELSE}WideString {$ENDIF});
 
 var
   Data: PNodeData;
