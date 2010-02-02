@@ -2698,6 +2698,15 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+{$IF CompilerVersion < 20.0}
+function UTF8ToString(const AStr: string): string; {$IF CompilerVersion >= 17.0} inline;{$IFEND}
+begin
+  Result := UTF8Decode(AStr);
+end;
+{$IFEND}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 function GetAprErrorMessage(Status: TAprStatus): string;
 
 var
@@ -2711,7 +2720,7 @@ begin
     SetLength(AnsiResult, 256);
     apr_strerror(Status, PAnsiChar(AnsiResult), Length(AnsiResult));
     SetLength(Result, StrLen(PAnsiChar(AnsiResult)));
-    Result := string(AnsiResult);
+    Result := UTF8ToString(AnsiResult);
   end;
 end;
 

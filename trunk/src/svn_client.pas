@@ -6259,6 +6259,15 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+{$IF CompilerVersion < 20.0}
+function UTF8ToString(const AStr: string): string; {$IF CompilerVersion >= 17.0} inline;{$IFEND}
+begin
+  Result := UTF8Decode(AStr);
+end;
+{$IFEND}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 { ESvnError private }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -6321,7 +6330,7 @@ begin
     SetLength(FErrors, Length(FErrors) + 1);
 
     if Assigned(E^.message) then
-      S := E^.message
+      S := UTF8ToString(E^.message)
     else
       S := GetSvnErrorMessage(E^.apr_err);
 
@@ -6370,7 +6379,7 @@ begin
   SetLength(ErrorStr, 255);
   svn_strerror(Status, PAnsiChar(ErrorStr), Length(ErrorStr));
   SetLength(ErrorStr, StrLen(PAnsiChar(ErrorStr)));
-  Result := string(ErrorStr);
+  Result := UTF8ToString(ErrorStr);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
