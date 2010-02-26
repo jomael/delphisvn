@@ -3464,13 +3464,13 @@ begin
         svn_auth_open(Auth, Providers, FPool);
       end;
       Ctx^.auth_baton := Auth;
-      svn_auth_set_parameter(Auth, SVN_AUTH_PARAM_CONFIG_DIR, PAnsiChar(UTF8Encode(FConfigDir)));
+      svn_auth_set_parameter(Auth, SVN_AUTH_PARAM_CONFIG_DIR, apr_pstrdup(FPool, PAnsiChar(UTF8Encode(FConfigDir))));
       if FUserName <> '' then
-        svn_auth_set_parameter(Auth, SVN_AUTH_PARAM_DEFAULT_USERNAME, PAnsiChar(UTF8Encode(FUserName)));
-      if FPassword <> '' then
-        svn_auth_set_parameter(Auth, SVN_AUTH_PARAM_DEFAULT_PASSWORD, PAnsiChar(UTF8Encode(FPassword)));
-      svn_auth_set_parameter(Auth, SVN_AUTH_PARAM_DONT_STORE_PASSWORDS, PAnsiChar(''));
-      svn_auth_set_parameter(Auth, SVN_AUTH_PARAM_NO_AUTH_CACHE, PAnsiChar(''));
+        svn_auth_set_parameter(Auth, SVN_AUTH_PARAM_DEFAULT_USERNAME, apr_pstrdup(FPool, PAnsiChar(UTF8Encode(FUserName))));
+      if (FUserName <> '') or (FPassword <> '') then
+        svn_auth_set_parameter(Auth, SVN_AUTH_PARAM_DEFAULT_PASSWORD, apr_pstrdup(FPool, PAnsiChar(UTF8Encode(FPassword))));
+      svn_auth_set_parameter(Auth, SVN_AUTH_PARAM_DONT_STORE_PASSWORDS, nil);
+      svn_auth_set_parameter(Auth, SVN_AUTH_PARAM_NO_AUTH_CACHE, nil);
     except
       apr_pool_destroy(FPool);
       FPool := nil;
