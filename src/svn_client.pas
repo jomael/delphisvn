@@ -3420,6 +3420,7 @@ type
     size: TAprSize;
   end;
   TSvnInfoReceiver = function(baton: Pointer; path: PAnsiChar; const info: TSvnInfo; pool: PAprPool): PSvnError; cdecl;
+  PPSvnClientCopySource = ^PSvnClientCopySource;
   PSvnClientCopySource = ^TSvnClientCopySource;
   TSvnClientCopySource = record
     path: PAnsiChar;
