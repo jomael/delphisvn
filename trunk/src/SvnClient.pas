@@ -412,7 +412,8 @@ type
     procedure Checkout(const PathName, TargetDir: string; Callback: TSvnNotifyCallback = nil; Recurse: Boolean = True;
       IgnoreExternals: Boolean = False; Revision: TSvnRevNum = -1; PegRevision: TSvnRevNum = -1; SubPool: PAprPool = nil);
     procedure Cleanup(const PathName: string; SubPool: PAprPool = nil);
-    procedure Copy(SourcesNames: TStrings; const DstPath: string; SubPool: PAprPool = nil);
+    procedure Copy(SourcesNames: TStrings; const DstPath: string; CopyAsChild: Boolean = False;
+      MakeParents: Boolean = False; SubPool: PAprPool = nil);
     function Commit(PathNames: TStrings; const LogMessage: string; Callback: TSvnNotifyCallback = nil;
       Recurse: Boolean = True; KeepLocks: Boolean = False; SubPool: PAprPool = nil): Boolean;
     procedure Delete(PathNames: TStrings; Force: Boolean = False; KeepLocal: Boolean = False; SubPool: PAprPool = nil);
@@ -432,7 +433,8 @@ type
     procedure List(const PathName: string; Depth: TSvnDepth; FetchLocks: Boolean; ListStrings: TStrings;
       DirEntryFields: DWORD = SVN_DIRENT_ALL; Revision: TSvnRevNum = -1; PegRevision: TSvnRevNum = -1; SubPool: PAprPool = nil); overload;
     function MatchGlobalIgnores(const PathName: string; SubPool: PAprPool = nil): Boolean;
-    procedure Move(SrcPathNames: TStrings; const DstPath: string; SubPool: PAprPool = nil);
+    procedure Move(SrcPathNames: TStrings; const DstPath: string; Force: Boolean = True; MoveAsChild: Boolean = False;
+      MakeParents: Boolean = False; SubPool: PAprPool = nil);
     function NativePathToSvnPath(const NativePath: string; SubPool: PAprPool = nil): string;
     function PathNamesToAprArray(PathNames: TStrings; SubPool: PAprPool = nil): PAprArrayHeader; overload;
     function PathNamesToAprArray(const PathNames: array of string; SubPool: PAprPool = nil): PAprArrayHeader; overload;
@@ -3027,12 +3029,18 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TSvnClient.Copy(SourcesNames: TStrings; const DstPath: string; SubPool: PAprPool = nil);
+procedure TSvnClient.Copy(SourcesNames: TStrings; const DstPath: string; CopyAsChild: Boolean = False;
+  MakeParents: Boolean = False; SubPool: PAprPool = nil);
+
 var
   NewPool: Boolean;
   Sources: PAprArrayHeader;
   CommitInfo: PSvnCommitInfo;
   SrcRevision: TSvnOptRevision;
+  CopySource: PSvnClientCopySource;
+  CurrentDrive, S: string;
+  P: PAnsiChar;
+  I: Integer;
 
 begin
   if not Assigned(SourcesNames) or (SourcesNames.Count = 0) then
@@ -3045,19 +3053,27 @@ begin
   if NewPool then
     AprCheck(apr_pool_create_ex(SubPool, FPool, nil, FAllocator));
   try
-    Sources := PathNamesToAprArray(SourcesNames, SubPool);
+    Sources := apr_array_make(SubPool, SourcesNames.Count, SizeOf(PSvnClientCopySource));
+    CurrentDrive := ExtractFileDrive(GetCurrentDir);
+    for I := 0 to SourcesNames.Count - 1 do
+    begin
+      S := ExcludeTrailingPathDelimiter(SourcesNames[I]);
+      if S = CurrentDrive then
+        P := SvnPathDelim
+      else
+        AprCheck(apr_filepath_merge(P, '', PAnsiChar(UTF8Encode(S)), APR_FILEPATH_TRUENAME, SubPool));
+      CopySource := apr_palloc(SubPool, SizeOf(TSvnClientCopySource));
+      CopySource^.path := P;
+      CopySource^.revision := @SrcRevision;
+      CopySource^.peg_revision := @SrcRevision;
+      PPSvnClientCopySource(apr_array_push(Sources))^ := CopySource;
+    end;
     CommitInfo := nil;
     FCancelled := False;
     FillChar(SrcRevision, SizeOf(TSvnOptRevision), 0);
     SrcRevision.Kind := svnOptRevisionHead;
-    SvnCheck(svn_client_copy3(CommitInfo, PAnsiChar(UTF8Encode(NativePathToSvnPath(SourcesNames[0]))), @SrcRevision,
-      PAnsiChar(UTF8Encode(NativePathToSvnPath(DstPath))), FCtx, SubPool));
-    { TODO -ousc :- put some into method declaration
-- use svn_client_copy4 (crash currently with working copy paths and returns an error with repository paths)}
-    {
     SvnCheck(svn_client_copy4(CommitInfo, Sources, PAnsiChar(UTF8Encode(NativePathToSvnPath(DstPath))),
-      False, False, nil, FCtx, SubPool));
-    }
+      CopyAsChild, MakeParents, nil, FCtx, SubPool));
     if Assigned(CommitInfo) and Assigned(CommitInfo^.post_commit_err) and (CommitInfo^.post_commit_err^ <> #0) then
       raise Exception.Create(UTF8ToString(CommitInfo^.post_commit_err));
   finally
@@ -3613,7 +3629,8 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TSvnClient.Move(SrcPathNames: TStrings; const DstPath: string; SubPool: PAprPool = nil);
+procedure TSvnClient.Move(SrcPathNames: TStrings; const DstPath: string; Force: Boolean = True; MoveAsChild: Boolean = False;
+  MakeParents: Boolean = False; SubPool: PAprPool = nil);
 
 var
   NewPool: Boolean;
@@ -3634,9 +3651,8 @@ begin
     SrcPaths := PathNamesToAprArray(SrcPathNames, SubPool);
     CommitInfo := nil;
     FCancelled := False;
-    { TODO -ousc : put params force, move_as_child, make_parents into method declaration }
     SvnCheck(svn_client_move5(CommitInfo, SrcPaths, PAnsiChar(UTF8Encode(NativePathToSvnPath(DstPath))),
-      True, False, False, nil, FCtx, SubPool));
+      Force, MoveAsChild, MakeParents, nil, FCtx, SubPool));
     if Assigned(CommitInfo) and Assigned(CommitInfo^.post_commit_err) and (CommitInfo^.post_commit_err^ <> #0) then
       raise Exception.Create(UTF8ToString(CommitInfo^.post_commit_err));
   finally
