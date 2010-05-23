@@ -3107,7 +3107,8 @@ begin
   try
     Targets := PathNamesToAprArray(PathNames, SubPool);
     CommitInfo := nil;
-    FCommitLogMessage := LogMessage;
+    Assert(SvnLineBreak = #10);
+    FCommitLogMessage := AdjustLineBreaks(LogMessage, tlbsLF);
     FNotifyCallback := Callback;
     FCancelled := False;
     SvnCheck(svn_client_commit3(CommitInfo, Targets, Recurse, KeepLocks, FCtx, SubPool));
